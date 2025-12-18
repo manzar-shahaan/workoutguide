@@ -1,0 +1,48 @@
+{# app/web/templates/exercises/_macros.html #}
+{% macro exercise_fields(exercise, workout, muscles, show_date) %}
+  {# Date: only when we're not bound to an existing workout #}
+  {% if show_date %}
+    <label for="date">Workout date</label>
+    <input
+      type="date"
+      id="date"
+      name="date"
+      value=""
+    >
+  {% else %}
+    <p>Workout date: {{ workout["date"] }}</p>
+  {% endif %}
+
+  <label for="weight_used">Weight used</label>
+  <input
+    type="number"
+    step="0.01"
+    id="weight_used"
+    name="weight_used"
+    value="{% if exercise and exercise['weight_used'] is not none %}{{ exercise['weight_used'] }}{% endif %}"
+  >
+
+  <label for="num_of_sets">Number of sets</label>
+  <input
+    type="number"
+    id="num_of_sets"
+    name="num_of_sets"
+    value="{% if exercise and exercise['num_of_sets'] is not none %}{{ exercise['num_of_sets'] }}{% endif %}"
+  >
+
+  <label for="muscle_id">Muscle group</label>
+  <select id="muscle_id" name="muscle_id">
+    <option value="">-- Select muscle --</option>
+    {% for muscle in muscles %}
+      <option value="{{ muscle.id }}"
+        {% if exercise and exercise['muscle_id'] == muscle.id %}selected{% endif %}>
+        {{ muscle.name }}
+      </option>
+    {% endfor %}
+  </select>
+
+  <label for="notes">Notes</label>
+  <textarea id="notes" name="notes">
+{% if exercise and exercise['notes'] %}{{ exercise['notes'] }}{% endif %}
+  </textarea>
+{% endmacro %}

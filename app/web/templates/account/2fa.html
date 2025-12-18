@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% from "_form_macros.html" import input_field %}
+
+{% block title %}Two-factor authentication{% endblock %}
+
+{% block content %}
+  <a
+    href="{{ url_for('web.account_settings') }}"
+    class="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
+  >
+    ← Back to account
+  </a>
+
+  <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100 mb-3">
+    Two-factor authentication (2FA)
+  </h1>
+
+  {% if not enabled %}
+    <p class="text-xs sm:text-sm text-slate-400 mb-4">
+      Add an extra layer of security by requiring a time-based code from an authenticator app
+      when you log in.
+    </p>
+
+    <section class="rounded-lg border border-slate-800 bg-slate-950 px-4 py-3 mb-4 max-w-lg">
+      <h2 class="text-sm font-semibold text-slate-100 mb-2">
+        Step 1: Add this account to your authenticator app
+      </h2>
+      <p class="text-xs sm:text-sm text-slate-400 mb-2">
+        In Google Authenticator, Authy, 1Password, or another authenticator app, choose
+        <span class="font-semibold text-slate-100">“Enter a setup key”</span> and use the secret below.
+      </p>
+
+      <div class="mb-2">
+        <label class="block text-xs text-slate-400 mb-1">Secret key</label>
+        <code class="inline-block rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-sm break-all">
+          {{ secret }}
+        </code>
+      </div>
+
+      <p class="text-xs text-slate-500">
+        (Optional) You can also use this URI in advanced authenticator apps:
+      </p>
+      <p class="mt-1 text-[10px] sm:text-xs text-slate-500 break-all">
+        {{ otpauth_url }}
+      </p>
+    </section>
+
+    <section class="rounded-lg border border-slate-800 bg-slate-950 px-4 py-3 mb-4 max-w-lg">
+      <h2 class="text-sm font-semibold text-slate-100 mb-2">
+        Step 2: Confirm your setup
+      </h2>
+      <p class="text-xs sm:text-sm text-slate-400 mb-2">
+        Enter the 6-digit code currently shown in your authenticator app.
+      </p>
+
+      <form method="post" class="space-y-3 max-w-xs">
+        {{ input_field("code", "Authenticator code", type="text", required=True) }}
+
+        <button
+          type="submit"
+          class="inline-flex items-center rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-slate-900"
+        >
+          Enable 2FA
+        </button>
+      </form>
+
+      <p class="mt-4 text-[11px] text-slate-500">
+        Tip: If your authenticator app supports it, enable <span class="font-semibold">cloud backup</span>
+        (for example iCloud Keychain on Apple devices or the app’s own sync feature), so you don’t lose
+        all your codes if you change or reset your phone.
+      </p>
+    </section>
+
+    <section class="rounded-lg border border-slate-800 bg-slate-950 px-4 py-3 max-w-lg">
+      <h2 class="text-sm font-semibold text-slate-100 mb-2">
+        Important
+      </h2>
+      <p class="text-[11px] text-slate-400">
+        After you enable 2FA, you will receive a set of backup codes. Store them in a safe place.
+        If you lose access to both your authenticator app and your backup codes, account recovery
+        <span class="font-semibold text-slate-100">cannot be guaranteed</span>.
+      </p>
+    </section>
+
+  {% else %}
+    <p class="text-xs sm:text-sm text-slate-400 mb-4">
+      Two-factor authentication is <span class="font-semibold text-emerald-400">enabled</span> on your account.
+    </p>
+
+    <section class="rounded-lg border border-slate-800 bg-slate-950 px-4 py-3 mb-4 max-w-lg">
+      <h2 class="text-sm font-semibold text-slate-100 mb-2">
+        Backup codes
+      </h2>
+      <p class="text-xs sm:text-sm text-slate-400 mb-3">
+        These backup codes can be used if you lose access to your authenticator app.
+        Each code can be used <span class="font-semibold">once</span>.
+      </p>
+
+      {% if codes %}
+        <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm">
+          {% for c in codes %}
+            <li
+              class="rounded-md border px-2 py-1
+                     {% if c['used'] %}
+                       border-slate-800 text-slate-600 line-through
+                     {% else %}
+                       border-slate-700 text-slate-100
+                     {% endif %}"
+            >
+              {{ c["code"] }}
+              {% if c["used"] %}
+                <span class="ml-2 text-[10px] text-slate-500">(used)</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+
+        <div class="mt-4 flex flex-wrap gap-3 items-center">
+          <a
+            href="{{ url_for('web.download_backup_codes') }}"
+            class="inline-flex items-center rounded-md border border-slate-600 px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-100 hover:bg-slate-900"
+          >
+            Download as text file
+          </a>
+          <p class="text-[11px] text-slate-500">
+            Store this file somewhere safe (for example, an encrypted notes app or password manager).
+          </p>
+        </div>
+      {% else %}
+        <p class="text-xs text-slate-400">
+          No backup codes found for this account. You can disable and re-enable 2FA to generate a new set.
+        </p>
+      {% endif %}
+
+      <p class="mt-4 text-[11px] text-slate-500">
+        Note: If you lose access to both your authenticator app and these backup codes,
+        account recovery <span class="font-semibold text-slate-100">cannot be guaranteed</span>.
+      </p>
+
+      <p class="mt-2 text-[11px] text-slate-500">
+        If your authenticator app supports it, enable <span class="font-semibold">cloud backup or sync</span>
+        (for example iCloud Keychain or the app’s cloud backup) to reduce the risk of losing your 2FA setup
+        when you change devices.
+      </p>
+    </section>
+  {% endif %}
+{% endblock %}

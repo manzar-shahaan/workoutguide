@@ -1,0 +1,261 @@
+{# app/web/templates/base.html #}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>{% block title %}Workout tracker{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    {# Tailwind CDN #}
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    {# Titillium Web 200 from Bunny #}
+    <link
+      rel="stylesheet"
+      href="https://fonts.bunny.net/css?family=titillium-web:200"
+    >
+
+    <style>
+      body {
+        font-family: 'Titillium Web', sans-serif;
+        font-weight: 200;
+      }
+
+      /* Dark-theme forms for your macros */
+      .form-row {
+        margin-bottom: 1rem;
+      }
+      .form-row label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: rgb(209 213 219); /* light gray */
+        margin-bottom: 0.25rem;
+      }
+      .form-row input,
+      .form-row select,
+      .form-row textarea {
+        display: block;
+        width: 100%;
+        border-radius: 0.375rem;
+        border: 1px solid rgb(75 85 99);         /* border-slate-600 */
+        background-color: rgb(15 23 42);         /* slate-900-ish */
+        color: rgb(249 250 251);                 /* near-white */
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+      }
+      .form-row input::placeholder,
+      .form-row textarea::placeholder {
+        color: rgb(148 163 184);                /* muted gray */
+      }
+      .form-row input:focus,
+      .form-row select:focus,
+      .form-row textarea:focus {
+        outline: none;
+        border-color: rgb(148 163 184);         /* gray focus */
+        box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.4);
+        
+      }
+      /* Highlight invalid fields in red */
+      .form-row input:invalid,
+      .form-row select:invalid,
+      .form-row textarea:invalid {
+        border-color: rgb(239 68 68); /* red-500-ish */
+        box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.4);
+      }
+
+    </style>
+  </head>
+  <body class="bg-black text-slate-100">
+    <header class="bg-black border-b border-slate-800">
+      {# Full-width nav so it visually matches the popover width on desktop #}
+      <nav class="flex items-center justify-between px-4 py-3">
+        <a href="{{ url_for('web.workouts_index') }}" class="font-semibold tracking-tight text-slate-100">
+          Workout tracker
+        </a>
+
+        <div class="flex items-center gap-4 text-xs sm:text-sm">
+          {% if g.user %}
+            <a href="{{ url_for('web.workouts_index') }}" class="text-slate-300 hover:text-white">
+              Workouts
+            </a>
+
+            {# User menu trigger: show user's name (fallback to email) #}
+            <button
+              id="userMenuButton"
+              type="button"
+              class="inline-flex items-center gap-1 rounded-md border border-slate-600 px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-100 hover:bg-slate-900"
+            >
+              <span>
+                {{ g.user["name"] or g.user["email"] }}
+              </span>
+              <span class="text-[0.6rem] sm:text-xs text-slate-400">▼</span>
+            </button>
+          {% else %}
+            <a href="{{ url_for('web.login') }}" class="text-slate-300 hover:text-white">
+              Log in
+            </a>
+            <a href="{{ url_for('web.signup') }}" class="text-slate-300 hover:text-white">
+              Sign up
+            </a>
+          {% endif %}
+        </div>
+      </nav>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-6">
+      {# Flash messages in grayscale #}
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="mb-4 space-y-2" aria-live="polite">
+            {% for category, message in messages %}
+              {# all grayscale, just slightly different shades #}
+              {% if category == 'error' or category == 'danger' %}
+                {% set box_classes = 'bg-slate-900 border border-slate-700 text-slate-100' %}
+              {% elif category == 'success' %}
+                {% set box_classes = 'bg-slate-900 border border-slate-700 text-slate-100' %}
+              {% else %}
+                {% set box_classes = 'bg-slate-900 border border-slate-700 text-slate-100' %}
+              {% endif %}
+              <div class="rounded-md px-3 py-2 text-sm {{ box_classes }}">
+                {{ message }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+
+    {# User menu overlay / bottom sheet / popover #}
+    {% if g.user %}
+      <div
+        id="userMenuOverlay"
+        class="fixed inset-0 z-40 hidden"
+        aria-hidden="true"
+      >
+        {# Backdrop: click to close #}
+        <div
+          class="absolute inset-0 bg-black/60"
+          data-user-menu-dismiss
+        ></div>
+
+        {# Panel: bottom sheet on mobile, popover on desktop #}
+        <div
+          class="fixed inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto
+         rounded-t-2xl bg-slate-950 border-t border-slate-800 p-4
+         md:inset-auto md:right-4 md:top-14 md:bottom-auto md:w-72
+         md:min-h-0 md:max-h-none
+         md:rounded-xl md:border md:bg-slate-950"
+        >
+
+          <div class="flex items-start justify-between mb-3">
+            <div>
+              <p class="text-sm font-semibold text-slate-100">
+                {{ g.user["name"] or "User" }}
+              </p>
+              <p class="text-xs text-slate-400 break-all">
+                {{ g.user["email"] }}
+              </p>
+            </div>
+            <button
+              type="button"
+              class="text-xs text-slate-400 hover:text-slate-100"
+              data-user-menu-dismiss
+            >
+              ✕
+            </button>
+          </div>
+
+          <div class="border-t border-slate-800 pt-3 mt-2 space-y-3 text-sm">
+            {# Account settings – will route to a dedicated page later #}
+            <a
+              href="{{ url_for('web.account_settings') }}"
+              class="flex items-center justify-between rounded-md px-3 py-2 text-base sm:text-sm text-slate-100 hover:bg-slate-900"
+              data-user-menu-dismiss
+            >
+              <span>Account</span>
+              <span class="hidden sm:inline text-xs text-slate-500">Manage profile &amp; data</span>
+            </a>
+
+            <a
+              href="{{ url_for('web.preferences') }}"
+              class="flex items-center justify-between rounded-md px-3 py-2 text-base sm:text-sm text-slate-100 hover:bg-slate-900"
+              data-user-menu-dismiss
+            >
+              <span>Preferences</span>
+              <span class="hidden sm:inline text-xs text-slate-500">Units &amp; defaults</span>
+            </a>
+
+            {# Logout form #}
+            <form
+              method="post"
+              action="{{ url_for('web.logout') }}"
+              class="mt-2"
+            >
+              <button
+                type="submit"
+                class="w-full inline-flex items-center justify-center rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-slate-900"
+              >
+                Logout
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+      <script>
+      // User menu popover / bottom sheet
+      document.addEventListener("DOMContentLoaded", () => {
+        const menuButton = document.getElementById("userMenuButton");
+        const overlay = document.getElementById("userMenuOverlay");
+
+        if (menuButton && overlay) {
+          const dismissSelectors = "[data-user-menu-dismiss]";
+          const dismissElements = overlay.querySelectorAll(dismissSelectors);
+
+          const openMenu = () => {
+            overlay.classList.remove("hidden");
+            overlay.setAttribute("aria-hidden", "false");
+          };
+
+          const closeMenu = () => {
+            overlay.classList.add("hidden");
+            overlay.setAttribute("aria-hidden", "true");
+          };
+
+          menuButton.addEventListener("click", () => {
+            const isHidden = overlay.classList.contains("hidden");
+            if (isHidden) {
+              openMenu();
+            } else {
+              closeMenu();
+            }
+          });
+
+          dismissElements.forEach((el) => {
+            el.addEventListener("click", () => {
+              closeMenu();
+            });
+          });
+
+          document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && !overlay.classList.contains("hidden")) {
+              closeMenu();
+            }
+          });
+        }
+      });
+
+      // Prevent showing stale authenticated pages from the back/forward cache
+      window.addEventListener("pageshow", function (event) {
+        // If the page was restored from bfcache, force a reload
+        if (event.persisted) {
+          window.location.reload();
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,27 @@
+{# app/web/templates/auth/signup.html #}
+{% extends "base.html" %}
+{% from "_form_macros.html" import input_field %}
+
+{% block title %}Sign up{% endblock %}
+
+{% block content %}
+  <h1>Sign up</h1>
+
+  {% if error %}
+    <p style="color:red;">{{ error }}</p>
+  {% endif %}
+
+  <form method="post">
+    {{ input_field("name", "Name", required=True) }}
+    {{ input_field("email", "Email", type="email", required=True) }}
+    {{ input_field("password", "Password", type="password", required=True) }}
+    {{ input_field("confirm_password", "Confirm password", type="password", required=True) }}
+
+    <button type="submit">Create account</button>
+  </form>
+
+  <p>
+    Already have an account?
+    <a href="{{ url_for('web.login') }}">Log in</a>
+  </p>
+{% endblock %}

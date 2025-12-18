@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Your workouts{% endblock %}
+
+{% block content %}
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100">
+      Your workouts
+    </h1>
+    <a
+      href="{{ url_for('web.new_exercise') }}"
+      class="inline-flex items-center rounded-md bg-emerald-500 px-3 py-2 text-xs sm:text-sm font-medium text-black hover:bg-emerald-400"
+    >
+      + Add exercise
+    </a>
+  </div>
+
+  {% if not week_groups and not month_groups %}
+    <p class="text-sm text-slate-400">
+      You don't have any workouts yet. Tap <span class="font-semibold text-slate-100">“Add exercise”</span> to log your first one.
+    </p>
+  {% else %}
+
+    {# Recent weeks (this week, last week, up to 4 weeks back) #}
+    {% for group in week_groups %}
+      <section class="mb-6">
+        <h2 class="mb-2">
+          <span class="text-sm sm:text-base font-semibold text-slate-100">
+            {{ group.label }}
+          </span>
+          {% if group.range %}
+            <span class="ml-2 text-[0.7rem] sm:text-xs text-slate-500">
+              {{ group.range }}
+            </span>
+          {% endif %}
+        </h2>
+
+        <ul class="space-y-3">
+          {% for w in group.workouts %}
+            <li>
+              <a
+                href="{{ url_for('web.workout_detail', workout_id=w['id']) }}"
+                class="block rounded-lg bg-slate-900 px-4 py-3 border border-slate-800 hover:border-slate-500 hover:bg-slate-950 transition"
+              >
+                <div class="flex items-center justify-between">
+                  <div>
+                    {% if w["muscles_display"] %}
+                      <p class="text-sm font-medium text-slate-100">
+                        {{ w["muscles_display"] }}
+                      </p>
+                      <p class="mt-1 text-xs text-slate-400">
+                        {{ w["date_display"] }}
+                      </p>
+                    {% else %}
+                      <p class="text-sm font-medium text-slate-100">
+                        {{ w["date_display"] }}
+                      </p>
+                      <p class="mt-1 text-xs text-slate-500">
+                        No muscle groups logged yet
+                      </p>
+                    {% endif %}
+                  </div>
+                  <span class="text-xs text-slate-500">
+                    #{{ w["id"] }}
+                  </span>
+                </div>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endfor %}
+
+    {# Older workouts grouped by month, collapsible #}
+    {% if month_groups %}
+      <section class="mt-4">
+        <h2 class="text-xs sm:text-sm uppercase tracking-wide text-slate-400 mb-2">
+          Older workouts
+        </h2>
+
+        <div class="space-y-2">
+          {% for group in month_groups %}
+            <details class="border border-slate-800 rounded-md bg-slate-900">
+              <summary class="cursor-pointer select-none px-3 py-2 text-sm text-slate-100 flex items-center justify-between">
+                <span>{{ group.heading }}</span>
+                <span class="text-xs text-slate-500">Tap to expand</span>
+              </summary>
+              <div class="px-3 pb-3 pt-1">
+                <ul class="space-y-2 mt-2">
+                  {% for w in group.workouts %}
+                    <li>
+                      <a
+                        href="{{ url_for('web.workout_detail', workout_id=w['id']) }}"
+                        class="block rounded-lg bg-slate-950 px-4 py-3 border border-slate-800 hover:border-slate-600 transition"
+                      >
+                        <div class="flex items-center justify-between">
+                          <div>
+                            {% if w["muscles_display"] %}
+                              <p class="text-sm font-medium text-slate-100">
+                                {{ w["muscles_display"] }}
+                              </p>
+                              <p class="mt-1 text-xs text-slate-400">
+                                {{ w["date_display"] }}
+                              </p>
+                            {% else %}
+                              <p class="text-sm font-medium text-slate-100">
+                                {{ w["date_display"] }}
+                              </p>
+                              <p class="mt-1 text-xs text-slate-500">
+                                No muscle groups logged yet
+                              </p>
+                            {% endif %}
+                          </div>
+                          <span class="text-xs text-slate-500">
+                            #{{ w["id"] }}
+                          </span>
+                        </div>
+                      </a>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </details>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+  {% endif %}
+{% endblock %}

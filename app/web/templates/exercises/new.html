@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "_form_macros.html" import input_field, textarea_field, select_field %}
+
+{% block title %}Add exercise{% endblock %}
+
+{% block content %}
+  <a
+    href="{{ url_for('web.workouts_index') }}"
+    class="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
+  >
+    ← Back to workouts
+  </a>
+
+  <h1 class="text-xl sm:text-2xl font-semibold tracking-tight mb-4 text-slate-100">
+    Add exercise
+  </h1>
+
+  {% if error %}
+    <p class="mb-4 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+      {{ error }}
+    </p>
+  {% endif %}
+
+  <form method="post" class="bg-slate-950 border border-slate-800 rounded-lg px-4 py-4 max-w-md">
+    {% if not workout %}
+      {{ input_field(
+          "date",
+          "Workout date",
+          type="date",
+          required=True,
+          value=today,
+          max=max_date
+      ) }}
+    {% else %}
+      <p class="mb-4 text-sm text-slate-300">
+        Workout date: <span class="font-medium text-slate-100">{{ workout["date"] }}</span>
+      </p>
+    {% endif %}
+
+    {{ input_field("weight_used", "Weight used", type="number", step="0.01") }}
+    {{ input_field("num_of_sets", "Number of sets", type="number") }}
+
+    {{ select_field(
+        "muscle_id",
+        "Muscle group",
+        muscles,
+        selected=None,
+        include_blank=True,
+        blank_label="-- Select muscle --",
+        required=True
+) }}
+
+
+    {{ textarea_field("notes", "Notes") }}
+
+    <div class="mt-4 flex items-center gap-3">
+      <button
+        type="submit"
+        class="inline-flex items-center rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-slate-900"
+      >
+        Save
+      </button>
+
+      {% if workout %}
+        <a
+          href="{{ url_for('web.workout_detail', workout_id=workout['id']) }}"
+          class="text-sm text-slate-400 hover:text-slate-100"
+        >
+          Cancel
+        </a>
+      {% else %}
+        <a
+          href="{{ url_for('web.workouts_index') }}"
+          class="text-sm text-slate-400 hover:text-slate-100"
+        >
+          Cancel
+        </a>
+      {% endif %}
+    </div>
+  </form>
+{% endblock %}

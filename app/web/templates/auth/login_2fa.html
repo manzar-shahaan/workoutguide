@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_form_macros.html" import input_field %}
+
+{% block title %}Two-factor login{% endblock %}
+
+{% block content %}
+  <a
+    href="{{ url_for('web.login') }}"
+    class="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
+  >
+    ← Back to login
+  </a>
+
+  <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100 mb-2">
+    Two-factor authentication
+  </h1>
+  <p class="text-xs sm:text-sm text-slate-400 mb-4">
+    Enter the 6-digit code from your authenticator app, or one of your backup codes.
+  </p>
+
+  <form method="post" class="max-w-xs space-y-4">
+    {{ input_field("code", "Code", type="text", required=True) }}
+
+    <button
+      type="submit"
+      class="inline-flex items-center rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-slate-900"
+    >
+      Verify and continue
+    </button>
+  </form>
+{% endblock %}

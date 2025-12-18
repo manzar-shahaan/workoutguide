@@ -6,4 +6,4 @@ __pycache__/
 
 # Ignore settings and workouts JSON (previous versions)
 settings.json
-workouts.json
+workouts.json.DS_Store
