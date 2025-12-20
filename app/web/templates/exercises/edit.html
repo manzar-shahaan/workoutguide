@@ -17,7 +17,7 @@
     </h1>
     <p class="mt-1 text-xs sm:text-sm text-slate-400">
       Workout on
-      <span class="text-slate-100 font-medium">{{ workout["date"] }}</span>
+      <span class="text-slate-100 font-medium">{{ exercise_date }}</span>
     </p>
   </header>
 
@@ -28,6 +28,15 @@
   {% endif %}
 
   <form method="post" class="bg-slate-950 border border-slate-800 rounded-lg px-4 py-4 max-w-md">
+    {{ input_field(
+        "date",
+        "Workout date",
+        value=exercise_date,
+        type="date",
+        required=True,
+        max=max_date
+    ) }}
+
     {{ input_field(
         "weight_used",
         "Weight used",

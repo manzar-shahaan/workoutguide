@@ -57,9 +57,9 @@
         
       }
       /* Highlight invalid fields in red */
-      .form-row input:invalid,
-      .form-row select:invalid,
-      .form-row textarea:invalid {
+      .was-validated .form-row input:invalid,
+      .was-validated .form-row select:invalid,
+      .was-validated .form-row textarea:invalid {
         border-color: rgb(239 68 68); /* red-500-ish */
         box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.4);
       }
@@ -247,6 +247,14 @@
             }
           });
         }
+
+        // Add .was-validated to forms after first submit attempt
+        const forms = document.querySelectorAll("form");
+        forms.forEach((form) => {
+          form.addEventListener("submit", () => {
+            form.classList.add("was-validated");
+          });
+        });
       });
 
       // Prevent showing stale authenticated pages from the back/forward cache

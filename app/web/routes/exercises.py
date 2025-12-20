@@ -169,6 +169,11 @@ def edit_exercise(exercise_id):
     try:
         user_id = g.user["id"]
 
+        # For date validation (allow backfilling, but only up to 7 days in future)
+        today = date.today()
+        max_future_date = today + timedelta(days=7)
+        max_date_str = max_future_date.isoformat()
+
         # Load exercise with muscle_id
         exercise = exercises_repo.get_exercise_with_muscle(conn, exercise_id)
         if exercise is None:
@@ -183,14 +188,72 @@ def edit_exercise(exercise_id):
         muscles = muscles_repo.list_muscles(conn)
 
         if request.method == "POST":
+            date_str = request.form.get("date", "").strip()
             notes = request.form.get("notes", "").strip() or None
             weight_str = request.form.get("weight_used", "").strip()
             sets_str = request.form.get("num_of_sets", "").strip()
             muscle_str = request.form.get("muscle_id", "").strip()
 
+            # Validate date
+            if not date_str:
+                error = "Workout date is required."
+                return render_template(
+                    "exercises/edit.html",
+                    exercise=exercise,
+                    workout=workout,
+                    muscles=muscles,
+                    error=error,
+                    max_date=max_date_str,
+                    exercise_date=workout["date"],
+                )
+
+            try:
+                selected_date = date.fromisoformat(date_str)
+            except ValueError:
+                error = "Invalid date format."
+                return render_template(
+                    "exercises/edit.html",
+                    exercise=exercise,
+                    workout=workout,
+                    muscles=muscles,
+                    error=error,
+                    max_date=max_date_str,
+                    exercise_date=workout["date"],
+                )
+
+            if selected_date > max_future_date:
+                error = "You can only pick a date up to 7 days in the future."
+                return render_template(
+                    "exercises/edit.html",
+                    exercise=exercise,
+                    workout=workout,
+                    muscles=muscles,
+                    error=error,
+                    max_date=max_date_str,
+                    exercise_date=workout["date"],
+                )
+
             weight_used = float(weight_str) if weight_str else None
             num_of_sets = int(sets_str) if sets_str else None
             muscle_id = int(muscle_str) if muscle_str else None
+
+            # Decide which workout this exercise should belong to after the edit
+            current_workout_id = workout["id"]
+            current_date_str = workout["date"]
+
+            if date_str == current_date_str:
+                target_workout_id = current_workout_id
+            else:
+                existing = workouts_repo.find_by_user_and_date(conn, user_id, date_str)
+                if existing is not None:
+                    target_workout_id = existing["id"]
+                else:
+                    target_workout_id = workouts_repo.create_workout(
+                        conn,
+                        user_id=user_id,
+                        date=date_str,
+                        notes=None,
+                    )
 
             exercises_repo.update_exercise(
                 conn,
@@ -199,10 +262,17 @@ def edit_exercise(exercise_id):
                 weight_used=weight_used,
                 num_of_sets=num_of_sets,
                 muscle_id=muscle_id,
+                workout_id=target_workout_id,
             )
 
+            # If we moved the exercise to a different workout, clean up an empty original workout
+            if target_workout_id != current_workout_id:
+                remaining = exercises_repo.count_exercises_for_workout(conn, current_workout_id)
+                if remaining == 0:
+                    workouts_repo.delete_workout(conn, current_workout_id, user_id)
+
             flash("Exercise updated.", "success")
-            return redirect(url_for("web.workout_detail", workout_id=exercise["workout_id"]))
+            return redirect(url_for("web.workout_detail", workout_id=target_workout_id))
 
         # GET → show form with current values
         return render_template(
@@ -210,6 +280,9 @@ def edit_exercise(exercise_id):
             exercise=exercise,
             workout=workout,
             muscles=muscles,
+            error=None,
+            max_date=max_date_str,
+            exercise_date=workout["date"],
         )
     finally:
         conn.close()

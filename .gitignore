@@ -1,9 +1,8 @@
-# Ignore users directory
-/users/
-
 # Ignore Python cache files
 __pycache__/
 
-# Ignore settings and workouts JSON (previous versions)
-settings.json
-workouts.json.DS_Store
+# Ignore AGENTS file
+AGENTS.md
+
+# Ignore desktop files
+.DS_Store

@@ -25,20 +25,13 @@ from ..auth_utils import login_required, make_user
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MAX_NAME_LEN = 80
 MAX_EMAIL_LEN = 255
+MIN_PASSWORD_LEN = 8
+MAX_PASSWORD_LEN = 128
 
 # Argon2 password hasher
 ph = PasswordHasher()
 
-def row_value(row, key, default=None):
-    """
-    Safe helper for sqlite3.Row:
-    - returns row[key] if key exists and value is not None
-    - otherwise returns default
-    """
-    keys = row.keys()
-    if key in keys and row[key] is not None:
-        return row[key]
-    return default
+
 def row_value(row, key, default=None):
     """
     Safe helper for sqlite3.Row:
@@ -58,6 +51,7 @@ def signup():
         name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
 
         error = None
 
@@ -73,6 +67,12 @@ def signup():
             error = "Please enter a valid email address."
         elif not password:
             error = "Password is required."
+        elif len(password) < MIN_PASSWORD_LEN:
+            error = f"Password must be at least {MIN_PASSWORD_LEN} characters."
+        elif len(password) > MAX_PASSWORD_LEN:
+            error = f"Password must be at most {MAX_PASSWORD_LEN} characters."
+        elif password != confirm_password:
+            error = "Passwords do not match."
 
         conn = get_conn()
         try:

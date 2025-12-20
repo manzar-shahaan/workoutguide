@@ -4,36 +4,37 @@
 {% block title %}Account{% endblock %}
 
 {% block content %}
-  <a
-    href="{{ url_for('web.workouts_index') }}"
-    class="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
-  >
-    ← Back to workouts
-  </a>
+  <div class="max-w-lg mx-auto">
+    <a
+      href="{{ url_for('web.workouts_index') }}"
+      class="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
+    >
+      ← Back to workouts
+    </a>
 
-  <header class="mb-6 flex items-center justify-between gap-3">
-    <div>
-      <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100">
-        Account
-      </h1>
-      <p class="mt-1 text-xs sm:text-sm text-slate-400">
-        Manage your profile and data.
-      </p>
-    </div>
+    <header class="mb-6 flex items-center justify-between gap-3">
+      <div>
+        <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100">
+          Account
+        </h1>
+        <p class="mt-1 text-xs sm:text-sm text-slate-400">
+          Manage your profile and data.
+        </p>
+      </div>
 
-    {% if not edit_mode %}
-      <a
-        href="{{ url_for('web.account_settings', edit=1) }}"
-        class="inline-flex items-center rounded-md border border-slate-600 px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-100 hover:bg-slate-900"
-      >
-        Edit profile
-      </a>
-    {% endif %}
-  </header>
+      {% if not edit_mode %}
+        <a
+          href="{{ url_for('web.account_settings', edit=1) }}"
+          class="inline-flex items-center rounded-md border border-slate-600 px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-100 hover:bg-slate-900"
+        >
+          Edit profile
+        </a>
+      {% endif %}
+    </header>
 
-  {% if edit_mode %}
-    {# --- EDIT MODE: form with inputs --- #}
-    <form method="post" id="accountForm" class="space-y-4 max-w-lg">
+    {% if edit_mode %}
+      {# --- EDIT MODE: form with inputs --- #}
+      <form method="post" id="accountForm" class="space-y-4">
       <div class="rounded-lg border border-slate-800 bg-slate-950 px-4 py-3">
         <h2 class="text-sm font-semibold text-slate-100 mb-2">
           Profile
@@ -104,156 +105,10 @@
           Cancel
         </a>
       </div>
-    </form>
-
-    {# Password confirmation popup #}
-    <div
-      id="passwordConfirmOverlay"
-      class="fixed inset-0 z-40 hidden"
-      aria-hidden="true"
-    >
-      <div class="absolute inset-0 bg-black/70"></div>
-      <div
-        class="fixed inset-x-4 top-1/4 max-w-md mx-auto rounded-xl border border-slate-700 bg-slate-950 px-4 py-4"
-      >
-        <h2 class="text-sm font-semibold text-slate-100 mb-2">
-          Confirm your password
-        </h2>
-        <p class="text-xs text-slate-400 mb-3">
-          For security, please enter your current password to confirm email changes.
-        </p>
-        <div class="mb-3">
-          <label for="passwordConfirmInput" class="block text-xs text-slate-300 mb-1">
-            Current password
-          </label>
-          <input
-            id="passwordConfirmInput"
-            type="password"
-            class="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-          >
-        </div>
-        <div class="flex justify-end gap-2">
-          <button
-            type="button"
-            id="passwordConfirmCancel"
-            class="text-xs text-slate-400 hover:text-slate-100"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            id="passwordConfirmSubmit"
-            class="rounded-md border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-900"
-          >
-            Confirm &amp; save
-          </button>
-        </div>
-      </div>
-    </div>
-
-            <script>
-      (function () {
-        const form = document.getElementById("accountForm");
-        const saveButton = document.getElementById("accountSaveButton");
-        const origEmail = document.getElementById("origEmail").value;
-        const origRecovery = document.getElementById("origRecoveryEmail").value;
-        const passwordField = document.getElementById("passwordConfirmField");
-
-        const overlay = document.getElementById("passwordConfirmOverlay");
-        const pwdInput = document.getElementById("passwordConfirmInput");
-        const pwdCancel = document.getElementById("passwordConfirmCancel");
-        const pwdSubmit = document.getElementById("passwordConfirmSubmit");
-
-        if (!form || !saveButton) return;
-
-        const origEmailLower = origEmail.toLowerCase();
-
-        // Grab inputs for validation
-        const emailInput = form.elements["email"];
-        const recoveryInput = form.elements["recovery_email"];
-
-        function openOverlay() {
-          overlay.classList.remove("hidden");
-          overlay.setAttribute("aria-hidden", "false");
-          pwdInput.value = "";
-          pwdInput.focus();
-        }
-
-        function closeOverlay() {
-          overlay.classList.add("hidden");
-          overlay.setAttribute("aria-hidden", "true");
-          pwdInput.value = "";
-        }
-
-        saveButton.addEventListener("click", () => {
-          // Clear any previous custom messages before running validation
-          if (recoveryInput) {
-            recoveryInput.setCustomValidity("");
-          }
-
-          // 1) Let the browser handle built-in validation
-          //    (required, type="email", etc.)
-          if (!form.reportValidity()) {
-            return;
-          }
-
-          const emailRaw = (emailInput.value || "").trim();
-          const emailLower = emailRaw.toLowerCase();
-          const recoveryRaw = (recoveryInput ? recoveryInput.value : "").trim();
-          const recoveryLower = recoveryRaw.toLowerCase();
-
-          // 2) Custom rule: recovery email must not equal primary email
-          if (recoveryRaw && recoveryLower === emailLower) {
-            recoveryInput.setCustomValidity(
-              "Recovery email cannot be the same as your primary email."
-            );
-            // This will show the same small tooltip-style message
-            recoveryInput.reportValidity();
-            return;
-          } else if (recoveryInput) {
-            recoveryInput.setCustomValidity("");
-          }
-
-          const emailChanged = emailLower !== origEmailLower;
-          const recoveryChanged = recoveryRaw !== origRecovery;
-
-          if (emailChanged || recoveryChanged) {
-            // Need password confirmation
-            openOverlay();
-          } else {
-            // No sensitive change → submit directly
-            form.submit();
-          }
-        });
-
-        pwdCancel.addEventListener("click", () => {
-          closeOverlay();
-        });
-
-        pwdSubmit.addEventListener("click", () => {
-          const pwd = pwdInput.value;
-          if (!pwd) {
-            pwdInput.focus();
-            return;
-          }
-          passwordField.value = pwd;
-          closeOverlay();
-          form.submit();
-        });
-
-        document.addEventListener("keydown", (event) => {
-          if (event.key === "Escape" && !overlay.classList.contains("hidden")) {
-            closeOverlay();
-          }
-        });
-      })();
-    </script>
-
-
-
-  {% else %}
-    {# --- VIEW MODE: read-only account info --- #}
-    <section class="space-y-4 max-w-lg">
+      </form>
+    {% else %}
+      {# --- VIEW MODE: read-only account info --- #}
+      <section class="space-y-4">
       <div class="rounded-lg border border-slate-800 bg-slate-950 px-4 py-3">
         <h2 class="text-sm font-semibold text-slate-100 mb-2">
           Profile
@@ -324,6 +179,155 @@
           </button>
         </div>
       </div>
-    </section>
+      </section>
+    {% endif %}
+  </div>
+
+  {% if edit_mode %}
+    {# Password confirmation popup #}
+    <div
+      id="passwordConfirmOverlay"
+      class="fixed inset-0 z-40 hidden"
+      aria-hidden="true"
+    >
+      <div class="absolute inset-0 bg-black/70"></div>
+      <div
+        class="fixed inset-x-4 top-1/4 max-w-md mx-auto rounded-xl border border-slate-700 bg-slate-950 px-4 py-4"
+      >
+        <h2 class="text-sm font-semibold text-slate-100 mb-2">
+          Confirm your password
+        </h2>
+        <p class="text-xs text-slate-400 mb-3">
+          For security, please enter your current password to confirm email changes.
+        </p>
+        <div class="mb-3">
+          <label for="passwordConfirmInput" class="block text-xs text-slate-300 mb-1">
+            Current password
+          </label>
+          <input
+            id="passwordConfirmInput"
+            type="password"
+            class="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+          >
+        </div>
+        <div class="flex justify-end gap-2">
+          <button
+            type="button"
+            id="passwordConfirmCancel"
+            class="text-xs text-slate-400 hover:text-slate-100"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            id="passwordConfirmSubmit"
+            class="rounded-md border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-900"
+          >
+            Confirm &amp; save
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const form = document.getElementById("accountForm");
+        const saveButton = document.getElementById("accountSaveButton");
+        const origEmail = document.getElementById("origEmail").value;
+        const origRecovery = document.getElementById("origRecoveryEmail").value;
+        const passwordField = document.getElementById("passwordConfirmField");
+
+        const overlay = document.getElementById("passwordConfirmOverlay");
+        const pwdInput = document.getElementById("passwordConfirmInput");
+        const pwdCancel = document.getElementById("passwordConfirmCancel");
+        const pwdSubmit = document.getElementById("passwordConfirmSubmit");
+
+        if (!form || !saveButton) return;
+
+        const origEmailLower = origEmail.toLowerCase();
+
+        // Grab inputs for validation
+        const emailInput = form.elements["email"];
+        const recoveryInput = form.elements["recovery_email"];
+
+        function openOverlay() {
+          overlay.classList.remove("hidden");
+          overlay.setAttribute("aria-hidden", "false");
+          pwdInput.value = "";
+          pwdInput.focus();
+        }
+
+        function closeOverlay() {
+          overlay.classList.add("hidden");
+          overlay.setAttribute("aria-hidden", "true");
+          pwdInput.value = "";
+        }
+
+        saveButton.addEventListener("click", () => {
+          // Mark form as having been validated so CSS can highlight invalid fields
+          form.classList.add("was-validated");
+
+          // Clear any previous custom messages before running validation
+          if (recoveryInput) {
+            recoveryInput.setCustomValidity("");
+          }
+
+          // 1) Let the browser handle built-in validation
+          //    (required, type="email", etc.)
+          if (!form.reportValidity()) {
+            return;
+          }
+
+          const emailRaw = (emailInput.value || "").trim();
+          const emailLower = emailRaw.toLowerCase();
+          const recoveryRaw = (recoveryInput ? recoveryInput.value : "").trim();
+          const recoveryLower = recoveryRaw.toLowerCase();
+
+          // 2) Custom rule: recovery email must not equal primary email
+          if (recoveryRaw && recoveryLower === emailLower) {
+            recoveryInput.setCustomValidity(
+              "Recovery email cannot be the same as your primary email."
+            );
+            // This will show the same small tooltip-style message
+            recoveryInput.reportValidity();
+            return;
+          } else if (recoveryInput) {
+            recoveryInput.setCustomValidity("");
+          }
+
+          const emailChanged = emailLower !== origEmailLower;
+          const recoveryChanged = recoveryRaw !== origRecovery;
+
+          if (emailChanged || recoveryChanged) {
+            // Need password confirmation
+            openOverlay();
+          } else {
+            // No sensitive change → submit directly
+            form.submit();
+          }
+        });
+
+        pwdCancel.addEventListener("click", () => {
+          closeOverlay();
+        });
+
+        pwdSubmit.addEventListener("click", () => {
+          const pwd = pwdInput.value;
+          if (!pwd) {
+            pwdInput.focus();
+            return;
+          }
+          passwordField.value = pwd;
+          closeOverlay();
+          form.submit();
+        });
+
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape" && !overlay.classList.contains("hidden")) {
+            closeOverlay();
+          }
+        });
+      })();
+    </script>
   {% endif %}
 {% endblock %}

@@ -49,11 +49,11 @@
                         {{ w["muscles_display"] }}
                       </p>
                       <p class="mt-1 text-xs text-slate-400">
-                        {{ w["date_display"] }}
+                        {{ w["date"].strftime('%a') }} · {{ w["date_display"] }}
                       </p>
                     {% else %}
                       <p class="text-sm font-medium text-slate-100">
-                        {{ w["date_display"] }}
+                        {{ w["date"].strftime('%a') }} · {{ w["date_display"] }}
                       </p>
                       <p class="mt-1 text-xs text-slate-500">
                         No muscle groups logged yet
@@ -100,11 +100,11 @@
                                 {{ w["muscles_display"] }}
                               </p>
                               <p class="mt-1 text-xs text-slate-400">
-                                {{ w["date_display"] }}
+                                {{ w["date"].strftime('%a') }} · {{ w["date_display"] }}
                               </p>
                             {% else %}
                               <p class="text-sm font-medium text-slate-100">
-                                {{ w["date_display"] }}
+                                {{ w["date"].strftime('%a') }} · {{ w["date_display"] }}
                               </p>
                               <p class="mt-1 text-xs text-slate-500">
                                 No muscle groups logged yet

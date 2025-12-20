@@ -9,7 +9,9 @@
     step=None,
     required=False,
     min=None,
-    max=None
+    max=None,
+    minlength=None,
+    maxlength=None
 ) %}
   <div class="form-row">
     <label for="{{ name }}">{{ label }}</label>
@@ -21,6 +23,8 @@
       {% if step %}step="{{ step }}"{% endif %}
       {% if min is not none %}min="{{ min }}"{% endif %}
       {% if max is not none %}max="{{ max }}"{% endif %}
+      {% if minlength is not none %}minlength="{{ minlength }}"{% endif %}
+      {% if maxlength is not none %}maxlength="{{ maxlength }}"{% endif %}
       {% if required %}required{% endif %}
     >
   </div>
@@ -54,4 +58,3 @@
     </select>
   </div>
 {% endmacro %}
-

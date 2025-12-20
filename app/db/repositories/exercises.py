@@ -85,18 +85,37 @@ def create_exercise(conn, workout_id, notes, weight_used, num_of_sets, muscle_id
 
 
 
-def update_exercise(conn, exercise_id, notes, weight_used, num_of_sets, muscle_id=None):
+def update_exercise(
+    conn,
+    exercise_id,
+    notes,
+    weight_used,
+    num_of_sets,
+    muscle_id=None,
+    workout_id=None,
+):
     """
-    Update exercise fields and its (single) muscle mapping.
+    Update exercise fields, its (single) muscle mapping, and optionally
+    move it to a different workout.
     """
-    conn.execute(
-        """
-        UPDATE exercise
-        SET notes = ?, weight_used = ?, num_of_sets = ?
-        WHERE id = ?
-        """,
-        (notes, weight_used, num_of_sets, exercise_id),
-    )
+    if workout_id is None:
+        conn.execute(
+            """
+            UPDATE exercise
+            SET notes = ?, weight_used = ?, num_of_sets = ?
+            WHERE id = ?
+            """,
+            (notes, weight_used, num_of_sets, exercise_id),
+        )
+    else:
+        conn.execute(
+            """
+            UPDATE exercise
+            SET notes = ?, weight_used = ?, num_of_sets = ?, workout_id = ?
+            WHERE id = ?
+            """,
+            (notes, weight_used, num_of_sets, workout_id, exercise_id),
+        )
 
     # reset muscle mapping
     conn.execute(
