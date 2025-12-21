@@ -1,7 +1,6 @@
 # app/web/routes/exercises.py
 # app/web/routes/exercises.py
 
-import sqlite3
 from datetime import date, timedelta  # ⬅️ updated import
 
 from flask import (
@@ -20,6 +19,31 @@ from .. import web_bp
 from ..auth_utils import login_required
 from ...db.repositories import muscles as muscles_repo
 
+WEIGHT_UNITS = [
+    {"id": "lb", "name": "lb"},
+    {"id": "kg", "name": "kg"},
+]
+VALID_WEIGHT_UNITS = {"lb", "kg"}
+LB_TO_KG = 0.45359237
+
+
+def _normalize_weight_to_kg(weight_used: float | None, weight_unit: str | None) -> float | None:
+    if weight_used is None:
+        return None
+    if weight_unit == "kg":
+        return float(weight_used)
+    if weight_unit == "lb":
+        return float(weight_used) * LB_TO_KG
+    return None
+
+
+def _date_to_str(value) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return value.isoformat()
+    return str(value)
+
 
 @web_bp.route("/exercises/new", methods=["GET", "POST"])
 @login_required
@@ -37,7 +61,9 @@ def new_exercise():
         max_date_str = max_future_date.isoformat()
 
         # Fetch all muscles for the dropdown
-        muscles = muscles_repo.list_muscles(conn)
+        muscles_repo.ensure_default_muscles(conn, user_id)
+        muscles = muscles_repo.list_muscles(conn, user_id=user_id, active_only=True)
+        default_unit = g.user.get("weight_unit") or "lb"
 
         if workout_id is not None:
             # Ensure this workout belongs to the current user
@@ -48,11 +74,25 @@ def new_exercise():
         if request.method == "POST":
             notes = request.form.get("notes", "").strip() or None
             weight_str = request.form.get("weight_used", "").strip()
+            weight_unit = request.form.get("weight_unit", "").strip() or default_unit
             sets_str = request.form.get("num_of_sets", "").strip()
             muscle_str = request.form.get("muscle_id", "").strip()
 
             weight_used = float(weight_str) if weight_str else None
             num_of_sets = int(sets_str) if sets_str else None
+
+            if weight_unit not in VALID_WEIGHT_UNITS:
+                error = "Please select a valid weight unit."
+                return render_template(
+                    "exercises/new.html",
+                    workout=workout,
+                    muscles=muscles,
+                    error=error,
+                    today=today_str,
+                    max_date=max_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
+                )
 
             # --- Muscle REQUIRED validation ---
             if not muscle_str:
@@ -64,6 +104,8 @@ def new_exercise():
                     error=error,
                     today=today_str,
                     max_date=max_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
                 )
 
             try:
@@ -77,6 +119,22 @@ def new_exercise():
                     error=error,
                     today=today_str,
                     max_date=max_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
+                )
+
+            selected_muscle = muscles_repo.get_muscle(conn, user_id, muscle_id)
+            if selected_muscle is None or not selected_muscle["active"]:
+                error = "Please select a valid muscle group."
+                return render_template(
+                    "exercises/new.html",
+                    workout=workout,
+                    muscles=muscles,
+                    error=error,
+                    today=today_str,
+                    max_date=max_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
                 )
 
             if workout is None:
@@ -92,6 +150,8 @@ def new_exercise():
                         error=error,
                         today=today_str,
                         max_date=max_date_str,
+                        weight_units=WEIGHT_UNITS,
+                        weight_unit_selected=weight_unit,
                     )
 
                 # Validate date format
@@ -106,6 +166,8 @@ def new_exercise():
                         error=error,
                         today=today_str,
                         max_date=max_date_str,
+                        weight_units=WEIGHT_UNITS,
+                        weight_unit_selected=weight_unit,
                     )
 
                 # Enforce future date ≤ 7 days
@@ -118,6 +180,8 @@ def new_exercise():
                         error=error,
                         today=today_str,
                         max_date=max_date_str,
+                        weight_units=WEIGHT_UNITS,
+                        weight_unit_selected=weight_unit,
                     )
 
                 # Past dates are allowed (for backfilling), so no lower bound.
@@ -136,11 +200,15 @@ def new_exercise():
                 # Adding exercise into an existing workout
                 workout_id_to_use = workout["id"]
 
+            weight_used_kg = _normalize_weight_to_kg(weight_used, weight_unit)
+
             exercises_repo.create_exercise(
                 conn,
                 workout_id=workout_id_to_use,
                 notes=notes,
                 weight_used=weight_used,
+                weight_unit=weight_unit,
+                weight_used_kg=weight_used_kg,
                 num_of_sets=num_of_sets,
                 muscle_id=muscle_id,
             )
@@ -156,6 +224,8 @@ def new_exercise():
             error=None,
             today=today_str,
             max_date=max_date_str,
+            weight_units=WEIGHT_UNITS,
+            weight_unit_selected=default_unit,
         )
     finally:
         conn.close()
@@ -183,16 +253,54 @@ def edit_exercise(exercise_id):
         workout = workouts_repo.get_workout(conn, exercise["workout_id"], user_id=user_id)
         if workout is None:
             abort(404)
+        workout_date_str = _date_to_str(workout["date"])
 
         # For the dropdown
-        muscles = muscles_repo.list_muscles(conn)
+        muscles_repo.ensure_default_muscles(conn, user_id)
+        muscles = muscles_repo.list_muscles(conn, user_id=user_id, active_only=True)
+        current_muscle_id = (
+            exercise["muscle_id"] if "muscle_id" in exercise.keys() else None
+        )
+        if current_muscle_id is not None and all(
+            m["id"] != current_muscle_id for m in muscles
+        ):
+            current_muscle = muscles_repo.get_muscle(conn, user_id, current_muscle_id)
+            if current_muscle is not None:
+                display_name = current_muscle["name"]
+                if not current_muscle["active"]:
+                    display_name = f"{display_name} (inactive)"
+                muscles = [
+                    *muscles,
+                    {"id": current_muscle["id"], "name": display_name},
+                ]
+        default_unit = g.user.get("weight_unit") or "lb"
+        exercise_unit = (
+            exercise["weight_unit"]
+            if "weight_unit" in exercise.keys() and exercise["weight_unit"]
+            else default_unit
+        )
 
         if request.method == "POST":
             date_str = request.form.get("date", "").strip()
             notes = request.form.get("notes", "").strip() or None
             weight_str = request.form.get("weight_used", "").strip()
+            weight_unit = request.form.get("weight_unit", "").strip() or exercise_unit
             sets_str = request.form.get("num_of_sets", "").strip()
             muscle_str = request.form.get("muscle_id", "").strip()
+
+            if weight_unit not in VALID_WEIGHT_UNITS:
+                error = "Please select a valid weight unit."
+                return render_template(
+                    "exercises/edit.html",
+                    exercise=exercise,
+                    workout=workout,
+                    muscles=muscles,
+                    error=error,
+                    max_date=max_date_str,
+                    exercise_date=workout_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
+                )
 
             # Validate date
             if not date_str:
@@ -204,7 +312,9 @@ def edit_exercise(exercise_id):
                     muscles=muscles,
                     error=error,
                     max_date=max_date_str,
-                    exercise_date=workout["date"],
+                    exercise_date=workout_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
                 )
 
             try:
@@ -218,7 +328,9 @@ def edit_exercise(exercise_id):
                     muscles=muscles,
                     error=error,
                     max_date=max_date_str,
-                    exercise_date=workout["date"],
+                    exercise_date=workout_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
                 )
 
             if selected_date > max_future_date:
@@ -230,16 +342,61 @@ def edit_exercise(exercise_id):
                     muscles=muscles,
                     error=error,
                     max_date=max_date_str,
-                    exercise_date=workout["date"],
+                    exercise_date=workout_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
                 )
 
             weight_used = float(weight_str) if weight_str else None
             num_of_sets = int(sets_str) if sets_str else None
             muscle_id = int(muscle_str) if muscle_str else None
 
+            if muscle_id is None:
+                error = "Please select a muscle group."
+                return render_template(
+                    "exercises/edit.html",
+                    exercise=exercise,
+                    workout=workout,
+                    muscles=muscles,
+                    error=error,
+                    max_date=max_date_str,
+                    exercise_date=workout_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
+                )
+
+            selected_muscle = muscles_repo.get_muscle(conn, user_id, muscle_id)
+            if selected_muscle is None:
+                error = "Please select a valid muscle group."
+                return render_template(
+                    "exercises/edit.html",
+                    exercise=exercise,
+                    workout=workout,
+                    muscles=muscles,
+                    error=error,
+                    max_date=max_date_str,
+                    exercise_date=workout_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
+                )
+
+            if not selected_muscle["active"] and muscle_id != current_muscle_id:
+                error = "Please select an active muscle group."
+                return render_template(
+                    "exercises/edit.html",
+                    exercise=exercise,
+                    workout=workout,
+                    muscles=muscles,
+                    error=error,
+                    max_date=max_date_str,
+                    exercise_date=workout_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
+                )
+
             # Decide which workout this exercise should belong to after the edit
             current_workout_id = workout["id"]
-            current_date_str = workout["date"]
+            current_date_str = workout_date_str
 
             if date_str == current_date_str:
                 target_workout_id = current_workout_id
@@ -255,11 +412,15 @@ def edit_exercise(exercise_id):
                         notes=None,
                     )
 
+            weight_used_kg = _normalize_weight_to_kg(weight_used, weight_unit)
+
             exercises_repo.update_exercise(
                 conn,
                 exercise_id=exercise_id,
                 notes=notes,
                 weight_used=weight_used,
+                weight_unit=weight_unit,
+                weight_used_kg=weight_used_kg,
                 num_of_sets=num_of_sets,
                 muscle_id=muscle_id,
                 workout_id=target_workout_id,
@@ -282,7 +443,9 @@ def edit_exercise(exercise_id):
             muscles=muscles,
             error=None,
             max_date=max_date_str,
-            exercise_date=workout["date"],
+            exercise_date=workout_date_str,
+            weight_units=WEIGHT_UNITS,
+            weight_unit_selected=exercise_unit,
         )
     finally:
         conn.close()

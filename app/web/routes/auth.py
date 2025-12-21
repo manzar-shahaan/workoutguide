@@ -18,6 +18,7 @@ import pyotp
 
 from ...db.connection import get_conn
 from ...db.repositories import users as users_repo
+from ...db.repositories import muscles as muscles_repo
 from ...db.repositories import backup_codes as backup_codes_repo
 from .. import web_bp
 from ..auth_utils import login_required, make_user
@@ -34,7 +35,7 @@ ph = PasswordHasher()
 
 def row_value(row, key, default=None):
     """
-    Safe helper for sqlite3.Row:
+    Safe helper for DB rows:
     - returns row[key] if key exists and value is not None
     - otherwise returns default
     """
@@ -92,6 +93,7 @@ def signup():
             conn = get_conn()
             try:
                 user_id = users_repo.create_user(conn, name, email, password_hash)
+                muscles_repo.ensure_default_muscles(conn, user_id)
                 user_row = users_repo.get_user(conn, user_id)
             finally:
                 conn.close()
@@ -357,6 +359,55 @@ def preferences():
     return render_template("account/preferences.html", user=user)
 
 
+@web_bp.route("/account/muscles", methods=["GET", "POST"])
+@login_required
+def manage_muscles():
+    user_id = g.user["id"]
+
+    conn = get_conn()
+    try:
+        muscles_repo.ensure_default_muscles(conn, user_id)
+
+        if request.method == "POST":
+            action = request.form.get("action", "")
+
+            try:
+                if action == "add":
+                    name = request.form.get("name", "").strip()
+                    muscles_repo.add_muscle(conn, user_id, name)
+                    flash("Muscle group added.", "success")
+                elif action == "rename":
+                    muscle_id = request.form.get("muscle_id", type=int)
+                    new_name = request.form.get("new_name", "").strip()
+                    if muscle_id is None:
+                        raise ValueError("Invalid muscle selection.")
+                    updated_id = muscles_repo.rename_muscle(conn, user_id, muscle_id, new_name)
+                    if updated_id is None:
+                        raise ValueError("Muscle group not found.")
+                    flash("Muscle group updated.", "success")
+                elif action == "remove":
+                    muscle_id = request.form.get("muscle_id", type=int)
+                    if muscle_id is None:
+                        raise ValueError("Invalid muscle selection.")
+                    muscles_repo.deactivate_muscle(conn, user_id, muscle_id)
+                    flash("Muscle group removed from your list.", "success")
+                elif action == "reset":
+                    muscles_repo.reset_to_default(conn, user_id)
+                    flash("Muscle groups reset to defaults.", "success")
+                else:
+                    flash("Unknown action.", "error")
+            except ValueError as exc:
+                flash(str(exc), "error")
+
+            return redirect(url_for("web.manage_muscles"))
+
+        muscles = muscles_repo.list_muscles(conn, user_id=user_id, active_only=True)
+    finally:
+        conn.close()
+
+    return render_template("account/muscles.html", muscles=muscles)
+
+
 @web_bp.route("/login/2fa", methods=["GET", "POST"])
 def login_2fa():
     pending_id = session.get("pending_2fa_user_id")
@@ -369,7 +420,7 @@ def login_2fa():
     finally:
         conn.close()
 
-    # Use row_value instead of .get on sqlite3.Row
+    # Use row_value instead of .get on DB rows
     if user is None or not row_value(user, "totp_secret", None):
         session.pop("pending_2fa_user_id", None)
         return redirect(url_for("web.login"))

@@ -51,7 +51,11 @@ def workouts_index():
         if not row["date"]:
             continue
 
-        d = datetime.strptime(row["date"], "%Y-%m-%d").date()
+        raw_date = row["date"]
+        if isinstance(raw_date, _date):
+            d = raw_date
+        else:
+            d = datetime.strptime(raw_date, "%Y-%m-%d").date()
 
         raw_muscles = row["muscles"] or ""
         muscles_display = ""
@@ -132,10 +136,14 @@ def workout_detail(workout_id):
         conn.close()
 
     editable = request.args.get("edit") == "1"
+    unit_pref = request.args.get("unit", "stored")
+    if unit_pref not in {"stored", "converted"}:
+        unit_pref = "stored"
 
     return render_template(
         "workouts/detail.html",
         workout=workout,
         exercises=exercises,
         editable=editable,
+        unit_pref=unit_pref,
     )

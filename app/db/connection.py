@@ -1,11 +1,13 @@
-import sqlite3
-from pathlib import Path
+import os
+from sqlalchemy import create_engine
 
-DB_PATH = Path(__file__).resolve().parent.parent.parent / "main.db"
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql+psycopg2://workoutguide:workoutguide@localhost:5432/workoutguide",
+)
 
-def get_conn(db_path: str | Path = DB_PATH):
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row   # so results act like dicts
-    conn.execute("PRAGMA foreign_keys = ON;")
-    conn.execute("PRAGMA journal_mode = WAL;")  # faster writes
-    return conn
+engine = create_engine(DATABASE_URL, pool_pre_ping=True, future=True)
+
+
+def get_conn():
+    return engine.connect()

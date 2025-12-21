@@ -11,11 +11,11 @@ from flask_login import (
 
 class User(UserMixin):
     """
-    Lightweight user wrapper for Flask-Login, built from a sqlite3.Row.
+    Lightweight user wrapper for Flask-Login, built from a DB row mapping.
     """
 
     def __init__(self, row):
-        # sqlite3.Row supports dict-style access and .keys(), but not .get()
+        # DB rows support dict-style access and .keys(), but not .get()
         self.id = row["id"]
         self.name = row["name"]
         self.email = row["email"]

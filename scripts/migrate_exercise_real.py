@@ -1,38 +1,66 @@
+import sys
+from pathlib import Path
+
+from sqlalchemy import text
+
+# Ensure project root is importable when running this script directly
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from app.db.connection import get_conn
 
+LB_TO_KG = 0.45359237
+
+
+def _column_exists(conn, table: str, column: str) -> bool:
+    sql = """
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = :table
+          AND column_name = :column
+        LIMIT 1
+    """
+    row = conn.execute(text(sql), {"table": table, "column": column}).fetchone()
+    return row is not None
+
+
 def migrate_exercise_weight_to_real():
+    """
+    Legacy migration helper:
+    - add weight_unit and weight_used_kg if missing
+    - backfill weight_used_kg for rows with weight_used
+    """
     conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("PRAGMA foreign_keys=OFF;")
-    cur.execute("BEGIN;")
+    try:
+        if not _column_exists(conn, "exercise", "weight_unit"):
+            conn.execute(
+                text("ALTER TABLE exercise ADD COLUMN weight_unit TEXT NOT NULL DEFAULT 'lb'")
+            )
+        if not _column_exists(conn, "exercise", "weight_used_kg"):
+            conn.execute(text("ALTER TABLE exercise ADD COLUMN weight_used_kg DOUBLE PRECISION"))
 
-    # 1. Rename old table
-    cur.execute("ALTER TABLE exercise RENAME TO exercise_old;")
+        conn.execute(
+            text(
+                """
+                UPDATE exercise
+                SET weight_used_kg = CASE
+                    WHEN weight_used IS NULL THEN NULL
+                    WHEN weight_unit = 'kg' THEN weight_used
+                    ELSE weight_used * :lb_to_kg
+                END
+                WHERE weight_used_kg IS NULL
+                """
+            ),
+            {"lb_to_kg": LB_TO_KG},
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
-    # 2. Create new table with REAL weight_used
-    cur.execute("""
-        CREATE TABLE exercise (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            weight_used REAL,
-            num_of_sets INTEGER,
-            workout_id INTEGER,
-            FOREIGN KEY (workout_id) REFERENCES workout (id)
-        );
-    """)
+    print("✅ exercise weight unit columns ensured and normalized values backfilled")
 
-    # 3. Copy existing data
-    cur.execute("""
-        INSERT INTO exercise (id, weight_used, num_of_sets, workout_id)
-        SELECT id, weight_used, num_of_sets, workout_id FROM exercise_old;
-    """)
-
-    # 4. Drop old table
-    cur.execute("DROP TABLE exercise_old;")
-
-    cur.execute("COMMIT;")
-    cur.execute("PRAGMA foreign_keys=ON;")
-    conn.close()
-    print("✅ exercise.weight_used changed to REAL successfully")
 
 if __name__ == "__main__":
     migrate_exercise_weight_to_real()

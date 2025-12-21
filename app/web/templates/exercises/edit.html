@@ -45,6 +45,16 @@
         step="0.01"
     ) }}
 
+    {{ select_field(
+         "weight_unit",
+         "Weight unit",
+         weight_units,
+         selected=weight_unit_selected,
+         include_blank=False,
+         blank_label="-- Select unit --",
+         required=True
+    ) }}
+
     {{ input_field(
         "num_of_sets",
         "Number of sets",

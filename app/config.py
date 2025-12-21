@@ -6,9 +6,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent  # project/app/.. = project ro
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key")
-    DATABASE = os.environ.get(
-        "DATABASE",
-        str(BASE_DIR / "instance" / "workouts.db"),  # e.g. project/instance/workouts.db
+    DATABASE_URL = os.environ.get(
+        "DATABASE_URL",
+        "postgresql+psycopg2://workoutguide:workoutguide@localhost:5432/workoutguide",
     )
     DEBUG = os.environ.get("FLASK_DEBUG", "1") == "1"
 

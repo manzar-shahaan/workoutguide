@@ -2,13 +2,18 @@
 
 import secrets
 
+from sqlalchemy import text
+
 
 def replace_codes(conn, user_id: int, count: int = 10):
     """
     Delete any existing backup codes for this user, generate `count` new codes,
     insert them, and return the list of plaintext codes (for display/download).
     """
-    conn.execute("DELETE FROM totp_backup_code WHERE user_id = ?", (user_id,))
+    conn.execute(
+        text("DELETE FROM totp_backup_code WHERE user_id = :user_id"),
+        {"user_id": user_id},
+    )
 
     codes = []
     for _ in range(count):
@@ -16,11 +21,13 @@ def replace_codes(conn, user_id: int, count: int = 10):
         code = f"{secrets.token_hex(2)}-{secrets.token_hex(2)}"
         codes.append(code)
         conn.execute(
-            """
-            INSERT INTO totp_backup_code (user_id, code, used)
-            VALUES (?, ?, 0)
-            """,
-            (user_id, code),
+            text(
+                """
+                INSERT INTO totp_backup_code (user_id, code, used)
+                VALUES (:user_id, :code, FALSE)
+                """
+            ),
+            {"user_id": user_id, "code": code},
         )
 
     conn.commit()
@@ -34,11 +41,11 @@ def list_codes(conn, user_id: int):
     sql = """
         SELECT id, code, used, created_at
         FROM totp_backup_code
-        WHERE user_id = ?
+        WHERE user_id = :user_id
         ORDER BY id
     """
-    cur = conn.execute(sql, (user_id,))
-    return cur.fetchall()
+    result = conn.execute(text(sql), {"user_id": user_id})
+    return result.mappings().all()
 
 
 def consume_code(conn, user_id: int, code: str) -> bool:
@@ -48,17 +55,17 @@ def consume_code(conn, user_id: int, code: str) -> bool:
     sql = """
         SELECT id, used
         FROM totp_backup_code
-        WHERE user_id = ? AND code = ?
+        WHERE user_id = :user_id AND code = :code
     """
-    cur = conn.execute(sql, (user_id, code))
-    row = cur.fetchone()
+    result = conn.execute(text(sql), {"user_id": user_id, "code": code})
+    row = result.mappings().fetchone()
 
     if row is None or row["used"]:
         return False
 
     conn.execute(
-        "UPDATE totp_backup_code SET used = 1 WHERE id = ?",
-        (row["id"],),
+        text("UPDATE totp_backup_code SET used = TRUE WHERE id = :id"),
+        {"id": row["id"]},
     )
     conn.commit()
     return True

@@ -28,21 +28,34 @@
     </div>
 
     <div class="mt-1">
-      {% if editable %}
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2">
         <a
-          href="{{ url_for('web.workout_detail', workout_id=workout['id']) }}"
-          class="inline-flex items-center rounded-md border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-900"
+          href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=editable|int, unit='stored' if unit_pref == 'converted' else 'converted') }}"
+          class="inline-flex items-center rounded-md border border-slate-700 px-3 py-2 text-xs sm:text-sm font-medium text-slate-100 hover:bg-slate-900"
         >
-          ✅ Done editing
+          {% if unit_pref == "converted" %}
+            Show stored units
+          {% else %}
+            Convert weights (lb <-> kg)
+          {% endif %}
         </a>
-      {% else %}
-        <a
-          href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=1) }}"
-          class="inline-flex items-center rounded-md border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-900"
-        >
-          ✏️ Edit workout
-        </a>
-      {% endif %}
+
+        {% if editable %}
+          <a
+            href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=0, unit=unit_pref) }}"
+            class="inline-flex items-center rounded-md border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-900"
+          >
+            ✅ Done editing
+          </a>
+        {% else %}
+          <a
+            href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=1, unit=unit_pref) }}"
+            class="inline-flex items-center rounded-md border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-900"
+          >
+            ✏️ Edit workout
+          </a>
+        {% endif %}
+      </div>
     </div>
   </header>
 
@@ -80,7 +93,19 @@
                   {{ ex["muscles"] }}{% if ex["weight_used"] is not none or ex["num_of_sets"] is not none %} ·{% endif %}
                 {% endif %}
                 {% if ex["weight_used"] is not none %}
-                  Weight: {{ ex["weight_used"] }}{% if ex["num_of_sets"] is not none %} ·{% endif %}
+                  {% if unit_pref == "converted" and ex["weight_used_kg"] is not none and ex["weight_unit"] in ["lb", "kg"] %}
+                    {% if ex["weight_unit"] == "kg" %}
+                      {% set display_weight = ex["weight_used_kg"] / 0.45359237 %}
+                      {% set display_unit = "lb" %}
+                    {% else %}
+                      {% set display_weight = ex["weight_used_kg"] %}
+                      {% set display_unit = "kg" %}
+                    {% endif %}
+                  {% else %}
+                    {% set display_weight = ex["weight_used"] %}
+                    {% set display_unit = ex["weight_unit"] if ex["weight_unit"] else "" %}
+                  {% endif %}
+                  Weight: {{ "%.2f"|format(display_weight) }}{% if display_unit %} {{ display_unit }}{% endif %}{% if ex["num_of_sets"] is not none %} ·{% endif %}
                 {% endif %}
                 {% if ex["num_of_sets"] is not none %}
                   {{ ex["num_of_sets"] }} sets

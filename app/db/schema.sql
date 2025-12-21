@@ -1,5 +1,5 @@
-CREATE TABLE IF NOT EXISTS user (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE IF NOT EXISTS app_user (
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     last_login DATE,
     weight_unit TEXT DEFAULT 'lb',
@@ -7,31 +7,39 @@ CREATE TABLE IF NOT EXISTS user (
     recovery_email TEXT,
     password_hash TEXT NOT NULL,
     totp_secret TEXT,
-    totp_enabled INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    totp_enabled BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 
 CREATE TABLE IF NOT EXISTS workout (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     date DATE,
     user_id INTEGER,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notes TEXT,
-    FOREIGN KEY (user_id) REFERENCES user (id)
+    FOREIGN KEY (user_id) REFERENCES app_user (id)
 );
 
 CREATE TABLE IF NOT EXISTS muscle (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    is_default BOOLEAN DEFAULT FALSE,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES app_user (id),
+    UNIQUE (user_id, name)
 );
 
 CREATE TABLE IF NOT EXISTS exercise (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    weight_used REAL,
+    id SERIAL PRIMARY KEY,
+    weight_used DOUBLE PRECISION,
+    weight_unit TEXT NOT NULL DEFAULT 'lb',
+    weight_used_kg DOUBLE PRECISION,
     num_of_sets INTEGER,
     workout_id INTEGER,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notes TEXT,
     FOREIGN KEY (workout_id) REFERENCES workout (id)
 );
@@ -45,10 +53,10 @@ CREATE TABLE IF NOT EXISTS exercise_muscle (
 );
 
 CREATE TABLE IF NOT EXISTS totp_backup_code (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
     code TEXT NOT NULL,
-    used INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES user (id)
+    used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES app_user (id)
 );

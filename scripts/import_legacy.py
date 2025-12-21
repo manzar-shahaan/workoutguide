@@ -3,51 +3,59 @@ from __future__ import annotations
 
 import argparse
 import json
-import sqlite3
 import sys
 from pathlib import Path
 from typing import Any
+
+from sqlalchemy import text
+from sqlalchemy.engine import Connection
 
 # Make project root importable so "app" can be found when running this file directly
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.db.connection import get_conn  # uses WAL + foreign_keys=ON
+from app.db.connection import get_conn
+
+DEFAULT_WEIGHT_UNIT = "lb"
+LB_TO_KG = 0.45359237
 
 
-def column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
+def column_exists(conn: Connection, table: str, column: str) -> bool:
     """Return True if a column exists on a table."""
-    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
-    return any(r["name"] == column for r in rows)
+    sql = """
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = :table
+          AND column_name = :column
+        LIMIT 1
+    """
+    row = conn.execute(text(sql), {"table": table, "column": column}).fetchone()
+    return row is not None
 
 
-def get_or_create_workout(
-    conn: sqlite3.Connection,
-    user_id: int,
-    date: str,
-) -> int:
+def get_or_create_workout(conn: Connection, user_id: int, date: str) -> int:
     """
     Get an existing workout for (user_id, date) or create one.
     We no longer set workout.notes here; notes stay on exercises.
     """
     row = conn.execute(
-        "SELECT id FROM workout WHERE user_id = ? AND date = ?",
-        (user_id, date),
-    ).fetchone()
+        text("SELECT id FROM workout WHERE user_id = :user_id AND date = :date"),
+        {"user_id": user_id, "date": date},
+    ).mappings().fetchone()
 
     if row:
         return row["id"]
 
-    conn.execute(
-        "INSERT INTO workout (date, user_id) VALUES (?, ?)",
-        (date, user_id),
+    result = conn.execute(
+        text("INSERT INTO workout (date, user_id) VALUES (:date, :user_id) RETURNING id"),
+        {"date": date, "user_id": user_id},
     )
-    new_id = conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
-    return new_id
+    return result.scalar_one()
 
 
-def get_or_create_muscle(conn: sqlite3.Connection, name: str) -> int:
+def get_or_create_muscle(conn: Connection, user_id: int, name: str) -> int:
     """
     Normalize muscle name to lowercase and either fetch or create it.
     """
@@ -56,18 +64,29 @@ def get_or_create_muscle(conn: sqlite3.Connection, name: str) -> int:
         name_norm = "unknown"
 
     row = conn.execute(
-        "SELECT id FROM muscle WHERE lower(name) = ?",
-        (name_norm,),
-    ).fetchone()
+        text(
+            """
+            SELECT id
+            FROM muscle
+            WHERE user_id = :user_id AND name = :name
+            """
+        ),
+        {"user_id": user_id, "name": name_norm},
+    ).mappings().fetchone()
     if row:
         return row["id"]
 
-    conn.execute(
-        "INSERT INTO muscle (name) VALUES (?)",
-        (name_norm,),
+    result = conn.execute(
+        text(
+            """
+            INSERT INTO muscle (user_id, name, is_default, active)
+            VALUES (:user_id, :name, FALSE, TRUE)
+            RETURNING id
+            """
+        ),
+        {"user_id": user_id, "name": name_norm},
     )
-    new_id = conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
-    return new_id
+    return result.scalar_one()
 
 
 def parse_weight_to_real(raw: Any) -> float | None:
@@ -97,10 +116,22 @@ def parse_weight_to_real(raw: Any) -> float | None:
         return None
 
 
+def weight_to_kg(weight_used: float | None, weight_unit: str) -> float | None:
+    if weight_used is None:
+        return None
+    if weight_unit == "kg":
+        return float(weight_used)
+    if weight_unit == "lb":
+        return float(weight_used) * LB_TO_KG
+    return None
+
+
 def insert_exercise(
-    conn: sqlite3.Connection,
+    conn: Connection,
     workout_id: int,
     weight_used: float | None,
+    weight_unit: str,
+    weight_used_kg: float | None,
     num_sets: int | None,
     notes: str | None,
 ) -> int:
@@ -108,33 +139,43 @@ def insert_exercise(
     Insert an exercise row and return its id.
     weight_used is REAL; num_sets and notes can be NULL.
     """
-    conn.execute(
-        """
-        INSERT INTO exercise (weight_used, num_of_sets, workout_id, notes)
-        VALUES (?, ?, ?, ?)
-        """,
-        (weight_used, num_sets, workout_id, notes),
+    result = conn.execute(
+        text(
+            """
+            INSERT INTO exercise (
+                weight_used, weight_unit, weight_used_kg, num_of_sets, workout_id, notes
+            )
+            VALUES (:weight_used, :weight_unit, :weight_used_kg, :num_sets, :workout_id, :notes)
+            RETURNING id
+            """
+        ),
+        {
+            "weight_used": weight_used,
+            "weight_unit": weight_unit,
+            "weight_used_kg": weight_used_kg,
+            "num_sets": num_sets,
+            "workout_id": workout_id,
+            "notes": notes,
+        },
     )
-    new_id = conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
-    return new_id
+    return result.scalar_one()
 
 
 
-def link_muscle_exercise(
-    conn: sqlite3.Connection,
-    muscle_id: int,
-    exercise_id: int,
-) -> None:
+def link_muscle_exercise(conn: Connection, muscle_id: int, exercise_id: int) -> None:
     """
     Link a muscle to an exercise via the join table.
-    Uses INSERT OR IGNORE in case the pair already exists.
+    Uses ON CONFLICT DO NOTHING in case the pair already exists.
     """
     conn.execute(
-        """
-        INSERT OR IGNORE INTO exercise_muscle (muscle_id, exercise_id)
-        VALUES (?, ?)
-        """,
-        (muscle_id, exercise_id),
+        text(
+            """
+            INSERT INTO exercise_muscle (muscle_id, exercise_id)
+            VALUES (:muscle_id, :exercise_id)
+            ON CONFLICT DO NOTHING
+            """
+        ),
+        {"muscle_id": muscle_id, "exercise_id": exercise_id},
     )
 
 
@@ -196,9 +237,8 @@ def import_legacy(
     items = load_json_any(json_path)
 
     conn = get_conn()
+    trans = conn.begin()
     try:
-        cur = conn.cursor()
-        cur.execute("BEGIN")
 
         count_workouts_touched = 0
         count_exercises_created = 0
@@ -234,11 +274,15 @@ def import_legacy(
 
             # 2) Cardio mapping: type = 'cardio' → muscle 'cardio', weight_used = NULL
             if legacy_type == "cardio":
-                m_id = get_or_create_muscle(conn, "cardio")
+                m_id = get_or_create_muscle(conn, user_id, "cardio")
+                weight_unit = DEFAULT_WEIGHT_UNIT
+                weight_used_kg = weight_to_kg(None, weight_unit)
                 ex_id = insert_exercise(
                     conn,
                     workout_id=w_id,
                     weight_used=None,   # REAL; stored as NULL
+                    weight_unit=weight_unit,
+                    weight_used_kg=weight_used_kg,
                     num_sets=None,
                     notes=notes,        # <- per-entry notes on the exercise
                 )
@@ -250,12 +294,16 @@ def import_legacy(
             # 3) Strength / other physical entries:
             # We treat rows with a 'muscle' or 'weights' field as exercise entries.
             if muscle_name or ("weights" in item):
-                m_id = get_or_create_muscle(conn, muscle_name or "unknown")
+                m_id = get_or_create_muscle(conn, user_id, muscle_name or "unknown")
                 weight_real = parse_weight_to_real(item.get("weights"))
+                weight_unit = DEFAULT_WEIGHT_UNIT
+                weight_used_kg = weight_to_kg(weight_real, weight_unit)
                 ex_id = insert_exercise(
                     conn,
                     workout_id=w_id,
                     weight_used=weight_real,
+                    weight_unit=weight_unit,
+                    weight_used_kg=weight_used_kg,
                     num_sets=None,
                     notes=notes,        # <- notes for this specific strength entry
                 )
@@ -268,9 +316,9 @@ def import_legacy(
             # but don't create an exercise. Could print/log a warning here if desired.
 
         if dry_run:
-            cur.execute("ROLLBACK")
+            trans.rollback()
         else:
-            cur.execute("COMMIT")
+            trans.commit()
 
         return {
             "dry_run": dry_run,
@@ -279,13 +327,16 @@ def import_legacy(
             "exercises_created": count_exercises_created,
             "notes_column_present": notes_col,
         }
+    except Exception:
+        trans.rollback()
+        raise
     finally:
         conn.close()
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Import legacy workout JSON into the SQLite database."
+        description="Import legacy workout JSON into the PostgreSQL database."
     )
     parser.add_argument(
         "--path",
