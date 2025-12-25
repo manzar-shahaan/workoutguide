@@ -352,10 +352,34 @@ def account_2fa():
     )
 
 
-@web_bp.route("/preferences", methods=["GET"])
+@web_bp.route("/preferences", methods=["GET", "POST"])
 @login_required
 def preferences():
-    user = g.user
+    user_id = g.user["id"]
+
+    if request.method == "POST":
+        action = request.form.get("action", "")
+        conn = get_conn()
+        try:
+            if action == "week_start":
+                week_start = (request.form.get("week_start") or "").strip().lower()
+                if week_start not in {"sun", "mon"}:
+                    raise ValueError("Week start must be Sunday or Monday.")
+                users_repo.update_week_start(conn, user_id, week_start)
+                flash("Week start preference updated.", "success")
+            else:
+                flash("Unknown preference update.", "error")
+        except ValueError as exc:
+            flash(str(exc), "error")
+        finally:
+            conn.close()
+        return redirect(url_for("web.preferences"))
+
+    conn = get_conn()
+    try:
+        user = users_repo.get_user(conn, user_id)
+    finally:
+        conn.close()
     return render_template("account/preferences.html", user=user)
 
 
@@ -374,14 +398,22 @@ def manage_muscles():
             try:
                 if action == "add":
                     name = request.form.get("name", "").strip()
-                    muscles_repo.add_muscle(conn, user_id, name)
+                    color = request.form.get("color", "").strip()
+                    muscles_repo.add_muscle(conn, user_id, name, color=color)
                     flash("Muscle group added.", "success")
                 elif action == "rename":
                     muscle_id = request.form.get("muscle_id", type=int)
                     new_name = request.form.get("new_name", "").strip()
+                    color = request.form.get("color", "").strip()
                     if muscle_id is None:
                         raise ValueError("Invalid muscle selection.")
-                    updated_id = muscles_repo.rename_muscle(conn, user_id, muscle_id, new_name)
+                    updated_id = muscles_repo.rename_muscle(
+                        conn,
+                        user_id,
+                        muscle_id,
+                        new_name,
+                        color=color,
+                    )
                     if updated_id is None:
                         raise ValueError("Muscle group not found.")
                     flash("Muscle group updated.", "success")

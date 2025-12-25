@@ -10,7 +10,7 @@
     ← Back to workouts
   </a>
 
-  <header class="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 gap-3">
+  <header class="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6 gap-3">
     <div>
       <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100">
         Workout on {{ workout["date"] }}
@@ -19,11 +19,21 @@
         ID: {{ workout["id"] }}
       </p>
 
-      {% if workout["muscles"] %}
-        <p class="mt-2 text-sm text-slate-300">
-          <span class="font-medium">Muscles targeted:</span>
-          {{ workout["muscles"] }}
-        </p>
+      {% if workout_muscles %}
+        <div class="mt-2 text-xs text-slate-500">
+          Muscles targeted:
+          <span class="ml-1 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-100 font-medium">
+            {% for m in workout_muscles %}
+              <span class="inline-flex items-center gap-1">
+                <span
+                  class="h-2 w-2 rounded-full"
+                  style="background-color: {{ m['color'] }};"
+                ></span>
+                {{ m["name"] }}
+              </span>{% if not loop.last %}<span class="text-slate-500">,</span>{% endif %}
+            {% endfor %}
+          </span>
+        </div>
       {% endif %}
     </div>
 
@@ -31,7 +41,7 @@
       <div class="flex flex-col sm:flex-row sm:items-center gap-2">
         <a
           href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=editable|int, unit='stored' if unit_pref == 'converted' else 'converted') }}"
-          class="inline-flex items-center rounded-md border border-slate-700 px-3 py-2 text-xs sm:text-sm font-medium text-slate-100 hover:bg-slate-900"
+          class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
         >
           {% if unit_pref == "converted" %}
             Show stored units
@@ -43,16 +53,16 @@
         {% if editable %}
           <a
             href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=0, unit=unit_pref) }}"
-            class="inline-flex items-center rounded-md border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-900"
+            class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-700 transition-colors duration-200"
           >
-            ✅ Done editing
+            Done editing
           </a>
         {% else %}
           <a
             href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=1, unit=unit_pref) }}"
-            class="inline-flex items-center rounded-md border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-900"
+            class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-700 transition-colors duration-200"
           >
-            ✏️ Edit workout
+            Edit workout
           </a>
         {% endif %}
       </div>
@@ -80,17 +90,29 @@
         No exercises logged for this workout.
       </p>
     {% else %}
-      <ul class="space-y-2">
+      <ul class="space-y-3">
         {% for ex in exercises %}
-          <li class="rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <li class="rounded-lg border border-slate-800 bg-slate-900 px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-md shadow-black/50 hover:border-slate-700 hover:bg-slate-800/80 transition-all duration-200">
             <div>
               <p class="font-medium text-slate-100 text-sm">
                 {{ ex["notes"] or "(no notes)" }}
               </p>
 
-              <p class="mt-1 text-xs text-slate-400">
-                {% if ex["muscles"] %}
-                  {{ ex["muscles"] }}{% if ex["weight_used"] is not none or ex["num_of_sets"] is not none %} ·{% endif %}
+              <p class="mt-1 text-xs text-slate-500">
+                {% set show_sep = false %}
+                {% if ex["muscles_list"] %}
+                  <span class="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {% for m in ex["muscles_list"] %}
+                      <span class="inline-flex items-center gap-1">
+                        <span
+                          class="h-2 w-2 rounded-full"
+                          style="background-color: {{ m['color'] }};"
+                        ></span>
+                        {{ m["name"] }}
+                      </span>{% if not loop.last %}<span class="text-slate-500">,</span>{% endif %}
+                    {% endfor %}
+                  </span>
+                  {% set show_sep = true %}
                 {% endif %}
                 {% if ex["weight_used"] is not none %}
                   {% if unit_pref == "converted" and ex["weight_used_kg"] is not none and ex["weight_unit"] in ["lb", "kg"] %}
@@ -105,9 +127,12 @@
                     {% set display_weight = ex["weight_used"] %}
                     {% set display_unit = ex["weight_unit"] if ex["weight_unit"] else "" %}
                   {% endif %}
-                  Weight: {{ "%.2f"|format(display_weight) }}{% if display_unit %} {{ display_unit }}{% endif %}{% if ex["num_of_sets"] is not none %} ·{% endif %}
+                  {% if show_sep %} | {% endif %}
+                  {{ "%.2f"|format(display_weight) }}{% if display_unit %} {{ display_unit }}{% endif %}
+                  {% set show_sep = true %}
                 {% endif %}
                 {% if ex["num_of_sets"] is not none %}
+                  {% if show_sep %} | {% endif %}
                   {{ ex["num_of_sets"] }} sets
                 {% endif %}
               </p>
@@ -117,7 +142,7 @@
               <div class="flex items-center gap-2">
                 <a
                   href="{{ url_for('web.edit_exercise', exercise_id=ex['id']) }}"
-                  class="inline-flex items-center rounded-md border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-900"
+                  class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
                 >
                   Edit
                 </a>

@@ -8,6 +8,7 @@ def create_user(
     email: str,
     password_hash: str,
     weight_unit: str = "lb",
+    week_start: str = "sun",
     recovery_email: str | None = None,
 ):
     """
@@ -16,8 +17,8 @@ def create_user(
     weight_unit and recovery_email are optional and have sensible defaults.
     """
     sql = """
-        INSERT INTO app_user (name, email, password_hash, weight_unit, recovery_email)
-        VALUES (:name, :email, :password_hash, :weight_unit, :recovery_email)
+        INSERT INTO app_user (name, email, password_hash, weight_unit, week_start, recovery_email)
+        VALUES (:name, :email, :password_hash, :weight_unit, :week_start, :recovery_email)
         RETURNING id
     """
     cur = conn.execute(
@@ -27,6 +28,7 @@ def create_user(
             "email": email,
             "password_hash": password_hash,
             "weight_unit": weight_unit,
+            "week_start": week_start,
             "recovery_email": recovery_email,
         },
     )
@@ -42,6 +44,7 @@ def get_user_by_email(conn, email: str):
             email,
             password_hash,
             weight_unit,
+            week_start,
             recovery_email,
             totp_secret,
             totp_enabled,
@@ -62,6 +65,7 @@ def get_user(conn, user_id: int):
             email,
             password_hash,
             weight_unit,
+            week_start,
             recovery_email,
             totp_secret,
             totp_enabled,
@@ -128,6 +132,19 @@ def update_weight_unit(conn, user_id: int, weight_unit: str):
         WHERE id = :user_id
     """
     conn.execute(text(sql), {"weight_unit": weight_unit, "user_id": user_id})
+    conn.commit()
+
+
+def update_week_start(conn, user_id: int, week_start: str):
+    """
+    Update the user's preferred start day of week ('sun' or 'mon').
+    """
+    sql = """
+        UPDATE app_user
+        SET week_start = :week_start
+        WHERE id = :user_id
+    """
+    conn.execute(text(sql), {"week_start": week_start, "user_id": user_id})
     conn.commit()
 
 

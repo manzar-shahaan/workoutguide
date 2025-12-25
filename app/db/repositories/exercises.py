@@ -11,7 +11,14 @@ def list_for_workout(conn, workout_id: int):
             e.weight_unit,
             e.weight_used_kg,
             e.num_of_sets,
-            COALESCE(string_agg(DISTINCT m.name, ','), '') AS muscles
+            COALESCE(string_agg(DISTINCT m.name, ','), '') AS muscles,
+            COALESCE(
+                string_agg(
+                    DISTINCT (m.name || '::' || COALESCE(m.color, '')),
+                    '||'
+                ),
+                ''
+            ) AS muscle_data
         FROM exercise e
         JOIN workout w ON w.id = e.workout_id
         LEFT JOIN exercise_muscle em ON em.exercise_id = e.id

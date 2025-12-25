@@ -3,24 +3,25 @@
 {% block title %}Preferences{% endblock %}
 
 {% block content %}
-  <a
-    href="{{ url_for('web.workouts_index') }}"
-    class="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
-  >
-    ← Back to workouts
-  </a>
+  <div class="max-w-lg mx-auto">
+    <a
+      href="{{ url_for('web.workouts_index') }}"
+      class="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
+    >
+      ← Back to workouts
+    </a>
 
-  <header class="mb-6">
-    <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100">
-      Preferences
-    </h1>
-    <p class="mt-1 text-xs sm:text-sm text-slate-400">
-      Configure defaults for logging workouts.
-    </p>
-  </header>
+    <header class="mb-6">
+      <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100">
+        Preferences
+      </h1>
+      <p class="mt-1 text-xs sm:text-sm text-slate-400">
+        Configure defaults for logging workouts.
+      </p>
+    </header>
 
-  <section class="space-y-4 max-w-lg">
-    <div class="rounded-lg border border-slate-800 bg-slate-950 px-4 py-3">
+    <section class="space-y-4">
+    <div class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-4 shadow-md shadow-black/50">
       <h2 class="text-sm font-semibold text-slate-100 mb-3">
         Weight unit
       </h2>
@@ -52,9 +53,47 @@
         </span>
       </div>
 
-      <p class="mt-3 text-xs text-slate-500">
-        Switching units and automatic conversion will be added here later.
-      </p>
     </div>
-  </section>
+
+    <div class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-4 shadow-md shadow-black/50">
+      <h2 class="text-sm font-semibold text-slate-100 mb-3">
+        Start day of week (stats)
+      </h2>
+      <p class="text-sm text-slate-400 mb-3">
+        Choose how weeks are grouped in your stats calendar.
+      </p>
+
+      {% set current_week_start = user["week_start"] or "sun" %}
+      <form method="post" class="space-y-3">
+        <input type="hidden" name="action" value="week_start">
+        <div class="flex items-center gap-3 text-sm">
+          <label class="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="week_start"
+              value="sun"
+              {% if current_week_start == "sun" %}checked{% endif %}
+            >
+            Sunday
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="week_start"
+              value="mon"
+              {% if current_week_start == "mon" %}checked{% endif %}
+            >
+            Monday
+          </label>
+        </div>
+        <button
+          type="submit"
+          class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
+        >
+          Save week start
+        </button>
+      </form>
+    </div>
+    </section>
+  </div>
 {% endblock %}

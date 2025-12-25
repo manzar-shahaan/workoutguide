@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+
+{% block title %}Stats{% endblock %}
+
+{% block content %}
+  <div class="max-w-5xl mx-auto">
+    <a
+      href="{{ url_for('web.workouts_index') }}"
+      class="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
+    >
+      ← Back to workouts
+    </a>
+
+    <header class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
+        <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100">
+          Stats
+        </h1>
+        <p class="mt-1 text-xs sm:text-sm text-slate-400">
+          Track exercise volume and muscle progression over time.
+        </p>
+      </div>
+    </header>
+
+    <div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_320px]">
+      <section class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-5 shadow-md shadow-black/50">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div>
+            <h2 class="text-sm font-semibold text-slate-100">Calendar</h2>
+            {% if view == "month" %}
+              <p class="text-xs text-slate-500">
+                {{ month_calendar.label }} · {{ month_calendar.month_total }} exercises
+              </p>
+            {% else %}
+              <p class="text-xs text-slate-500">
+                {{ week_calendar.week_start.strftime('%b %d') }} -> {{ week_calendar.week_end.strftime('%b %d, %Y') }}
+                · {{ week_calendar.week_total }} exercises
+              </p>
+            {% endif %}
+          </div>
+
+          <div class="flex items-center gap-2">
+            <a
+              href="{{ url_for('web.stats_index', view=view, date=prev_date.strftime('%Y-%m-%d')) }}"
+              class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
+            >
+              Prev
+            </a>
+            <a
+              href="{{ url_for('web.stats_index', view=view, date=next_date.strftime('%Y-%m-%d')) }}"
+              class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
+            >
+              Next
+            </a>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 mb-4">
+          <a
+            href="{{ url_for('web.stats_index', view='month', date=anchor_date.strftime('%Y-%m-%d')) }}"
+            class="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium
+                   {% if view == 'month' %}bg-emerald-500 text-black{% else %}border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800{% endif %}"
+          >
+            Month
+          </a>
+          <a
+            href="{{ url_for('web.stats_index', view='week', date=anchor_date.strftime('%Y-%m-%d')) }}"
+            class="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium
+                   {% if view == 'week' %}bg-emerald-500 text-black{% else %}border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800{% endif %}"
+          >
+            Week
+          </a>
+        </div>
+
+        <div class="grid grid-cols-7 gap-2 text-[10px] text-slate-500 mb-2">
+          {% for label in weekdays %}
+            <span>{{ label }}</span>
+          {% endfor %}
+        </div>
+
+        {% if view == "month" %}
+          <div class="grid grid-cols-7 gap-2">
+            {% for week in month_calendar.weeks %}
+              {% for day in week.days %}
+                <div
+                  class="min-h-[64px] rounded-md border border-slate-800 px-2 py-2 text-[10px]
+                         {% if day.in_month %}bg-slate-900{% else %}bg-slate-900/40 text-slate-600{% endif %}"
+                >
+                  <div class="flex items-center justify-between">
+                    <span>{{ day.date.day }}</span>
+                  </div>
+                  {% if day.muscles %}
+                    <div class="mt-1 flex flex-wrap gap-1">
+                      {% for m in day.muscles[:5] %}
+                        <span
+                          class="h-1.5 w-1.5 rounded-full"
+                          style="background-color: {{ m['color'] }};"
+                          title="{{ m['name'] }}"
+                        ></span>
+                      {% endfor %}
+                      {% if day.muscles|length > 5 %}
+                        <span class="text-[9px] text-slate-500">+{{ day.muscles|length - 5 }}</span>
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="grid grid-cols-7 gap-2">
+            {% for day in week_calendar.days %}
+              <div class="min-h-[64px] rounded-md border border-slate-800 bg-slate-900 px-2 py-2 text-[10px]">
+                <div class="flex items-center justify-between">
+                  <span>{{ day.date.strftime('%b %d') }}</span>
+                </div>
+                {% if day.muscles %}
+                  <div class="mt-1 flex flex-wrap gap-1">
+                    {% for m in day.muscles[:5] %}
+                      <span
+                        class="h-1.5 w-1.5 rounded-full"
+                        style="background-color: {{ m['color'] }};"
+                        title="{{ m['name'] }}"
+                      ></span>
+                    {% endfor %}
+                    {% if day.muscles|length > 5 %}
+                      <span class="text-[9px] text-slate-500">+{{ day.muscles|length - 5 }}</span>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <p class="mt-3 text-xs text-slate-500">
+          Dots represent muscles trained on that day.
+        </p>
+
+      </section>
+
+      <section class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-5 shadow-md shadow-black/50">
+        <h2 class="text-sm font-semibold text-slate-100 mb-3">Totals</h2>
+        <dl class="space-y-2 text-sm">
+          <div class="flex items-center justify-between">
+            <dt class="text-slate-400">Workouts logged</dt>
+            <dd class="text-slate-100">{{ totals.workouts }}</dd>
+          </div>
+          <div class="flex items-center justify-between">
+            <dt class="text-slate-400">Exercises logged</dt>
+            <dd class="text-slate-100">{{ totals.exercises }}</dd>
+          </div>
+          <div class="flex items-center justify-between">
+            <dt class="text-slate-400">Active muscles</dt>
+            <dd class="text-slate-100">{{ totals.muscles }}</dd>
+          </div>
+          <div class="flex items-center justify-between">
+            <dt class="text-slate-400">Last workout</dt>
+            <dd class="text-slate-100">
+              {% if totals.last_workout %}
+                {{ totals.last_workout.strftime('%b %d, %Y') }}
+              {% else %}
+                -
+              {% endif %}
+            </dd>
+          </div>
+          <div class="flex items-center justify-between">
+            <dt class="text-slate-400">First workout</dt>
+            <dd class="text-slate-100">
+              {% if totals.first_workout %}
+                {{ totals.first_workout.strftime('%b %d, %Y') }}
+              {% else %}
+                -
+              {% endif %}
+            </dd>
+          </div>
+          <div class="flex items-start justify-between gap-4">
+            <dt class="text-slate-400">Most targeted</dt>
+            <dd class="text-slate-100 text-right">
+              {% if totals.most_targeted %}
+                {% for row in totals.most_targeted %}
+                  <span class="inline-flex items-center gap-1">
+                    <span
+                      class="h-2 w-2 rounded-full"
+                      style="background-color: {{ row['color'] or '#64748b' }};"
+                    ></span>
+                    {{ row["name"] }} ({{ row["exercise_count"] }})
+                  </span>{% if not loop.last %}, {% endif %}
+                {% endfor %}
+              {% else %}
+                -
+              {% endif %}
+            </dd>
+          </div>
+          <div class="flex items-start justify-between gap-4">
+            <dt class="text-slate-400">Least targeted</dt>
+            <dd class="text-slate-100 text-right">
+              {% if totals.least_targeted %}
+                {% for row in totals.least_targeted %}
+                  <span class="inline-flex items-center gap-1">
+                    <span
+                      class="h-2 w-2 rounded-full"
+                      style="background-color: {{ row['color'] or '#64748b' }};"
+                    ></span>
+                    {{ row["name"] }} ({{ row["exercise_count"] }})
+                  </span>{% if not loop.last %}, {% endif %}
+                {% endfor %}
+              {% else %}
+                -
+              {% endif %}
+            </dd>
+          </div>
+          <div class="flex items-start justify-between gap-4">
+            <dt class="text-slate-400">Most active month</dt>
+            <dd class="text-slate-100 text-right">
+              {% if totals.most_active_month %}
+                {% for row in totals.most_active_month %}
+                  <span>
+                    {{ row["month_start"].strftime('%b %Y') }} ({{ row["exercise_count"] }})
+                  </span>{% if not loop.last %}, {% endif %}
+                {% endfor %}
+              {% else %}
+                -
+              {% endif %}
+            </dd>
+          </div>
+          <div class="flex items-start justify-between gap-4">
+            <dt class="text-slate-400">Least active month</dt>
+            <dd class="text-slate-100 text-right">
+              {% if totals.least_active_month %}
+                {% for row in totals.least_active_month %}
+                  <span>
+                    {{ row["month_start"].strftime('%b %Y') }} ({{ row["exercise_count"] }})
+                  </span>{% if not loop.last %}, {% endif %}
+                {% endfor %}
+              {% else %}
+                -
+              {% endif %}
+            </dd>
+          </div>
+        </dl>
+      </section>
+    </div>
+
+    <section class="mt-6 rounded-lg border border-slate-800 bg-slate-950 px-5 py-5 shadow-md shadow-black/50">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-100">Muscle progression</h2>
+          <p class="text-xs text-slate-500">
+            Track max weight per day for the selected muscle.
+          </p>
+        </div>
+        {% if muscles %}
+          <div class="flex flex-wrap items-center gap-2">
+            <select
+              id="muscleSelect"
+              class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100"
+            >
+              {% for m in muscles %}
+                <option value="{{ m['id'] }}" {% if m['id'] == chart_muscle %}selected{% endif %}>
+                  {{ m["name"] }}
+                </option>
+              {% endfor %}
+            </select>
+            <select
+              id="rangeSelect"
+              class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100"
+            >
+              <option value="last_week" {% if chart_range == 'last_week' %}selected{% endif %}>Last week</option>
+              <option value="last_month" {% if chart_range == 'last_month' %}selected{% endif %}>Last month</option>
+              <option value="last_3_months" {% if chart_range == 'last_3_months' %}selected{% endif %}>Last 3 months</option>
+              <option value="last_6_months" {% if chart_range == 'last_6_months' %}selected{% endif %}>Last 6 months</option>
+              <option value="last_year" {% if chart_range == 'last_year' %}selected{% endif %}>Last year</option>
+              <option value="last_2_years" {% if chart_range == 'last_2_years' %}selected{% endif %}>Last 2 years</option>
+              <option value="custom" {% if chart_range == 'custom' %}selected{% endif %}>Custom range</option>
+            </select>
+          </div>
+        {% endif %}
+      </div>
+
+      {% if muscles %}
+        <div id="customRangeFields" class="flex flex-wrap items-center gap-2 mb-4 {% if chart_range != 'custom' %}hidden{% endif %}">
+          <input
+            type="date"
+            id="customStart"
+            value="{{ custom_start_default.strftime('%Y-%m-%d') }}"
+            class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100"
+          >
+          <input
+            type="date"
+            id="customEnd"
+            value="{{ custom_end_default.strftime('%Y-%m-%d') }}"
+            class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100"
+          >
+          <button
+            type="button"
+            id="applyRange"
+            class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700"
+          >
+            Apply
+          </button>
+        </div>
+
+        <div class="min-h-[320px]" id="chartWrapper">
+          <canvas id="muscleChart" height="160"></canvas>
+          <p id="chartEmptyState" class="mt-4 text-sm text-slate-400 hidden">
+            No weight data for this muscle and range yet.
+          </p>
+        </div>
+      {% else %}
+        <p class="text-sm text-slate-400">
+          Add a muscle group to start tracking progression.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    window.statsConfig = {
+      endpoint: "{{ url_for('web.stats_muscle_data') }}",
+      preferredUnit: "{{ preferred_unit }}",
+      initial: {{ chart_data | tojson }},
+      chartRange: "{{ chart_range }}",
+      chartMuscle: {{ chart_muscle if chart_muscle is not none else "null" }}
+    };
+  </script>
+  <script src="{{ url_for('web.static', filename='js/stats.js') }}"></script>
+{% endblock %}

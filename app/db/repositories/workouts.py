@@ -8,7 +8,14 @@ def list_workouts(conn, user_id: int):
         SELECT
             w.id,
             w.date,
-            COALESCE(string_agg(DISTINCT m.name, ','), '') AS muscles
+            COALESCE(string_agg(DISTINCT m.name, ','), '') AS muscles,
+            COALESCE(
+                string_agg(
+                    DISTINCT (m.name || '::' || COALESCE(m.color, '')),
+                    '||'
+                ),
+                ''
+            ) AS muscle_data
         FROM workout w
         LEFT JOIN exercise e ON e.workout_id = w.id
         LEFT JOIN exercise_muscle em ON em.exercise_id = e.id
@@ -26,7 +33,14 @@ def get_workout(conn, workout_id: int, user_id: int):
         SELECT
             w.id,
             w.date,
-            COALESCE(string_agg(DISTINCT m.name, ','), '') AS muscles
+            COALESCE(string_agg(DISTINCT m.name, ','), '') AS muscles,
+            COALESCE(
+                string_agg(
+                    DISTINCT (m.name || '::' || COALESCE(m.color, '')),
+                    '||'
+                ),
+                ''
+            ) AS muscle_data
         FROM workout w
         LEFT JOIN exercise e ON e.workout_id = w.id
         LEFT JOIN exercise_muscle em ON em.exercise_id = e.id

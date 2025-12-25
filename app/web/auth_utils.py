@@ -27,6 +27,11 @@ class User(UserMixin):
         else:
             self.weight_unit = "lb"
 
+        if "week_start" in keys and row["week_start"] is not None:
+            self.week_start = row["week_start"]
+        else:
+            self.week_start = "sun"
+
         if "recovery_email" in keys:
             self.recovery_email = row["recovery_email"]
         else:
@@ -61,6 +66,7 @@ def sync_g_user():
             "name": current_user.name,
             "email": current_user.email,
             "weight_unit": getattr(current_user, "weight_unit", "lb"),
+            "week_start": getattr(current_user, "week_start", "sun"),
             "recovery_email": getattr(current_user, "recovery_email", None),
         }
     else:

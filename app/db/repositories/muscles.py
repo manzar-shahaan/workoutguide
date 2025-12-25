@@ -1,12 +1,37 @@
 # app/db/repositories/muscles.py
 
+import re
+
 from sqlalchemy import text
 
 DEFAULT_MUSCLES = ["back", "arms", "chest", "abs", "legs", "cardio"]
+DEFAULT_MUSCLE_COLORS = {
+    "back": "#38bdf8",
+    "arms": "#f97316",
+    "chest": "#ef4444",
+    "abs": "#eab308",
+    "legs": "#22c55e",
+    "cardio": "#14b8a6",
+}
+DEFAULT_CUSTOM_COLOR = "#64748b"
+COLOR_REGEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
 def _normalize_name(name: str) -> str:
     return (name or "").strip().lower()
+
+
+def _normalize_color(color: str | None) -> str | None:
+    if not color:
+        return None
+    color = color.strip().lower()
+    if not COLOR_REGEX.match(color):
+        return None
+    return color
+
+
+def _default_color_for(name: str) -> str:
+    return DEFAULT_MUSCLE_COLORS.get(name, DEFAULT_CUSTOM_COLOR)
 
 
 def ensure_default_muscles(conn, user_id: int) -> None:
@@ -21,18 +46,18 @@ def ensure_default_muscles(conn, user_id: int) -> None:
         conn.execute(
             text(
                 """
-                INSERT INTO muscle (user_id, name, is_default, active)
-                VALUES (:user_id, :name, TRUE, TRUE)
+                INSERT INTO muscle (user_id, name, color, is_default, active)
+                VALUES (:user_id, :name, :color, TRUE, TRUE)
                 """
             ),
-            {"user_id": user_id, "name": name},
+            {"user_id": user_id, "name": name, "color": _default_color_for(name)},
         )
     conn.commit()
 
 
 def list_muscles(conn, user_id: int, *, active_only: bool = True):
     sql = """
-        SELECT id, name, is_default, active
+        SELECT id, name, color, is_default, active
         FROM muscle
         WHERE user_id = :user_id
     """
@@ -47,7 +72,7 @@ def get_muscle(conn, user_id: int, muscle_id: int):
     result = conn.execute(
         text(
             """
-            SELECT id, name, is_default, active
+            SELECT id, name, color, is_default, active
             FROM muscle
             WHERE user_id = :user_id AND id = :id
             """
@@ -57,10 +82,12 @@ def get_muscle(conn, user_id: int, muscle_id: int):
     return result.mappings().fetchone()
 
 
-def add_muscle(conn, user_id: int, name: str) -> int:
+def add_muscle(conn, user_id: int, name: str, color: str | None = None) -> int:
     name_norm = _normalize_name(name)
     if not name_norm:
         raise ValueError("Muscle name is required.")
+
+    color_norm = _normalize_color(color) or _default_color_for(name_norm)
 
     existing = conn.execute(
         text(
@@ -79,11 +106,25 @@ def add_muscle(conn, user_id: int, name: str) -> int:
                 text(
                     """
                     UPDATE muscle
-                    SET active = TRUE, is_default = FALSE
+                    SET active = TRUE,
+                        is_default = FALSE,
+                        color = :color
                     WHERE id = :id
                     """
                 ),
-                {"id": existing["id"]},
+                {"id": existing["id"], "color": color_norm},
+            )
+            conn.commit()
+        else:
+            conn.execute(
+                text(
+                    """
+                    UPDATE muscle
+                    SET color = :color
+                    WHERE id = :id
+                    """
+                ),
+                {"id": existing["id"], "color": color_norm},
             )
             conn.commit()
         return existing["id"]
@@ -91,12 +132,12 @@ def add_muscle(conn, user_id: int, name: str) -> int:
     result = conn.execute(
         text(
             """
-            INSERT INTO muscle (user_id, name, is_default, active)
-            VALUES (:user_id, :name, FALSE, TRUE)
+            INSERT INTO muscle (user_id, name, color, is_default, active)
+            VALUES (:user_id, :name, :color, FALSE, TRUE)
             RETURNING id
             """
         ),
-        {"user_id": user_id, "name": name_norm},
+        {"user_id": user_id, "name": name_norm, "color": color_norm},
     )
     conn.commit()
     return result.scalar_one()
@@ -116,7 +157,13 @@ def deactivate_muscle(conn, user_id: int, muscle_id: int) -> None:
     conn.commit()
 
 
-def rename_muscle(conn, user_id: int, muscle_id: int, new_name: str) -> int | None:
+def rename_muscle(
+    conn,
+    user_id: int,
+    muscle_id: int,
+    new_name: str,
+    color: str | None = None,
+) -> int | None:
     name_norm = _normalize_name(new_name)
     if not name_norm:
         raise ValueError("Muscle name is required.")
@@ -124,7 +171,7 @@ def rename_muscle(conn, user_id: int, muscle_id: int, new_name: str) -> int | No
     current = conn.execute(
         text(
             """
-            SELECT id, name
+            SELECT id, name, color
             FROM muscle
             WHERE id = :id AND user_id = :user_id
             """
@@ -135,7 +182,20 @@ def rename_muscle(conn, user_id: int, muscle_id: int, new_name: str) -> int | No
     if current is None:
         return None
 
+    color_norm = _normalize_color(color) or current["color"] or _default_color_for(name_norm)
+
     if current["name"] == name_norm:
+        conn.execute(
+            text(
+                """
+                UPDATE muscle
+                SET color = :color
+                WHERE id = :id AND user_id = :user_id
+                """
+            ),
+            {"id": muscle_id, "user_id": user_id, "color": color_norm},
+        )
+        conn.commit()
         return current["id"]
 
     # If the target name already exists, just activate it.
@@ -156,23 +216,36 @@ def rename_muscle(conn, user_id: int, muscle_id: int, new_name: str) -> int | No
                 text(
                     """
                     UPDATE muscle
-                    SET active = TRUE, is_default = FALSE
+                    SET active = TRUE,
+                        is_default = FALSE,
+                        color = :color
                     WHERE id = :id
                     """
                 ),
-                {"id": existing["id"]},
+                {"id": existing["id"], "color": color_norm},
+            )
+        else:
+            conn.execute(
+                text(
+                    """
+                    UPDATE muscle
+                    SET color = :color
+                    WHERE id = :id
+                    """
+                ),
+                {"id": existing["id"], "color": color_norm},
             )
         new_id = existing["id"]
     else:
         result = conn.execute(
             text(
                 """
-                INSERT INTO muscle (user_id, name, is_default, active)
-                VALUES (:user_id, :name, FALSE, TRUE)
+                INSERT INTO muscle (user_id, name, color, is_default, active)
+                VALUES (:user_id, :name, :color, FALSE, TRUE)
                 RETURNING id
                 """
             ),
-            {"user_id": user_id, "name": name_norm},
+            {"user_id": user_id, "name": name_norm, "color": color_norm},
         )
         new_id = result.scalar_one()
 
@@ -181,11 +254,12 @@ def rename_muscle(conn, user_id: int, muscle_id: int, new_name: str) -> int | No
         text(
             """
             UPDATE muscle
-            SET active = FALSE
+            SET active = FALSE,
+                color = :color
             WHERE id = :id AND user_id = :user_id
             """
         ),
-        {"id": muscle_id, "user_id": user_id},
+        {"id": muscle_id, "user_id": user_id, "color": color_norm},
     )
 
     conn.commit()
@@ -201,12 +275,14 @@ def reset_to_default(conn, user_id: int) -> None:
         conn.execute(
             text(
                 """
-                INSERT INTO muscle (user_id, name, is_default, active)
-                VALUES (:user_id, :name, TRUE, TRUE)
+                INSERT INTO muscle (user_id, name, color, is_default, active)
+                VALUES (:user_id, :name, :color, TRUE, TRUE)
                 ON CONFLICT (user_id, name)
-                DO UPDATE SET is_default = TRUE, active = TRUE
+                DO UPDATE SET is_default = TRUE,
+                              active = TRUE,
+                              color = :color
                 """
             ),
-            {"user_id": user_id, "name": name},
+            {"user_id": user_id, "name": name, "color": _default_color_for(name)},
         )
     conn.commit()
