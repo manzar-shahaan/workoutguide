@@ -13,7 +13,7 @@
   <header class="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6 gap-3">
     <div>
       <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100">
-        Workout on {{ workout["date"] }}
+        {{ workout_date_display }}
       </h1>
       <p class="mt-1 text-xs text-slate-500">
         ID: {{ workout["id"] }}
@@ -38,29 +38,37 @@
     </div>
 
     <div class="mt-1">
-      <div class="flex flex-col sm:flex-row sm:items-center gap-2">
-        <a
-          href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=editable|int, unit='stored' if unit_pref == 'converted' else 'converted') }}"
-          class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <button
+          type="button"
+          id="unitToggle"
+          data-mode="{{ unit_pref }}"
+          class="inline-flex w-full items-center justify-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200 sm:w-auto sm:text-sm"
         >
-          {% if unit_pref == "converted" %}
-            Show stored units
-          {% else %}
-            Convert weights (lb <-> kg)
-          {% endif %}
-        </a>
+          <span
+            data-unit-label
+            data-label-stored="Convert weights (lb <-> kg)"
+            data-label-converted="Show stored units"
+          >
+            {% if unit_pref == "converted" %}
+              Show stored units
+            {% else %}
+              Convert weights (lb <-> kg)
+            {% endif %}
+          </span>
+        </button>
 
         {% if editable %}
           <a
             href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=0, unit=unit_pref) }}"
-            class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-700 transition-colors duration-200"
+            class="inline-flex w-full items-center justify-center rounded-md border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors duration-200 sm:w-auto sm:text-sm"
           >
             Done editing
           </a>
         {% else %}
           <a
             href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=1, unit=unit_pref) }}"
-            class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-700 transition-colors duration-200"
+            class="inline-flex w-full items-center justify-center rounded-md border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors duration-200 sm:w-auto sm:text-sm"
           >
             Edit workout
           </a>
@@ -92,13 +100,13 @@
     {% else %}
       <ul class="space-y-3">
         {% for ex in exercises %}
-          <li class="rounded-lg border border-slate-800 bg-slate-900 px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-md shadow-black/50 hover:border-slate-700 hover:bg-slate-800/80 transition-all duration-200">
+          <li class="rounded-lg border border-slate-800 bg-slate-900 px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-md shadow-black/50 hover:border-[#1f3370] hover:bg-[#152856] transition-all duration-200">
             <div>
               <p class="font-medium text-slate-100 text-sm">
                 {{ ex["notes"] or "(no notes)" }}
               </p>
 
-              <p class="mt-1 text-xs text-slate-500">
+              <p class="mt-1 text-sm text-slate-500">
                 {% set show_sep = false %}
                 {% if ex["muscles_list"] %}
                   <span class="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -115,20 +123,29 @@
                   {% set show_sep = true %}
                 {% endif %}
                 {% if ex["weight_used"] is not none %}
-                  {% if unit_pref == "converted" and ex["weight_used_kg"] is not none and ex["weight_unit"] in ["lb", "kg"] %}
-                    {% if ex["weight_unit"] == "kg" %}
-                      {% set display_weight = ex["weight_used_kg"] / 0.45359237 %}
+                  {% set stored_unit = ex["weight_unit"] if ex["weight_unit"] else "" %}
+                  {% set weight_used_kg = ex["weight_used_kg"] %}
+                  {% if unit_pref == "converted" and weight_used_kg is not none and stored_unit in ["lb", "kg"] %}
+                    {% if stored_unit == "kg" %}
+                      {% set display_weight = weight_used_kg / 0.45359237 %}
                       {% set display_unit = "lb" %}
                     {% else %}
-                      {% set display_weight = ex["weight_used_kg"] %}
+                      {% set display_weight = weight_used_kg %}
                       {% set display_unit = "kg" %}
                     {% endif %}
                   {% else %}
                     {% set display_weight = ex["weight_used"] %}
-                    {% set display_unit = ex["weight_unit"] if ex["weight_unit"] else "" %}
+                    {% set display_unit = stored_unit %}
                   {% endif %}
                   {% if show_sep %} | {% endif %}
-                  {{ "%.2f"|format(display_weight) }}{% if display_unit %} {{ display_unit }}{% endif %}
+                  <span
+                    class="js-weight"
+                    data-weight-used="{{ ex['weight_used'] }}"
+                    data-weight-unit="{{ stored_unit }}"
+                    data-weight-kg="{% if weight_used_kg is not none %}{{ weight_used_kg }}{% endif %}"
+                  >
+                    {{ "%.2f"|format(display_weight) }}{% if display_unit %} {{ display_unit }}{% endif %}
+                  </span>
                   {% set show_sep = true %}
                 {% endif %}
                 {% if ex["num_of_sets"] is not none %}
@@ -164,6 +181,58 @@
           </li>
         {% endfor %}
       </ul>
-    {% endif %}
+  {% endif %}
   </section>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const toggle = document.getElementById("unitToggle");
+      if (!toggle) return;
+
+      const label = toggle.querySelector("[data-unit-label]");
+      const weights = document.querySelectorAll(".js-weight");
+
+      const setMode = (mode) => {
+        const active = mode === "converted" ? "converted" : "stored";
+        toggle.dataset.mode = active;
+
+        if (label) {
+          label.textContent =
+            active === "converted"
+              ? label.dataset.labelConverted
+              : label.dataset.labelStored;
+        }
+
+        weights.forEach((el) => {
+          const rawWeight = parseFloat(el.dataset.weightUsed || "");
+          if (Number.isNaN(rawWeight)) return;
+          const unit = (el.dataset.weightUnit || "").toLowerCase();
+          const rawKg = parseFloat(el.dataset.weightKg || "");
+          const hasKg = !Number.isNaN(rawKg);
+
+          let displayWeight = rawWeight;
+          let displayUnit = unit;
+
+          if (active === "converted" && hasKg && (unit === "lb" || unit === "kg")) {
+            if (unit === "kg") {
+              displayWeight = rawKg / 0.45359237;
+              displayUnit = "lb";
+            } else {
+              displayWeight = rawKg;
+              displayUnit = "kg";
+            }
+          }
+
+          const formatted = displayWeight.toFixed(2);
+          el.textContent = displayUnit ? `${formatted} ${displayUnit}` : formatted;
+        });
+      };
+
+      setMode(toggle.dataset.mode || "stored");
+      toggle.addEventListener("click", () => {
+        const nextMode = toggle.dataset.mode === "converted" ? "stored" : "converted";
+        setMode(nextMode);
+      });
+    });
+  </script>
 {% endblock %}

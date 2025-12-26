@@ -27,27 +27,51 @@
         <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
           <div>
             <h2 class="text-sm font-semibold text-slate-100">Calendar</h2>
-            {% if view == "month" %}
-              <p class="text-xs text-slate-500">
-                {{ month_calendar.label }} · {{ month_calendar.month_total }} exercises
-              </p>
-            {% else %}
-              <p class="text-xs text-slate-500">
-                {{ week_calendar.week_start.strftime('%b %d') }} -> {{ week_calendar.week_end.strftime('%b %d, %Y') }}
-                · {{ week_calendar.week_total }} exercises
-              </p>
-            {% endif %}
+            <p class="text-xs text-slate-500" data-view-block="month">
+              {{ month_calendar.label }} · {{ month_calendar.month_total }} exercises
+            </p>
+            <p class="text-xs text-slate-500 hidden" data-view-block="week">
+              {{ week_calendar.week_start.strftime('%b %d') }} -> {{ week_calendar.week_end.strftime('%b %d, %Y') }}
+              · {{ week_calendar.week_total }} exercises
+            </p>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2" data-view-block="month">
             <a
-              href="{{ url_for('web.stats_index', view=view, date=prev_date.strftime('%Y-%m-%d')) }}"
+              href="{{ url_for('web.stats_index', view='month', date=month_prev_date.strftime('%Y-%m-%d')) }}"
               class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
             >
               Prev
             </a>
             <a
-              href="{{ url_for('web.stats_index', view=view, date=next_date.strftime('%Y-%m-%d')) }}"
+              href="{{ url_for('web.stats_index', view='month', date=today.strftime('%Y-%m-%d')) }}"
+              class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
+            >
+              Today
+            </a>
+            <a
+              href="{{ url_for('web.stats_index', view='month', date=month_next_date.strftime('%Y-%m-%d')) }}"
+              class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
+            >
+              Next
+            </a>
+          </div>
+
+          <div class="flex items-center gap-2 hidden" data-view-block="week">
+            <a
+              href="{{ url_for('web.stats_index', view='week', date=week_prev_date.strftime('%Y-%m-%d')) }}"
+              class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
+            >
+              Prev
+            </a>
+            <a
+              href="{{ url_for('web.stats_index', view='week', date=today.strftime('%Y-%m-%d')) }}"
+              class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
+            >
+              Today
+            </a>
+            <a
+              href="{{ url_for('web.stats_index', view='week', date=week_next_date.strftime('%Y-%m-%d')) }}"
               class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
             >
               Next
@@ -56,20 +80,20 @@
         </div>
 
         <div class="flex items-center gap-2 mb-4">
-          <a
-            href="{{ url_for('web.stats_index', view='month', date=anchor_date.strftime('%Y-%m-%d')) }}"
-            class="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium
-                   {% if view == 'month' %}bg-emerald-500 text-black{% else %}border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800{% endif %}"
+          <button
+            type="button"
+            data-view-button="month"
+            class="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
           >
             Month
-          </a>
-          <a
-            href="{{ url_for('web.stats_index', view='week', date=anchor_date.strftime('%Y-%m-%d')) }}"
-            class="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium
-                   {% if view == 'week' %}bg-emerald-500 text-black{% else %}border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800{% endif %}"
+          </button>
+          <button
+            type="button"
+            data-view-button="week"
+            class="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
           >
             Week
-          </a>
+          </button>
         </div>
 
         <div class="grid grid-cols-7 gap-2 text-[10px] text-slate-500 mb-2">
@@ -78,60 +102,58 @@
           {% endfor %}
         </div>
 
-        {% if view == "month" %}
-          <div class="grid grid-cols-7 gap-2">
-            {% for week in month_calendar.weeks %}
-              {% for day in week.days %}
-                <div
-                  class="min-h-[64px] rounded-md border border-slate-800 px-2 py-2 text-[10px]
-                         {% if day.in_month %}bg-slate-900{% else %}bg-slate-900/40 text-slate-600{% endif %}"
-                >
-                  <div class="flex items-center justify-between">
-                    <span>{{ day.date.day }}</span>
-                  </div>
-                  {% if day.muscles %}
-                    <div class="mt-1 flex flex-wrap gap-1">
-                      {% for m in day.muscles[:5] %}
-                        <span
-                          class="h-1.5 w-1.5 rounded-full"
-                          style="background-color: {{ m['color'] }};"
-                          title="{{ m['name'] }}"
-                        ></span>
-                      {% endfor %}
-                      {% if day.muscles|length > 5 %}
-                        <span class="text-[9px] text-slate-500">+{{ day.muscles|length - 5 }}</span>
-                      {% endif %}
-                    </div>
-                  {% endif %}
-                </div>
-              {% endfor %}
-            {% endfor %}
-          </div>
-        {% else %}
-          <div class="grid grid-cols-7 gap-2">
-            {% for day in week_calendar.days %}
-              <div class="min-h-[64px] rounded-md border border-slate-800 bg-slate-900 px-2 py-2 text-[10px]">
-                <div class="flex items-center justify-between">
-                  <span>{{ day.date.strftime('%b %d') }}</span>
+        <div class="grid grid-cols-7 gap-2" data-view-block="month">
+          {% for week in month_calendar.weeks %}
+            {% for day in week.days %}
+              <div
+                class="aspect-square w-full rounded-md border border-slate-800 px-2 py-2 text-[10px]
+                       {% if day.in_month %}bg-slate-900{% else %}bg-slate-900/40 text-slate-600{% endif %}
+                       {% if day.date == today %}border-emerald-300 bg-emerald-500/70 text-emerald-50 ring-2 ring-emerald-400/70{% endif %}"
+              >
+                <div class="flex items-center justify-center">
+                  <span>{{ day.date.day }}</span>
                 </div>
                 {% if day.muscles %}
-                  <div class="mt-1 flex flex-wrap gap-1">
-                    {% for m in day.muscles[:5] %}
+                  {% set compact_dots = day.muscles|length >= 7 %}
+                  <div class="mt-1 flex flex-wrap items-center justify-center gap-1">
+                    {% for m in day.muscles %}
                       <span
-                        class="h-1.5 w-1.5 rounded-full"
+                        class="{{ 'h-1 w-2' if compact_dots else 'h-1.5 w-1.5' }} shrink-0 rounded-full"
                         style="background-color: {{ m['color'] }};"
                         title="{{ m['name'] }}"
                       ></span>
                     {% endfor %}
-                    {% if day.muscles|length > 5 %}
-                      <span class="text-[9px] text-slate-500">+{{ day.muscles|length - 5 }}</span>
-                    {% endif %}
                   </div>
                 {% endif %}
               </div>
             {% endfor %}
-          </div>
-        {% endif %}
+          {% endfor %}
+        </div>
+
+        <div class="grid grid-cols-7 gap-2 hidden" data-view-block="week">
+          {% for day in week_calendar.days %}
+            <div
+              class="aspect-square w-full rounded-md border border-slate-800 bg-slate-900 px-2 py-2 text-[10px]
+                     {% if day.date == today %}border-emerald-300 bg-emerald-500/70 text-emerald-50 ring-2 ring-emerald-400/70{% endif %}"
+            >
+              <div class="flex items-center justify-center">
+                <span>{{ day.date.strftime('%b %d') }}</span>
+              </div>
+              {% if day.muscles %}
+                {% set compact_dots = day.muscles|length >= 7 %}
+                <div class="mt-1 flex flex-wrap items-center justify-center gap-1">
+                  {% for m in day.muscles %}
+                    <span
+                      class="{{ 'h-1 w-2' if compact_dots else 'h-1.5 w-1.5' }} shrink-0 rounded-full"
+                      style="background-color: {{ m['color'] }};"
+                      title="{{ m['name'] }}"
+                    ></span>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
 
         <p class="mt-3 text-xs text-slate-500">
           Dots represent muscles trained on that day.
@@ -257,7 +279,11 @@
               class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100"
             >
               {% for m in muscles %}
-                <option value="{{ m['id'] }}" {% if m['id'] == chart_muscle %}selected{% endif %}>
+                <option
+                  value="{{ m['id'] }}"
+                  data-color="{{ m['color'] or '' }}"
+                  {% if m['id'] == chart_muscle %}selected{% endif %}
+                >
                   {{ m["name"] }}
                 </option>
               {% endfor %}
@@ -274,6 +300,13 @@
               <option value="last_2_years" {% if chart_range == 'last_2_years' %}selected{% endif %}>Last 2 years</option>
               <option value="custom" {% if chart_range == 'custom' %}selected{% endif %}>Custom range</option>
             </select>
+            <button
+              type="button"
+              id="resetZoom"
+              class="inline-flex items-center rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Reset zoom
+            </button>
           </div>
         {% endif %}
       </div>
@@ -316,13 +349,15 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
   <script>
     window.statsConfig = {
       endpoint: "{{ url_for('web.stats_muscle_data') }}",
       preferredUnit: "{{ preferred_unit }}",
       initial: {{ chart_data | tojson }},
       chartRange: "{{ chart_range }}",
-      chartMuscle: {{ chart_muscle if chart_muscle is not none else "null" }}
+      chartMuscle: {{ chart_muscle if chart_muscle is not none else "null" }},
+      view: "{{ view }}"
     };
   </script>
   <script src="{{ url_for('web.static', filename='js/stats.js') }}"></script>

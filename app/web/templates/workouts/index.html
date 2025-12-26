@@ -3,33 +3,119 @@
 {% block title %}Your workouts{% endblock %}
 
 {% block content %}
-  <div class="flex items-center justify-between mb-8">
-    <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100">
-      Your workouts
-    </h1>
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-8">
+    <form method="get" class="w-full sm:max-w-md">
+      <div class="flex items-center gap-2">
+        <input
+          type="search"
+          name="q"
+          value="{{ search_query }}"
+          placeholder="Search notes, muscles, weight, sets, date"
+          class="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs sm:text-sm text-slate-100 placeholder:text-slate-500"
+        >
+        {% if search_query %}
+          <a
+            href="{{ url_for('web.workouts_index') }}"
+            class="text-xs text-slate-400 hover:text-slate-100"
+          >
+            Clear
+          </a>
+        {% endif %}
+      </div>
+    </form>
     <div class="flex items-center gap-2">
-      <a
-        href="{{ url_for('web.new_exercise') }}"
-        class="inline-flex items-center rounded-md bg-emerald-500 px-3 py-2 text-xs sm:text-sm font-medium text-black hover:bg-emerald-400"
-      >
-        + Add exercise
-      </a>
       <a
         href="{{ url_for('web.stats_index') }}"
         class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200 md:hidden"
       >
         Stats
       </a>
+      <a
+        href="{{ url_for('web.new_exercise') }}"
+        class="inline-flex items-center rounded-md bg-emerald-500 px-3 py-2 text-xs sm:text-sm font-medium text-black hover:bg-emerald-400"
+      >
+        + Add exercise
+      </a>
     </div>
   </div>
 
+  {% if search_query %}
+    <p class="mb-4 text-xs text-slate-500">
+      Results for "{{ search_query }}"
+    </p>
+  {% endif %}
+
   <div class="md:grid md:grid-cols-[minmax(0,1fr)_360px] md:gap-8 md:items-start">
     <div class="md:pr-4">
-      {% if not week_groups and not month_groups %}
-        <p class="text-sm text-slate-400">
-          You don't have any workouts yet. Tap <span class="font-semibold text-slate-100">“Add exercise”</span> to log your first one.
-        </p>
-      {% else %}
+  {% if search_query %}
+    {% if search_results %}
+      <section class="mb-8">
+        <h2 class="mb-3 text-sm sm:text-base font-semibold text-slate-100">
+          Matching exercises
+        </h2>
+        <ul class="space-y-3">
+          {% for ex in search_results %}
+            <li>
+              <a
+                href="{{ url_for('web.workout_detail', workout_id=ex['workout_id']) }}"
+                class="block rounded-lg border border-slate-800 bg-slate-900 px-4 py-3 text-sm shadow-md shadow-black/50 hover:border-[#1f3370] hover:bg-[#152856] transition-all duration-200"
+              >
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p class="font-medium text-slate-100 text-sm">
+                      {{ ex["notes"] or "(no notes)" }}
+                    </p>
+                    <p class="mt-1 text-sm text-slate-500">
+                      {% set show_sep = false %}
+                      {% if ex["muscles_list"] %}
+                        <span class="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                          {% for m in ex["muscles_list"] %}
+                            <span class="inline-flex items-center gap-1">
+                              <span
+                                class="h-2 w-2 rounded-full"
+                                style="background-color: {{ m['color'] }};"
+                              ></span>
+                              {{ m["name"] }}
+                            </span>{% if not loop.last %}<span class="text-slate-500">,</span>{% endif %}
+                          {% endfor %}
+                        </span>
+                        {% set show_sep = true %}
+                      {% else %}
+                        <span>No muscle group logged</span>
+                        {% set show_sep = true %}
+                      {% endif %}
+                      {% if ex["weight_used"] is not none %}
+                        {% if show_sep %} | {% endif %}
+                        {{ "%.2f"|format(ex["weight_used"]) }}{% if ex["weight_unit"] %} {{ ex["weight_unit"] }}{% endif %}
+                        {% set show_sep = true %}
+                      {% endif %}
+                      {% if ex["num_of_sets"] is not none %}
+                        {% if show_sep %} | {% endif %}
+                        {{ ex["num_of_sets"] }} sets
+                      {% endif %}
+                    </p>
+                  </div>
+                  <span class="text-sm text-slate-500">
+                    {{ ex["weekday"] }} | {{ ex["date_display"] }}
+                  </span>
+                </div>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% else %}
+      <p class="text-sm text-slate-400">
+        No workouts match your search. Try a different term or
+        <a href="{{ url_for('web.workouts_index') }}" class="text-slate-100 hover:text-white">clear search</a>.
+      </p>
+    {% endif %}
+  {% else %}
+    {% if not week_groups and not month_groups %}
+      <p class="text-sm text-slate-400">
+        You don't have any workouts yet. Tap <span class="font-semibold text-slate-100">“Add exercise”</span> to log your first one.
+      </p>
+    {% else %}
 
         {# Recent weeks (this week, last week, up to 4 weeks back) #}
         {% for group in week_groups %}
@@ -50,7 +136,7 @@
                 <li>
                   <a
                     href="{{ url_for('web.workout_detail', workout_id=w['id']) }}"
-                    class="block rounded-lg bg-slate-900 px-5 py-4 border border-slate-800 shadow-md shadow-black/50 hover:border-slate-700 hover:bg-slate-800/80 transition-all duration-200"
+                    class="block rounded-lg bg-slate-900 px-5 py-4 border border-slate-800 shadow-md shadow-black/50 hover:border-[#1f3370] hover:bg-[#152856] transition-all duration-200"
                   >
                     <div class="flex items-center justify-between">
                       <div>
@@ -66,19 +152,19 @@
                               </span>{% if not loop.last %}<span class="text-slate-500">,</span>{% endif %}
                             {% endfor %}
                           </div>
-                          <p class="mt-1 text-xs text-slate-500">
+                          <p class="mt-1 text-sm text-slate-500">
                             {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
                           </p>
                         {% else %}
                           <p class="text-sm font-semibold text-slate-100">
                             {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
                           </p>
-                          <p class="mt-1 text-xs text-slate-500">
+                          <p class="mt-1 text-sm text-slate-500">
                             No muscle groups logged yet
                           </p>
                         {% endif %}
                       </div>
-                      <span class="text-xs text-slate-500">
+                      <span class="text-sm text-slate-500">
                         #{{ w["id"] }}
                       </span>
                     </div>
@@ -109,7 +195,7 @@
                         <li>
                           <a
                             href="{{ url_for('web.workout_detail', workout_id=w['id']) }}"
-                            class="block rounded-lg bg-slate-950 px-5 py-4 border border-slate-800 shadow-md shadow-black/50 hover:border-slate-700 hover:bg-slate-900/80 transition-all duration-200"
+                            class="block rounded-lg bg-slate-950 px-5 py-4 border border-slate-800 shadow-md shadow-black/50 hover:border-[#1f3370] hover:bg-[#152856] transition-all duration-200"
                           >
                             <div class="flex items-center justify-between">
                               <div>
@@ -125,19 +211,19 @@
                                       </span>{% if not loop.last %}<span class="text-slate-500">,</span>{% endif %}
                                     {% endfor %}
                                   </div>
-                                  <p class="mt-1 text-xs text-slate-500">
+                                  <p class="mt-1 text-sm text-slate-500">
                                     {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
                                   </p>
                                 {% else %}
                                   <p class="text-sm font-semibold text-slate-100">
                                     {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
                                   </p>
-                                  <p class="mt-1 text-xs text-slate-500">
+                                  <p class="mt-1 text-sm text-slate-500">
                                     No muscle groups logged yet
                                   </p>
                                 {% endif %}
                               </div>
-                              <span class="text-xs text-slate-500">
+                              <span class="text-sm text-slate-500">
                                 #{{ w["id"] }}
                               </span>
                             </div>
@@ -152,7 +238,8 @@
           </section>
         {% endif %}
       {% endif %}
-    </div>
+    {% endif %}
+  </div>
 
     <aside class="hidden md:block md:mt-6">
       <section class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-5 shadow-md shadow-black/50">
@@ -176,26 +263,27 @@
           {% for week in stats_month_calendar.weeks %}
             {% for day in week.days %}
               <div
-                class="min-h-[54px] rounded-md border border-slate-800 px-2 py-2 text-[10px]
-                       {% if day.in_month %}bg-slate-900{% else %}bg-slate-900/40 text-slate-600{% endif %}"
+                class="relative aspect-square w-full overflow-hidden rounded-md border border-slate-800 text-[10px]
+                       {% if day.in_month %}bg-slate-900{% else %}bg-slate-900/40 text-slate-600{% endif %}
+                       {% if day.date == today %}border-emerald-300 bg-emerald-500/70 text-emerald-50 ring-2 ring-emerald-400/70{% endif %}"
               >
-                <div class="flex items-center justify-between">
-                  <span>{{ day.date.day }}</span>
-                </div>
-                {% if day.muscles %}
-                  <div class="mt-1 flex items-center gap-1 flex-nowrap overflow-hidden">
-                    {% for m in day.muscles[:4] %}
-                      <span
-                        class="h-1.5 w-1.5 rounded-full"
-                        style="background-color: {{ m['color'] }};"
-                        title="{{ m['name'] }}"
-                      ></span>
-                    {% endfor %}
-                    {% if day.muscles|length > 4 %}
-                      <span class="text-[9px] text-slate-500">+{{ day.muscles|length - 4 }}</span>
-                    {% endif %}
+                <div class="absolute inset-0 flex flex-col items-center px-2 py-2">
+                  <div class="flex items-center justify-center">
+                    <span>{{ day.date.day }}</span>
                   </div>
-                {% endif %}
+                  {% if day.muscles %}
+                    {% set compact_dots = day.muscles|length > 3 %}
+                    <div class="mt-1 flex w-full items-center justify-center flex-nowrap {% if compact_dots %}gap-0.5{% else %}gap-1{% endif %}">
+                      {% for m in day.muscles %}
+                        <span
+                          class="{{ 'h-1.5 w-1.5' if compact_dots else 'h-1.5 w-1.5' }} shrink-0 rounded-full"
+                          style="background-color: {{ m['color'] }};"
+                          title="{{ m['name'] }}"
+                        ></span>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                </div>
               </div>
             {% endfor %}
           {% endfor %}

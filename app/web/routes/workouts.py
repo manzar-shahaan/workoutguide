@@ -170,10 +170,20 @@ def _range_bounds(range_key: str, today: _date) -> tuple[_date, _date]:
 @web_bp.route("/workouts")
 @login_required
 def workouts_index():
+    search_query = (request.args.get("q") or "").strip()
+    search_results = []
+
     conn = get_conn()
     try:
         user_id = g.user["id"]
-        rows = workouts_repo.list_workouts(conn, user_id=user_id)
+        if search_query:
+            exercise_rows = exercises_repo.search_exercises(
+                conn,
+                user_id=user_id,
+                query=search_query,
+            )
+        else:
+            rows = workouts_repo.list_workouts(conn, user_id=user_id)
 
         week_start_pref = g.user.get("week_start", "sun")
         month_anchor = _date.today()
@@ -198,70 +208,100 @@ def workouts_index():
     week_groups = {}   # week_start (date) -> [workouts]
     month_groups = {}  # (year, month) -> [workouts]
 
-    for row in rows:
-        # row["date"] is "YYYY-MM-DD" (skip if missing for any reason)
-        if not row["date"]:
-            continue
+    if search_query:
+        for row in exercise_rows:
+            raw_date = row["workout_date"]
+            if not raw_date:
+                continue
+            if isinstance(raw_date, _date):
+                d = raw_date
+            else:
+                d = datetime.strptime(raw_date, "%Y-%m-%d").date()
 
-        raw_date = row["date"]
-        if isinstance(raw_date, _date):
-            d = raw_date
-        else:
-            d = datetime.strptime(raw_date, "%Y-%m-%d").date()
+            muscle_data = row["muscle_data"] if "muscle_data" in row.keys() else ""
+            muscles_list = _parse_muscle_data(muscle_data)
 
-        raw_muscles = row["muscles"] or ""
-        muscles_display = _format_muscle_list(raw_muscles)
-        muscle_data = row["muscle_data"] if "muscle_data" in row.keys() else ""
-        muscles_list = _parse_muscle_data(muscle_data)
+            search_results.append(
+                {
+                    "id": row["id"],
+                    "workout_id": row["workout_id"],
+                    "notes": row["notes"],
+                    "weight_used": row["weight_used"],
+                    "weight_unit": row["weight_unit"],
+                    "num_of_sets": row["num_of_sets"],
+                    "date": d,
+                    "date_display": _format_date(d),
+                    "weekday": d.strftime("%a"),
+                    "muscles_list": muscles_list,
+                }
+            )
+    else:
+        for row in rows:
+            # row["date"] is "YYYY-MM-DD" (skip if missing for any reason)
+            if not row["date"]:
+                continue
 
-        workout = {
-            "id": row["id"],
-            "date": d,
-            "date_display": _format_date(d),
-            "muscles": raw_muscles,
-            "muscles_display": muscles_display,
-            "muscles_list": muscles_list,
-        }
+            raw_date = row["date"]
+            if isinstance(raw_date, _date):
+                d = raw_date
+            else:
+                d = datetime.strptime(raw_date, "%Y-%m-%d").date()
 
-        week_start = d - timedelta(days=d.weekday())  # Monday of that week
+            raw_muscles = row["muscles"] or ""
+            muscles_display = _format_muscle_list(raw_muscles)
+            muscle_data = row["muscle_data"] if "muscle_data" in row.keys() else ""
+            muscles_list = _parse_muscle_data(muscle_data)
 
-        if week_start >= recent_cutoff:
-            week_groups.setdefault(week_start, []).append(workout)
-        else:
-            month_key = (d.year, d.month)
-            month_groups.setdefault(month_key, []).append(workout)
+            workout = {
+                "id": row["id"],
+                "date": d,
+                "date_display": _format_date(d),
+                "muscles": raw_muscles,
+                "muscles_display": muscles_display,
+                "muscles_list": muscles_list,
+            }
+
+            week_start = d - timedelta(days=d.weekday())  # Monday of that week
+
+            if week_start >= recent_cutoff:
+                week_groups.setdefault(week_start, []).append(workout)
+            else:
+                month_key = (d.year, d.month)
+                month_groups.setdefault(month_key, []).append(workout)
 
     # Build ordered week groups (most recent first)
     week_groups_list = []
-    for ws in sorted(week_groups.keys(), reverse=True):
-        we = ws + timedelta(days=6)
-        range_str = _format_range(ws, we)
+    if not search_query:
+        for ws in sorted(week_groups.keys(), reverse=True):
+            we = ws + timedelta(days=6)
+            range_str = _format_range(ws, we)
 
-        if ws == current_week_start:
-            label = "This week"
-            range_display = range_str
-        elif ws == current_week_start - timedelta(weeks=1):
-            label = "Last week"
-            range_display = range_str
-        else:
-            label = range_str
-            range_display = None  # no separate range line
+            if ws == current_week_start:
+                label = "This week"
+                range_display = range_str
+            elif ws == current_week_start - timedelta(weeks=1):
+                label = "Last week"
+                range_display = range_str
+            else:
+                label = range_str
+                range_display = None  # no separate range line
 
-        week_groups_list.append({
-            "label": label,
-            "range": range_display,
-            "workouts": week_groups[ws],
-        })
+            week_groups_list.append({
+                "label": label,
+                "range": range_display,
+                "workouts": week_groups[ws],
+            })
 
     # Build ordered month groups (most recent month first)
     month_groups_list = []
-    for (year, month) in sorted(month_groups.keys(), reverse=True):
-        month_name = datetime(year, month, 1).strftime("%B")  # "November"
-        heading = f"{month_name} {year}"
-        month_groups_list.append({
-            "heading": heading,
-            "workouts": month_groups[(year, month)],
-        })
+    if not search_query:
+        for (year, month) in sorted(month_groups.keys(), reverse=True):
+            month_name = datetime(year, month, 1).strftime("%B")  # "November"
+            heading = f"{month_name} {year}"
+            month_groups_list.append({
+                "heading": heading,
+                "workouts": month_groups[(year, month)],
+            })
 
     # ✅ Always return a response
     return render_template(
@@ -271,6 +311,9 @@ def workouts_index():
         stats_month_calendar=month_calendar,
         stats_month_anchor=month_anchor,
         stats_weekdays=_weekdays_for_start(week_start_pref),
+        search_query=search_query,
+        search_results=search_results,
+        today=today,
     )
 
 
@@ -308,9 +351,16 @@ def workout_detail(workout_id):
     if unit_pref not in {"stored", "converted"}:
         unit_pref = "stored"
 
+    raw_date = workout["date"]
+    workout_date_obj = (
+        raw_date if isinstance(raw_date, _date) else datetime.strptime(raw_date, "%Y-%m-%d").date()
+    )
+    workout_date_display = _format_date(workout_date_obj)
+
     return render_template(
         "workouts/detail.html",
         workout=workout,
+        workout_date_display=workout_date_display,
         workout_muscles=workout_muscles,
         exercises=formatted_exercises,
         editable=editable,
@@ -369,16 +419,11 @@ def stats_index():
     finally:
         conn.close()
 
-    prev_date = (
-        range_start - timedelta(days=7)
-        if view == "week"
-        else _shift_months(anchor_date, -1)
-    )
-    next_date = (
-        range_start + timedelta(days=7)
-        if view == "week"
-        else _shift_months(anchor_date, 1)
-    )
+    week_anchor = _start_of_week(anchor_date, week_start_pref)
+    week_prev_date = week_anchor - timedelta(days=7)
+    week_next_date = week_anchor + timedelta(days=7)
+    month_prev_date = _shift_months(anchor_date, -1)
+    month_next_date = _shift_months(anchor_date, 1)
 
     chart_muscle = muscles[0]["id"] if muscles else None
     chart_range = request.args.get("range", "last_3_months")
@@ -421,8 +466,10 @@ def stats_index():
         anchor_date=anchor_date,
         month_calendar=month_calendar,
         week_calendar=week_calendar,
-        prev_date=prev_date,
-        next_date=next_date,
+        week_prev_date=week_prev_date,
+        week_next_date=week_next_date,
+        month_prev_date=month_prev_date,
+        month_next_date=month_next_date,
         week_totals=week_totals,
         month_totals=month_totals,
         totals=totals,
@@ -434,6 +481,7 @@ def stats_index():
         preferred_unit=g.user.get("weight_unit", "lb"),
         custom_start_default=custom_start_default,
         custom_end_default=today,
+        today=today,
     )
 
 

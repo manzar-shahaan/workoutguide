@@ -28,6 +28,41 @@ def list_workouts(conn, user_id: int):
     return result.mappings().all()
 
 
+def search_workouts(conn, user_id: int, query: str):
+    sql = """
+        SELECT
+            w.id,
+            w.date,
+            COALESCE(string_agg(DISTINCT m.name, ','), '') AS muscles,
+            COALESCE(
+                string_agg(
+                    DISTINCT (m.name || '::' || COALESCE(m.color, '')),
+                    '||'
+                ),
+                ''
+            ) AS muscle_data
+        FROM workout w
+        LEFT JOIN exercise e ON e.workout_id = w.id
+        LEFT JOIN exercise_muscle em ON em.exercise_id = e.id
+        LEFT JOIN muscle m ON m.id = em.muscle_id AND m.user_id = w.user_id
+        WHERE w.user_id = :user_id
+          AND (
+            COALESCE(e.notes, '') ILIKE :q
+            OR COALESCE(m.name, '') ILIKE :q
+            OR COALESCE(e.weight_used::text, '') ILIKE :q
+            OR COALESCE(e.num_of_sets::text, '') ILIKE :q
+            OR COALESCE(w.date::text, '') ILIKE :q
+          )
+        GROUP BY w.id, w.date
+        ORDER BY w.date DESC, w.id DESC
+    """
+    result = conn.execute(
+        text(sql),
+        {"user_id": user_id, "q": f"%{query}%"},
+    )
+    return result.mappings().all()
+
+
 def get_workout(conn, workout_id: int, user_id: int):
     sql = """
         SELECT

@@ -77,13 +77,25 @@ def muscle_progression(conn, user_id: int, muscle_id: int, start_date, end_date)
     sql = """
         SELECT
             w.date,
-            MAX(e.weight_used_kg) AS max_weight_kg
+            MAX(
+                COALESCE(
+                    e.weight_used_kg,
+                    CASE
+                        WHEN e.weight_unit = 'lb' THEN e.weight_used * 0.45359237
+                        WHEN e.weight_unit = 'kg' THEN e.weight_used
+                        ELSE NULL
+                    END
+                )
+            ) AS max_weight_kg
         FROM workout w
         JOIN exercise e ON e.workout_id = w.id
         JOIN exercise_muscle em ON em.exercise_id = e.id
         WHERE w.user_id = :user_id
           AND em.muscle_id = :muscle_id
-          AND e.weight_used_kg IS NOT NULL
+          AND (
+            e.weight_used_kg IS NOT NULL
+            OR (e.weight_used IS NOT NULL AND e.weight_unit IN ('lb', 'kg'))
+          )
           AND w.date BETWEEN :start_date AND :end_date
           AND w.date IS NOT NULL
         GROUP BY w.date
