@@ -40,6 +40,25 @@
         </p>
       {% endif %}
 
+      <div
+        class="form-row"
+        data-exercise-suggestions
+        data-suggestions-endpoint="{{ url_for('web.exercise_suggestions') }}"
+      >
+        <label for="exercise_name">Exercise</label>
+        <input
+          type="text"
+          id="exercise_name"
+          name="exercise_name"
+          autocomplete="off"
+          data-exercise-input
+        >
+        <div class="mt-1 text-xs text-slate-500">
+          <span data-exercise-count>0</span> exercises stored
+        </div>
+        <div class="mt-2 hidden" data-exercise-list></div>
+      </div>
+
       {{ input_field("weight_used", "Weight used", type="number", step="0.01") }}
       {{ select_field(
           "weight_unit",

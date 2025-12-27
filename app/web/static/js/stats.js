@@ -7,6 +7,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const chartCanvas = document.getElementById("muscleChart");
   const chartEmptyState = document.getElementById("chartEmptyState");
   const muscleSelect = document.getElementById("muscleSelect");
+  const exerciseDropdown = document.querySelector("[data-exercise-dropdown]");
+  const exerciseIdsInput = document.getElementById("exerciseIds");
   const rangeSelect = document.getElementById("rangeSelect");
   const customFields = document.getElementById("customRangeFields");
   const applyButton = document.getElementById("applyRange");
@@ -29,6 +31,71 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   let chart = null;
+  let emptyMessage = "No weight data for this muscle and range yet.";
+  if (config.chartExerciseIds && config.chartExerciseIds.length) {
+    emptyMessage = "No weight data for the selected exercises and range yet.";
+  } else if (config.chartExercise) {
+    emptyMessage = "No weight data for this exercise and range yet.";
+  }
+
+  const getSelectedExerciseIds = () => {
+    if (!exerciseIdsInput) return [];
+    const raw = exerciseIdsInput.value || "";
+    return raw
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+  };
+
+  const setSelectedExerciseIds = (ids) => {
+    if (!exerciseIdsInput) return;
+    exerciseIdsInput.value = ids.join(",");
+  };
+
+  const updateExerciseLabel = (count, total) => {
+    if (!exerciseDropdown) return;
+    const label = exerciseDropdown.querySelector("[data-exercise-label]");
+    if (!label) return;
+    if (!total) {
+      label.textContent = "All exercises";
+      return;
+    }
+    if (!count) {
+      label.textContent = "All exercises";
+      return;
+    }
+    label.textContent = `${count} selected`;
+  };
+
+  const renderExerciseOptions = (items, selectedIds) => {
+    if (!exerciseDropdown) return;
+    const list = exerciseDropdown.querySelector("[data-exercise-list]");
+    if (!list) return;
+    list.innerHTML = "";
+    items.forEach((item) => {
+      const wrapper = document.createElement("label");
+      wrapper.className =
+        "flex items-center gap-2 rounded-md px-2 py-1 hover:bg-slate-900";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = String(item.id);
+      checkbox.checked = selectedIds.includes(String(item.id));
+      checkbox.addEventListener("change", () => {
+        const updated = Array.from(list.querySelectorAll("input[type='checkbox']"))
+          .filter((node) => node.checked)
+          .map((node) => node.value);
+        setSelectedExerciseIds(updated);
+        updateExerciseLabel(updated.length, items.length);
+        fetchData();
+      });
+      const text = document.createElement("span");
+      text.textContent = item.name;
+      wrapper.appendChild(checkbox);
+      wrapper.appendChild(text);
+      list.appendChild(wrapper);
+    });
+    updateExerciseLabel(selectedIds.length, items.length);
+  };
   const zoomPlugin =
     window.ChartZoom || window.Zoom || window["chartjs-plugin-zoom"];
   if (typeof Chart !== "undefined" && zoomPlugin && Chart.register) {
@@ -137,7 +204,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const hasData = converted.some((value) => value !== null && !Number.isNaN(value));
     if (!hasData) {
-      setEmptyState("No weight data for this muscle and range yet.");
+      setEmptyState(emptyMessage);
       if (chart) {
         chart.destroy();
         chart = null;
@@ -264,11 +331,21 @@ document.addEventListener("DOMContentLoaded", () => {
   const fetchData = () => {
     if (!config.chartMuscle || !muscleSelect) return;
     const muscleId = muscleSelect.value;
+    const exerciseIds = getSelectedExerciseIds();
     const range = rangeSelect ? rangeSelect.value : config.chartRange;
 
     const url = new URL(config.endpoint, window.location.origin);
     url.searchParams.set("muscle_id", muscleId);
     url.searchParams.set("range", range);
+    if (exerciseIds.length) {
+      url.searchParams.set("exercise_ids", exerciseIds.join(","));
+      emptyMessage =
+        exerciseIds.length > 1
+          ? "No weight data for the selected exercises and range yet."
+          : "No weight data for this exercise and range yet.";
+    } else {
+      emptyMessage = "No weight data for this muscle and range yet.";
+    }
 
     if (range === "custom" && customStart && customEnd) {
       if (customStart.value && customEnd.value) {
@@ -291,6 +368,12 @@ document.addEventListener("DOMContentLoaded", () => {
     buildChart(config.initial.labels || [], config.initial.values || []);
   }
 
+  if (Array.isArray(config.chartExerciseIds)) {
+    setSelectedExerciseIds(config.chartExerciseIds.map((value) => String(value)));
+  } else if (typeof config.chartExercise === "number") {
+    setSelectedExerciseIds([String(config.chartExercise)]);
+  }
+
   if (rangeSelect && customFields) {
     rangeSelect.addEventListener("change", () => {
       const isCustom = rangeSelect.value === "custom";
@@ -302,7 +385,95 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (muscleSelect) {
-    muscleSelect.addEventListener("change", fetchData);
+    muscleSelect.addEventListener("change", () => {
+      if (exerciseDropdown && config.exerciseEndpoint) {
+        const url = new URL(config.exerciseEndpoint, window.location.origin);
+        url.searchParams.set("muscle_id", muscleSelect.value);
+        setSelectedExerciseIds([]);
+        const selected = new Set();
+        fetch(url.toString())
+          .then((response) => response.json())
+          .then((data) => {
+            const items = data.items || [];
+            renderExerciseOptions(items, Array.from(selected));
+          })
+          .catch(() => {
+            renderExerciseOptions([], []);
+          })
+          .finally(() => {
+            fetchData();
+          });
+        return;
+      }
+      fetchData();
+    });
+  }
+
+  if (exerciseDropdown) {
+    const selectAll = exerciseDropdown.querySelector("[data-exercise-select-all]");
+    const clearAll = exerciseDropdown.querySelector("[data-exercise-clear]");
+    const list = exerciseDropdown.querySelector("[data-exercise-list]");
+
+    if (selectAll && list) {
+      selectAll.addEventListener("click", () => {
+        const boxes = Array.from(list.querySelectorAll("input[type='checkbox']"));
+        boxes.forEach((box) => {
+          box.checked = true;
+        });
+        const ids = boxes.map((box) => box.value);
+        setSelectedExerciseIds(ids);
+        updateExerciseLabel(ids.length, boxes.length);
+        fetchData();
+      });
+    }
+
+    if (clearAll && list) {
+      clearAll.addEventListener("click", () => {
+        const boxes = Array.from(list.querySelectorAll("input[type='checkbox']"));
+        boxes.forEach((box) => {
+          box.checked = false;
+        });
+        setSelectedExerciseIds([]);
+        updateExerciseLabel(0, boxes.length);
+        fetchData();
+      });
+    }
+
+    if (list) {
+      const initialIds = Array.from(list.querySelectorAll("input[type='checkbox']"))
+        .filter((box) => box.checked)
+        .map((box) => box.value);
+      setSelectedExerciseIds(initialIds);
+      updateExerciseLabel(
+        initialIds.length,
+        list.querySelectorAll("input[type='checkbox']").length
+      );
+      list.addEventListener("change", () => {
+        const ids = Array.from(list.querySelectorAll("input[type='checkbox']"))
+          .filter((box) => box.checked)
+          .map((box) => box.value);
+        setSelectedExerciseIds(ids);
+        updateExerciseLabel(
+          ids.length,
+          list.querySelectorAll("input[type='checkbox']").length
+        );
+        fetchData();
+      });
+    }
+
+    if (config.exerciseEndpoint && muscleSelect) {
+      const url = new URL(config.exerciseEndpoint, window.location.origin);
+      url.searchParams.set("muscle_id", muscleSelect.value);
+      fetch(url.toString())
+        .then((response) => response.json())
+        .then((data) => {
+          const items = data.items || [];
+          renderExerciseOptions(items, getSelectedExerciseIds());
+        })
+        .catch(() => {
+          renderExerciseOptions([], []);
+        });
+    }
   }
 
   if (applyButton) {

@@ -7,6 +7,8 @@ def list_for_workout(conn, workout_id: int):
         SELECT
             e.id,
             e.notes,
+            e.exercise_catalog_id,
+            e.exercise_name,
             e.weight_used,
             e.weight_unit,
             e.weight_used_kg,
@@ -24,7 +26,8 @@ def list_for_workout(conn, workout_id: int):
         LEFT JOIN exercise_muscle em ON em.exercise_id = e.id
         LEFT JOIN muscle m ON m.id = em.muscle_id AND m.user_id = w.user_id
         WHERE e.workout_id = :workout_id
-        GROUP BY e.id, e.notes, e.weight_used, e.weight_unit, e.weight_used_kg, e.num_of_sets
+        GROUP BY e.id, e.notes, e.exercise_catalog_id, e.exercise_name,
+                 e.weight_used, e.weight_unit, e.weight_used_kg, e.num_of_sets
         ORDER BY e.id
     """
     result = conn.execute(text(sql), {"workout_id": workout_id})
@@ -36,6 +39,8 @@ def search_exercises(conn, user_id: int, query: str):
         SELECT
             e.id,
             e.notes,
+            e.exercise_catalog_id,
+            e.exercise_name,
             e.weight_used,
             e.weight_unit,
             e.weight_used_kg,
@@ -57,12 +62,14 @@ def search_exercises(conn, user_id: int, query: str):
         WHERE w.user_id = :user_id
           AND (
             COALESCE(e.notes, '') ILIKE :q
+            OR COALESCE(e.exercise_name, '') ILIKE :q
             OR COALESCE(m.name, '') ILIKE :q
             OR COALESCE(e.weight_used::text, '') ILIKE :q
             OR COALESCE(e.num_of_sets::text, '') ILIKE :q
             OR COALESCE(w.date::text, '') ILIKE :q
           )
-        GROUP BY e.id, e.notes, e.weight_used, e.weight_unit, e.weight_used_kg, e.num_of_sets, w.id, w.date
+        GROUP BY e.id, e.notes, e.exercise_catalog_id, e.exercise_name,
+                 e.weight_used, e.weight_unit, e.weight_used_kg, e.num_of_sets, w.id, w.date
         ORDER BY w.date DESC, e.id DESC
     """
     result = conn.execute(
@@ -80,6 +87,8 @@ def get_exercise_with_workout(conn, exercise_id: int):
         SELECT
             e.id,
             e.notes,
+            e.exercise_catalog_id,
+            e.exercise_name,
             e.weight_used,
             e.weight_unit,
             e.weight_used_kg,
@@ -121,6 +130,8 @@ def create_exercise(
     weight_used_kg,
     num_of_sets,
     muscle_id=None,
+    exercise_catalog_id=None,
+    exercise_name=None,
 ):
     """
     Create an exercise row and optionally link it to a muscle
@@ -129,14 +140,34 @@ def create_exercise(
     cur = conn.execute(
         text(
         """
-        INSERT INTO exercise (workout_id, notes, weight_used, weight_unit, weight_used_kg, num_of_sets)
-        VALUES (:workout_id, :notes, :weight_used, :weight_unit, :weight_used_kg, :num_of_sets)
+        INSERT INTO exercise (
+            workout_id,
+            notes,
+            exercise_catalog_id,
+            exercise_name,
+            weight_used,
+            weight_unit,
+            weight_used_kg,
+            num_of_sets
+        )
+        VALUES (
+            :workout_id,
+            :notes,
+            :exercise_catalog_id,
+            :exercise_name,
+            :weight_used,
+            :weight_unit,
+            :weight_used_kg,
+            :num_of_sets
+        )
         RETURNING id
         """,
         ),
         {
             "workout_id": workout_id,
             "notes": notes,
+            "exercise_catalog_id": exercise_catalog_id,
+            "exercise_name": exercise_name,
             "weight_used": weight_used,
             "weight_unit": weight_unit,
             "weight_used_kg": weight_used_kg,
@@ -166,6 +197,8 @@ def update_exercise(
     num_of_sets,
     muscle_id=None,
     workout_id=None,
+    exercise_catalog_id=None,
+    exercise_name=None,
 ):
     """
     Update exercise fields, its (single) muscle mapping, and optionally
@@ -177,6 +210,8 @@ def update_exercise(
             """
             UPDATE exercise
             SET notes = :notes,
+                exercise_catalog_id = :exercise_catalog_id,
+                exercise_name = :exercise_name,
                 weight_used = :weight_used,
                 weight_unit = :weight_unit,
                 weight_used_kg = :weight_used_kg,
@@ -186,6 +221,8 @@ def update_exercise(
             ),
             {
                 "notes": notes,
+                "exercise_catalog_id": exercise_catalog_id,
+                "exercise_name": exercise_name,
                 "weight_used": weight_used,
                 "weight_unit": weight_unit,
                 "weight_used_kg": weight_used_kg,
@@ -199,6 +236,8 @@ def update_exercise(
             """
             UPDATE exercise
             SET notes = :notes,
+                exercise_catalog_id = :exercise_catalog_id,
+                exercise_name = :exercise_name,
                 weight_used = :weight_used,
                 weight_unit = :weight_unit,
                 weight_used_kg = :weight_used_kg,
@@ -209,6 +248,8 @@ def update_exercise(
             ),
             {
                 "notes": notes,
+                "exercise_catalog_id": exercise_catalog_id,
+                "exercise_name": exercise_name,
                 "weight_used": weight_used,
                 "weight_unit": weight_unit,
                 "weight_used_kg": weight_used_kg,

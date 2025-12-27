@@ -269,14 +269,17 @@
         <div>
           <h2 class="text-sm font-semibold text-slate-100">Muscle progression</h2>
           <p class="text-xs text-slate-500">
-            Track max weight per day for the selected muscle.
+            Track max weight per day for the selected muscle, or filter by exercise.
+          </p>
+          <p class="mt-1 text-[11px] text-slate-500">
+            Use the exercise dropdown to select multiple items.
           </p>
         </div>
         {% if muscles %}
           <div class="flex flex-wrap items-center gap-2">
             <select
               id="muscleSelect"
-              class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100"
+              class="h-9 rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100"
             >
               {% for m in muscles %}
                 <option
@@ -288,9 +291,61 @@
                 </option>
               {% endfor %}
             </select>
+            <details
+              class="relative"
+              data-exercise-dropdown
+            >
+              <input
+                type="hidden"
+                id="exerciseIds"
+                value="{{ chart_exercise_ids | join(',') }}"
+              >
+              <summary
+                class="list-none inline-flex h-9 min-w-[140px] items-center justify-between rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100 hover:bg-slate-800 cursor-pointer"
+              >
+                <span data-exercise-label>All exercises</span>
+                <span class="text-slate-400">▾</span>
+              </summary>
+              <div
+                class="absolute left-0 z-10 mt-2 w-64 rounded-md border border-slate-700 bg-slate-950 p-2 text-xs text-slate-100 shadow-md shadow-black/50"
+              >
+                <div class="mb-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
+                    data-exercise-select-all
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
+                    data-exercise-clear
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div class="max-h-48 overflow-y-auto space-y-1" data-exercise-list>
+                  {% if exercise_options %}
+                    {% for ex in exercise_options %}
+                      <label class="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-slate-900">
+                        <input
+                          type="checkbox"
+                          value="{{ ex['id'] }}"
+                          {% if ex['id'] in chart_exercise_ids %}checked{% endif %}
+                        >
+                        <span>{{ ex["name"] }}</span>
+                      </label>
+                    {% endfor %}
+                  {% else %}
+                    <p class="px-2 py-1 text-[11px] text-slate-500">No exercises yet.</p>
+                  {% endif %}
+                </div>
+              </div>
+            </details>
             <select
               id="rangeSelect"
-              class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100"
+              class="h-9 rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100"
             >
               <option value="last_week" {% if chart_range == 'last_week' %}selected{% endif %}>Last week</option>
               <option value="last_month" {% if chart_range == 'last_month' %}selected{% endif %}>Last month</option>
@@ -303,7 +358,7 @@
             <button
               type="button"
               id="resetZoom"
-              class="inline-flex items-center rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              class="inline-flex h-9 items-center rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Reset zoom
             </button>
@@ -353,12 +408,15 @@
   <script>
     window.statsConfig = {
       endpoint: "{{ url_for('web.stats_muscle_data') }}",
+      exerciseEndpoint: "{{ url_for('web.stats_exercise_options') }}",
       preferredUnit: "{{ preferred_unit }}",
       initial: {{ chart_data | tojson }},
       chartRange: "{{ chart_range }}",
       chartMuscle: {{ chart_muscle if chart_muscle is not none else "null" }},
+      chartExercise: {{ chart_exercise if chart_exercise is not none else "null" }},
+      chartExerciseIds: {{ chart_exercise_ids | tojson }},
       view: "{{ view }}"
     };
   </script>
-  <script src="{{ url_for('web.static', filename='js/stats.js') }}"></script>
+  <script src="{{ url_for('web.static', filename='js/stats.js') }}?v=7"></script>
 {% endblock %}

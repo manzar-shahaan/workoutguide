@@ -19,12 +19,39 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app.db.connection import get_conn
+from app.db.repositories import exercise_catalog as exercise_catalog_repo
 from app.db.repositories import users as users_repo
 
 DEFAULT_WEIGHT_UNIT = "lb"
 LB_TO_KG = 0.45359237
 VALID_WEIGHT_UNITS = {"lb", "kg"}
 WEIGHT_RE = re.compile(r"^\s*([0-9]*\.?[0-9]+)\s*([a-zA-Z]*)\s*$")
+SETS_RE = re.compile(r"\b\d+\s*x\s*\d+\b", re.IGNORECASE)
+WEIGHT_TOKEN_RE = re.compile(r"\b\d+(\.\d+)?\s*(lb|lbs|kg|kgs)\b", re.IGNORECASE)
+RPE_RE = re.compile(r"\brpe\s*\d+(\.\d+)?\b", re.IGNORECASE)
+TEMPO_RE = re.compile(r"\btempo\s*\d+(-\d+){2,}\b", re.IGNORECASE)
+EXERCISE_CLEAN_RE = re.compile(r"[^a-z\s]")
+DEFAULT_STOPWORDS = {
+    "plates",
+    "plate",
+    "bar",
+    "barbell",
+    "dumbbell",
+    "dumbbells",
+    "kettlebell",
+    "kettlebells",
+    "machine",
+    "band",
+    "bands",
+    "cable",
+    "assisted",
+}
+FUZZY_MATCH_THRESHOLD = 92
+
+try:
+    from rapidfuzz import fuzz as _fuzz
+except Exception:  # pragma: no cover - optional dependency
+    _fuzz = None
 
 
 def _coerce_to_list(payload: Any) -> list[Any]:
@@ -176,6 +203,54 @@ def _clean_notes(value: Any) -> str | None:
     return raw or None
 
 
+def _extract_exercise_name(text: str | None) -> str | None:
+    if not text:
+        return None
+    raw = text.lower()
+    raw = WEIGHT_TOKEN_RE.sub(" ", raw)
+    raw = SETS_RE.sub(" ", raw)
+    raw = RPE_RE.sub(" ", raw)
+    raw = TEMPO_RE.sub(" ", raw)
+    tokens = []
+    for part in re.split(r"[;,/|@\-]", raw):
+        part = part.strip()
+        if not part:
+            continue
+        tokens.append(part)
+    if not tokens:
+        return None
+    candidate = max(tokens, key=len)
+    candidate = EXERCISE_CLEAN_RE.sub(" ", candidate)
+    words = [w for w in candidate.split() if w and w not in DEFAULT_STOPWORDS]
+    if not words:
+        return None
+    return " ".join(words).strip() or None
+
+
+def _normalize_exercise_name(value: str | None) -> str | None:
+    if not value:
+        return None
+    name = value.strip().lower()
+    return name or None
+
+
+def _best_catalog_match(
+    names: list[str],
+    candidate: str,
+) -> tuple[str | None, int]:
+    if not names or not candidate or _fuzz is None:
+        return None, 0
+    candidate_norm = _normalize_exercise_name(candidate) or candidate
+    best_name = None
+    best_score = 0
+    for name in names:
+        score = _fuzz.token_set_ratio(candidate_norm, name)
+        if score > best_score:
+            best_score = score
+            best_name = name
+    return best_name, best_score
+
+
 def _has_exercise_fields(item: dict) -> bool:
     keys = {
         "weights",
@@ -199,6 +274,9 @@ def _normalize_exercise(
     idx: int,
 ) -> dict | None:
     notes = _clean_notes(raw_ex.get("notes"))
+    exercise_name = _normalize_exercise_name(
+        _clean_notes(raw_ex.get("exercise_name", raw_ex.get("exercise", raw_ex.get("name"))))
+    )
     muscles = _normalize_muscles(raw_ex.get("muscles", raw_ex.get("muscle")))
     exercise_type = str(raw_ex.get("type") or "").strip().lower()
     if exercise_type == "cardio" and not muscles:
@@ -226,6 +304,7 @@ def _normalize_exercise(
 
     return {
         "notes": notes,
+        "exercise_name": exercise_name,
         "weight_used": weight_used,
         "weight_unit": weight_unit,
         "num_of_sets": num_sets,
@@ -312,6 +391,9 @@ def normalize_payload(
 
         legacy_type = str(item.get("type") or "").strip().lower()
         notes = _clean_notes(item.get("notes"))
+        exercise_name = _normalize_exercise_name(
+            _clean_notes(item.get("exercise_name", item.get("exercise")))
+        )
         muscles = _normalize_muscles(item.get("muscle", item.get("muscles")))
         weight_value = item.get("weights", item.get("weight_used", item.get("weight")))
         weight_used, weight_unit, weight_error = _parse_weight(
@@ -349,6 +431,7 @@ def normalize_payload(
             exercises.append(
                 {
                     "notes": notes,
+                    "exercise_name": exercise_name,
                     "weight_used": weight_used,
                     "weight_unit": weight_unit,
                     "num_of_sets": num_sets,
@@ -454,6 +537,8 @@ def weight_to_kg(weight_used: float | None, weight_unit: str) -> float | None:
 def insert_exercise(
     conn: Connection,
     workout_id: int,
+    exercise_catalog_id: int | None,
+    exercise_name: str | None,
     weight_used: float | None,
     weight_unit: str,
     weight_used_kg: float | None,
@@ -468,13 +553,31 @@ def insert_exercise(
         text(
             """
             INSERT INTO exercise (
-                weight_used, weight_unit, weight_used_kg, num_of_sets, workout_id, notes
+                exercise_catalog_id,
+                exercise_name,
+                weight_used,
+                weight_unit,
+                weight_used_kg,
+                num_of_sets,
+                workout_id,
+                notes
             )
-            VALUES (:weight_used, :weight_unit, :weight_used_kg, :num_sets, :workout_id, :notes)
+            VALUES (
+                :exercise_catalog_id,
+                :exercise_name,
+                :weight_used,
+                :weight_unit,
+                :weight_used_kg,
+                :num_sets,
+                :workout_id,
+                :notes
+            )
             RETURNING id
             """
         ),
         {
+            "exercise_catalog_id": exercise_catalog_id,
+            "exercise_name": exercise_name,
             "weight_used": weight_used,
             "weight_unit": weight_unit,
             "weight_used_kg": weight_used_kg,
@@ -559,6 +662,7 @@ def exercise_signature(exercise: dict) -> tuple:
     muscles = tuple(sorted(set(exercise.get("muscles") or [])))
     return (
         exercise.get("notes") or "",
+        exercise.get("exercise_name") or "",
         exercise.get("weight_used"),
         exercise.get("weight_unit"),
         exercise.get("num_of_sets"),
@@ -571,6 +675,7 @@ def load_existing_signatures(conn: Connection, workout_id: int) -> set[tuple]:
         SELECT
             e.id,
             e.notes,
+            e.exercise_name,
             e.weight_used,
             e.weight_unit,
             e.num_of_sets,
@@ -579,7 +684,7 @@ def load_existing_signatures(conn: Connection, workout_id: int) -> set[tuple]:
         LEFT JOIN exercise_muscle em ON em.exercise_id = e.id
         LEFT JOIN muscle m ON m.id = em.muscle_id
         WHERE e.workout_id = :workout_id
-        GROUP BY e.id, e.notes, e.weight_used, e.weight_unit, e.num_of_sets
+        GROUP BY e.id, e.notes, e.exercise_name, e.weight_used, e.weight_unit, e.num_of_sets
     """
     rows = conn.execute(text(sql), {"workout_id": workout_id}).mappings().all()
     signatures: set[tuple] = set()
@@ -588,6 +693,7 @@ def load_existing_signatures(conn: Connection, workout_id: int) -> set[tuple]:
         signatures.add(
             (
                 row["notes"] or "",
+                row["exercise_name"] or "",
                 row["weight_used"],
                 row["weight_unit"],
                 row["num_of_sets"],
@@ -631,8 +737,12 @@ def import_legacy(
         count_workouts_touched = 0
         count_exercises_created = 0
         count_exercises_skipped = 0
+        count_exercise_names_inferred = 0
+        count_exercise_names_matched = 0
+        count_exercise_names_created = 0
         seen_workouts: set[str] = set()
         workout_cache: dict[str, tuple[int, set[tuple]]] = {}
+        catalog_cache: dict[int, dict[str, int]] = {}
 
         for idx, workout in enumerate(normalized, start=1):
             date_str = workout.get("date")
@@ -674,22 +784,60 @@ def import_legacy(
                 weight_used = exercise.get("weight_used")
                 weight_unit = exercise.get("weight_unit") or default_unit
                 weight_used_kg = weight_to_kg(weight_used, weight_unit)
-
-                ex_id = insert_exercise(
-                    conn,
-                    workout_id=workout_id,
-                    weight_used=weight_used,
-                    weight_unit=weight_unit,
-                    weight_used_kg=weight_used_kg,
-                    num_sets=exercise.get("num_of_sets"),
-                    notes=exercise.get("notes"),
-                )
+                exercise_name = exercise.get("exercise_name")
+                if not exercise_name:
+                    exercise_name = _normalize_exercise_name(
+                        _extract_exercise_name(exercise.get("notes"))
+                    )
+                    if exercise_name:
+                        count_exercise_names_inferred += 1
 
                 muscle_ids: list[int] = []
                 for muscle_name in exercise.get("muscles") or []:
                     if not muscle_name:
                         continue
                     muscle_ids.append(get_or_create_muscle(conn, user_id, muscle_name))
+
+                exercise_catalog_id = None
+                if muscle_ids and exercise_name:
+                    primary_muscle_id = muscle_ids[0]
+                    if primary_muscle_id not in catalog_cache:
+                        existing_catalog = exercise_catalog_repo.list_for_muscle(
+                            conn,
+                            user_id=user_id,
+                            muscle_id=primary_muscle_id,
+                        )
+                        catalog_cache[primary_muscle_id] = {
+                            row["name"]: row["id"] for row in existing_catalog
+                        }
+                    existing_names = list(catalog_cache[primary_muscle_id].keys())
+                    match_name, match_score = _best_catalog_match(existing_names, exercise_name)
+                    if match_name and match_score >= FUZZY_MATCH_THRESHOLD:
+                        exercise_catalog_id = catalog_cache[primary_muscle_id][match_name]
+                        count_exercise_names_matched += 1
+                    else:
+                        exercise_catalog_id = exercise_catalog_repo.get_or_create(
+                            conn,
+                            user_id=user_id,
+                            muscle_id=primary_muscle_id,
+                            name=exercise_name,
+                            commit=False,
+                        )
+                        if exercise_catalog_id:
+                            catalog_cache[primary_muscle_id][exercise_name] = exercise_catalog_id
+                            count_exercise_names_created += 1
+
+                ex_id = insert_exercise(
+                    conn,
+                    workout_id=workout_id,
+                    exercise_catalog_id=exercise_catalog_id,
+                    exercise_name=exercise_name,
+                    weight_used=weight_used,
+                    weight_unit=weight_unit,
+                    weight_used_kg=weight_used_kg,
+                    num_sets=exercise.get("num_of_sets"),
+                    notes=exercise.get("notes"),
+                )
                 link_muscles_exercise(conn, muscle_ids, ex_id)
                 count_exercises_created += 1
 
@@ -708,6 +856,9 @@ def import_legacy(
             "workouts_touched": count_workouts_touched,
             "exercises_created": count_exercises_created,
             "exercises_skipped": count_exercises_skipped,
+            "exercise_names_inferred": count_exercise_names_inferred,
+            "exercise_names_matched": count_exercise_names_matched,
+            "exercise_names_created": count_exercise_names_created,
             "warnings": len(report["warnings"]),
             "skipped": len(report["skipped"]),
         }

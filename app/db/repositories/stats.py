@@ -113,6 +113,97 @@ def muscle_progression(conn, user_id: int, muscle_id: int, start_date, end_date)
     return result.mappings().all()
 
 
+def exercise_progression(conn, user_id: int, exercise_id: int, start_date, end_date):
+    sql = """
+        SELECT
+            w.date,
+            MAX(
+                COALESCE(
+                    e.weight_used_kg,
+                    CASE
+                        WHEN e.weight_unit = 'lb' THEN e.weight_used * 0.45359237
+                        WHEN e.weight_unit = 'kg' THEN e.weight_used
+                        ELSE NULL
+                    END
+                )
+            ) AS max_weight_kg
+        FROM workout w
+        JOIN exercise e ON e.workout_id = w.id
+        WHERE w.user_id = :user_id
+          AND e.exercise_catalog_id = :exercise_id
+          AND (
+            e.weight_used_kg IS NOT NULL
+            OR (e.weight_used IS NOT NULL AND e.weight_unit IN ('lb', 'kg'))
+          )
+          AND w.date BETWEEN :start_date AND :end_date
+          AND w.date IS NOT NULL
+        GROUP BY w.date
+        ORDER BY w.date
+    """
+    result = conn.execute(
+        text(sql),
+        {
+            "user_id": user_id,
+            "exercise_id": exercise_id,
+            "start_date": start_date,
+            "end_date": end_date,
+        },
+    )
+    return result.mappings().all()
+
+
+def exercise_progression_multi(
+    conn,
+    user_id: int,
+    muscle_id: int,
+    exercise_ids: list[int],
+    start_date,
+    end_date,
+):
+    if not exercise_ids:
+        return []
+    sql = """
+        SELECT
+            w.date,
+            MAX(
+                COALESCE(
+                    e.weight_used_kg,
+                    CASE
+                        WHEN e.weight_unit = 'lb' THEN e.weight_used * 0.45359237
+                        WHEN e.weight_unit = 'kg' THEN e.weight_used
+                        ELSE NULL
+                    END
+                )
+            ) AS max_weight_kg
+        FROM workout w
+        JOIN exercise e ON e.workout_id = w.id
+        JOIN exercise_catalog ec ON ec.id = e.exercise_catalog_id
+        WHERE w.user_id = :user_id
+          AND ec.user_id = :user_id
+          AND ec.muscle_id = :muscle_id
+          AND e.exercise_catalog_id = ANY(:exercise_ids)
+          AND (
+            e.weight_used_kg IS NOT NULL
+            OR (e.weight_used IS NOT NULL AND e.weight_unit IN ('lb', 'kg'))
+          )
+          AND w.date BETWEEN :start_date AND :end_date
+          AND w.date IS NOT NULL
+        GROUP BY w.date
+        ORDER BY w.date
+    """
+    result = conn.execute(
+        text(sql),
+        {
+            "user_id": user_id,
+            "muscle_id": muscle_id,
+            "exercise_ids": exercise_ids,
+            "start_date": start_date,
+            "end_date": end_date,
+        },
+    )
+    return result.mappings().all()
+
+
 def totals(conn, user_id: int):
     workout_count = conn.execute(
         text("SELECT COUNT(*) AS count FROM workout WHERE user_id = :user_id"),

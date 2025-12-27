@@ -1,0 +1,19 @@
+[
+  {
+    "date": "2025-01-05",
+    "type": "Strength",
+    "muscle": "chest",
+    "notes": "Bench press 3x5 @ 185lb"
+  },
+  {
+    "date": "2025-01-06",
+    "type": "Strength",
+    "muscle": "back",
+    "notes": "Lat pulldown 4x10 (used orange plates instead of blue)"
+  },
+  {
+    "date": "2025-01-07",
+    "type": "Cardio",
+    "notes": "Treadmill intervals"
+  }
+]

@@ -11,10 +11,12 @@ from flask import (
     abort,
     g,
     flash,
+    jsonify,
 )
 from ...db.connection import get_conn
 from ...db.repositories import workouts as workouts_repo
 from ...db.repositories import exercises as exercises_repo
+from ...db.repositories import exercise_catalog as exercise_catalog_repo
 from .. import web_bp
 from ..auth_utils import login_required
 from ...db.repositories import muscles as muscles_repo
@@ -35,6 +37,13 @@ def _normalize_weight_to_kg(weight_used: float | None, weight_unit: str | None) 
     if weight_unit == "lb":
         return float(weight_used) * LB_TO_KG
     return None
+
+
+def _normalize_exercise_name(value: str | None) -> str | None:
+    if not value:
+        return None
+    name = value.strip().lower()
+    return name or None
 
 
 def _date_to_str(value) -> str | None:
@@ -73,6 +82,7 @@ def new_exercise():
 
         if request.method == "POST":
             notes = request.form.get("notes", "").strip() or None
+            exercise_name = _normalize_exercise_name(request.form.get("exercise_name", ""))
             weight_str = request.form.get("weight_used", "").strip()
             weight_unit = request.form.get("weight_unit", "").strip() or default_unit
             sets_str = request.form.get("num_of_sets", "").strip()
@@ -201,11 +211,21 @@ def new_exercise():
                 workout_id_to_use = workout["id"]
 
             weight_used_kg = _normalize_weight_to_kg(weight_used, weight_unit)
+            exercise_catalog_id = None
+            if exercise_name:
+                exercise_catalog_id = exercise_catalog_repo.get_or_create(
+                    conn,
+                    user_id=user_id,
+                    muscle_id=muscle_id,
+                    name=exercise_name,
+                )
 
             exercises_repo.create_exercise(
                 conn,
                 workout_id=workout_id_to_use,
                 notes=notes,
+                exercise_catalog_id=exercise_catalog_id,
+                exercise_name=exercise_name,
                 weight_used=weight_used,
                 weight_unit=weight_unit,
                 weight_used_kg=weight_used_kg,
@@ -283,6 +303,7 @@ def edit_exercise(exercise_id):
         if request.method == "POST":
             date_str = request.form.get("date", "").strip()
             notes = request.form.get("notes", "").strip() or None
+            exercise_name = _normalize_exercise_name(request.form.get("exercise_name", ""))
             weight_str = request.form.get("weight_used", "").strip()
             weight_unit = request.form.get("weight_unit", "").strip() or exercise_unit
             sets_str = request.form.get("num_of_sets", "").strip()
@@ -413,11 +434,21 @@ def edit_exercise(exercise_id):
                     )
 
             weight_used_kg = _normalize_weight_to_kg(weight_used, weight_unit)
+            exercise_catalog_id = None
+            if exercise_name:
+                exercise_catalog_id = exercise_catalog_repo.get_or_create(
+                    conn,
+                    user_id=user_id,
+                    muscle_id=muscle_id,
+                    name=exercise_name,
+                )
 
             exercises_repo.update_exercise(
                 conn,
                 exercise_id=exercise_id,
                 notes=notes,
+                exercise_catalog_id=exercise_catalog_id,
+                exercise_name=exercise_name,
                 weight_used=weight_used,
                 weight_unit=weight_unit,
                 weight_used_kg=weight_used_kg,
@@ -488,3 +519,28 @@ def delete_exercise(exercise_id):
         return redirect(url_for("web.workout_detail", workout_id=workout_id))
     finally:
         conn.close()
+
+
+@web_bp.route("/api/exercises/suggestions")
+@login_required
+def exercise_suggestions():
+    user_id = g.user["id"]
+    muscle_id = request.args.get("muscle_id", type=int)
+    query = request.args.get("q", "").strip()
+
+    if muscle_id is None:
+        return jsonify({"count": 0, "items": []})
+
+    conn = get_conn()
+    try:
+        muscle = muscles_repo.get_muscle(conn, user_id, muscle_id)
+        if muscle is None:
+            return jsonify({"count": 0, "items": []})
+        total = exercise_catalog_repo.count_for_muscle(conn, user_id, muscle_id)
+        items = []
+        if query:
+            items = exercise_catalog_repo.search_for_muscle(conn, user_id, muscle_id, query)
+    finally:
+        conn.close()
+
+    return jsonify({"count": total, "items": items})

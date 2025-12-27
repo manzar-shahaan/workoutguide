@@ -34,8 +34,21 @@ CREATE TABLE IF NOT EXISTS muscle (
     UNIQUE (user_id, name)
 );
 
+CREATE TABLE IF NOT EXISTS exercise_catalog (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    muscle_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES app_user (id),
+    FOREIGN KEY (muscle_id) REFERENCES muscle (id),
+    UNIQUE (user_id, muscle_id, name)
+);
+
 CREATE TABLE IF NOT EXISTS exercise (
     id SERIAL PRIMARY KEY,
+    exercise_catalog_id INTEGER,
+    exercise_name TEXT,
     weight_used DOUBLE PRECISION,
     weight_unit TEXT NOT NULL DEFAULT 'lb',
     weight_used_kg DOUBLE PRECISION,
@@ -43,7 +56,8 @@ CREATE TABLE IF NOT EXISTS exercise (
     workout_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notes TEXT,
-    FOREIGN KEY (workout_id) REFERENCES workout (id)
+    FOREIGN KEY (workout_id) REFERENCES workout (id),
+    FOREIGN KEY (exercise_catalog_id) REFERENCES exercise_catalog (id)
 );
 
 CREATE TABLE IF NOT EXISTS exercise_muscle (

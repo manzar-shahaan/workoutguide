@@ -11,6 +11,7 @@ from ...db.repositories import workouts as workouts_repo
 from ...db.repositories import exercises as exercises_repo
 from ...db.repositories import muscles as muscles_repo
 from ...db.repositories import stats as stats_repo
+from ...db.repositories import exercise_catalog as exercise_catalog_repo
 from .. import web_bp
 from ..auth_utils import login_required
 
@@ -226,6 +227,7 @@ def workouts_index():
                     "id": row["id"],
                     "workout_id": row["workout_id"],
                     "notes": row["notes"],
+                    "exercise_name": row.get("exercise_name"),
                     "weight_used": row["weight_used"],
                     "weight_unit": row["weight_unit"],
                     "num_of_sets": row["num_of_sets"],
@@ -425,7 +427,25 @@ def stats_index():
     month_prev_date = _shift_months(anchor_date, -1)
     month_next_date = _shift_months(anchor_date, 1)
 
-    chart_muscle = muscles[0]["id"] if muscles else None
+    chart_muscle = request.args.get("muscle_id", type=int)
+    if muscles:
+        muscle_ids = {m["id"] for m in muscles}
+        if chart_muscle not in muscle_ids:
+            chart_muscle = muscles[0]["id"]
+    else:
+        chart_muscle = None
+    chart_exercise_ids_raw = request.args.get("exercise_ids")
+    chart_exercise_ids: list[int] = []
+    if chart_exercise_ids_raw:
+        try:
+            chart_exercise_ids = [
+                int(value)
+                for value in chart_exercise_ids_raw.split(",")
+                if value.strip()
+            ]
+        except ValueError:
+            chart_exercise_ids = []
+    chart_exercise = request.args.get("exercise_id", type=int)
     chart_range = request.args.get("range", "last_3_months")
     if chart_range not in {
         "last_week",
@@ -441,18 +461,53 @@ def stats_index():
     today = _date.today()
     chart_start, chart_end = _range_bounds(chart_range, today)
     custom_start_default = today - timedelta(days=30)
+    exercise_options = []
+    if chart_muscle:
+        conn = get_conn()
+        try:
+            rows = exercise_catalog_repo.list_for_muscle(
+                conn,
+                user_id=user_id,
+                muscle_id=chart_muscle,
+            )
+            exercise_options = [{"id": row["id"], "name": row["name"]} for row in rows]
+        finally:
+            conn.close()
+        exercise_ids_set = {row["id"] for row in exercise_options}
+        if chart_exercise_ids:
+            chart_exercise_ids = [ex_id for ex_id in chart_exercise_ids if ex_id in exercise_ids_set]
+        if chart_exercise is not None and chart_exercise not in exercise_ids_set:
+            chart_exercise = None
 
     chart_data = {"labels": [], "values": []}
     if chart_muscle:
         conn = get_conn()
         try:
-            rows = stats_repo.muscle_progression(
-                conn,
-                user_id=user_id,
-                muscle_id=chart_muscle,
-                start_date=chart_start,
-                end_date=chart_end,
-            )
+            if chart_exercise_ids:
+                rows = stats_repo.exercise_progression_multi(
+                    conn,
+                    user_id=user_id,
+                    muscle_id=chart_muscle,
+                    exercise_ids=chart_exercise_ids,
+                    start_date=chart_start,
+                    end_date=chart_end,
+                )
+            elif chart_exercise:
+                rows = stats_repo.exercise_progression(
+                    conn,
+                    user_id=user_id,
+                    exercise_id=chart_exercise,
+                    start_date=chart_start,
+                    end_date=chart_end,
+                )
+            else:
+                rows = stats_repo.muscle_progression(
+                    conn,
+                    user_id=user_id,
+                    muscle_id=chart_muscle,
+                    start_date=chart_start,
+                    end_date=chart_end,
+                )
         finally:
             conn.close()
         chart_data = {
@@ -474,8 +529,11 @@ def stats_index():
         month_totals=month_totals,
         totals=totals,
         muscles=muscles,
+        exercise_options=exercise_options,
         weekdays=_weekdays_for_start(week_start_pref),
         chart_muscle=chart_muscle,
+        chart_exercise=chart_exercise,
+        chart_exercise_ids=chart_exercise_ids,
         chart_range=chart_range,
         chart_data=chart_data,
         preferred_unit=g.user.get("weight_unit", "lb"),
@@ -490,6 +548,8 @@ def stats_index():
 def stats_muscle_data():
     user_id = g.user["id"]
     muscle_id = request.args.get("muscle_id", type=int)
+    exercise_ids_raw = request.args.get("exercise_ids")
+    exercise_id = request.args.get("exercise_id", type=int)
     range_key = request.args.get("range", "last_3_months")
     start_raw = request.args.get("start")
     end_raw = request.args.get("end")
@@ -509,15 +569,34 @@ def stats_muscle_data():
     else:
         range_start, range_end = _range_bounds(range_key, today)
 
+    exercise_ids: list[int] = []
+    if exercise_ids_raw:
+        try:
+            exercise_ids = [int(value) for value in exercise_ids_raw.split(",") if value.strip()]
+        except ValueError:
+            exercise_ids = []
+    elif exercise_id:
+        exercise_ids = [exercise_id]
+
     conn = get_conn()
     try:
-        rows = stats_repo.muscle_progression(
-            conn,
-            user_id=user_id,
-            muscle_id=muscle_id,
-            start_date=range_start,
-            end_date=range_end,
-        )
+        if exercise_ids:
+            rows = stats_repo.exercise_progression_multi(
+                conn,
+                user_id=user_id,
+                muscle_id=muscle_id,
+                exercise_ids=exercise_ids,
+                start_date=range_start,
+                end_date=range_end,
+            )
+        else:
+            rows = stats_repo.muscle_progression(
+                conn,
+                user_id=user_id,
+                muscle_id=muscle_id,
+                start_date=range_start,
+                end_date=range_end,
+            )
     finally:
         conn.close()
 
@@ -527,3 +606,28 @@ def stats_muscle_data():
             "values": [float(row["max_weight_kg"]) for row in rows],
         }
     )
+
+
+@web_bp.route("/stats/exercise-options")
+@login_required
+def stats_exercise_options():
+    user_id = g.user["id"]
+    muscle_id = request.args.get("muscle_id", type=int)
+    if muscle_id is None:
+        return jsonify({"items": []})
+
+    conn = get_conn()
+    try:
+        muscle = muscles_repo.get_muscle(conn, user_id, muscle_id)
+        if muscle is None:
+            return jsonify({"items": []})
+        rows = exercise_catalog_repo.list_for_muscle(
+            conn,
+            user_id=user_id,
+            muscle_id=muscle_id,
+        )
+    finally:
+        conn.close()
+
+    items = [{"id": row["id"], "name": row["name"]} for row in rows]
+    return jsonify({"items": items})
