@@ -62,3 +62,14 @@ CREATE TABLE IF NOT EXISTS totp_backup_code (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES app_user (id)
 );
+
+CREATE TABLE IF NOT EXISTS access_code (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    code TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    used_by_user_id INTEGER,
+    used_at TIMESTAMP,
+    FOREIGN KEY (used_by_user_id) REFERENCES app_user (id),
+    UNIQUE (name)
+);

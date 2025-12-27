@@ -6,9 +6,10 @@
   <div class="max-w-lg mx-auto">
     <a
       href="{{ url_for('web.workouts_index') }}"
-      class="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
+      class="inline-flex items-center gap-1.5 text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
     >
-      ← Back to workouts
+      <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+      Back to workouts
     </a>
 
     <header class="mb-6">
@@ -88,8 +89,9 @@
         </div>
         <button
           type="submit"
-          class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
+          class="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
         >
+          <i data-lucide="save" class="h-3.5 w-3.5"></i>
           Save week start
         </button>
       </form>

@@ -6,9 +6,10 @@
 {% block content %}
   <a
     href="{{ url_for('web.account_settings') }}"
-    class="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
+    class="inline-flex items-center gap-1.5 text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
   >
-    ← Back to account
+    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+    Back to account
   </a>
 
   <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100 mb-3">
@@ -58,8 +59,9 @@
 
         <button
           type="submit"
-          class="inline-flex items-center rounded-md bg-emerald-500 px-3 py-2 text-sm font-medium text-black hover:bg-emerald-400 transition-colors duration-200"
+          class="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-2 text-sm font-medium text-black hover:bg-emerald-400 transition-colors duration-200"
         >
+          <i data-lucide="shield-check" class="h-4 w-4"></i>
           Enable 2FA
         </button>
       </form>
@@ -118,8 +120,9 @@
         <div class="mt-4 flex flex-wrap gap-3 items-center">
           <a
             href="{{ url_for('web.download_backup_codes') }}"
-            class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
+            class="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
           >
+            <i data-lucide="download" class="h-4 w-4"></i>
             Download as text file
           </a>
           <p class="text-[11px] text-slate-500">

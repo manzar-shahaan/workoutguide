@@ -7,9 +7,10 @@
   <div class="max-w-lg mx-auto">
     <a
       href="{{ url_for('web.workouts_index') }}"
-      class="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
+      class="inline-flex items-center gap-1.5 text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
     >
-      ← Back to workouts
+      <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+      Back to workouts
     </a>
 
     <header class="mb-6 flex items-center justify-between gap-3">
@@ -25,8 +26,9 @@
       {% if not edit_mode %}
         <a
           href="{{ url_for('web.account_settings', edit=1) }}"
-          class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
+          class="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
         >
+          <i data-lucide="pencil" class="h-4 w-4"></i>
           Edit profile
         </a>
       {% endif %}
@@ -94,14 +96,16 @@
         <button
           type="button"
           id="accountSaveButton"
-          class="inline-flex items-center rounded-md bg-emerald-500 px-3 py-2 text-sm font-medium text-black hover:bg-emerald-400 transition-colors duration-200"
+          class="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-2 text-sm font-medium text-black hover:bg-emerald-400 transition-colors duration-200"
         >
+          <i data-lucide="save" class="h-4 w-4"></i>
           Save changes
         </button>
         <a
           href="{{ url_for('web.account_settings') }}"
-          class="text-sm text-slate-400 hover:text-slate-100"
+          class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-100"
         >
+          <i data-lucide="x" class="h-3.5 w-3.5"></i>
           Cancel
         </a>
       </div>
@@ -167,9 +171,11 @@
         <div class="flex flex-col sm:flex-row gap-2">
           <button
             type="button"
-            class="flex-1 rounded-md border border-slate-600 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900"
+            id="exportDataTrigger"
+            class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-slate-600 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900"
           >
-            Export data (coming soon)
+            <i data-lucide="download" class="h-4 w-4"></i>
+            Export workouts
           </button>
           <button
             type="button"
@@ -177,6 +183,96 @@
           >
             Delete account (coming soon)
           </button>
+        </div>
+      </div>
+
+      <div
+        id="exportDataOverlay"
+        class="fixed inset-0 z-40 hidden"
+        aria-hidden="true"
+      >
+        <div class="absolute inset-0 bg-black/70" data-export-dismiss></div>
+        <div
+          class="fixed inset-x-4 top-1/4 max-w-md mx-auto rounded-xl border border-slate-700 bg-slate-950 px-5 py-5 shadow-md shadow-black/70"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="exportDataTitle"
+        >
+          <div class="flex items-start justify-between mb-3">
+            <div>
+              <h2 id="exportDataTitle" class="text-sm font-semibold text-slate-100">
+                Export workouts
+              </h2>
+              <p class="text-xs text-slate-400">
+                Choose which fields to include in your JSON export.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="text-xs text-slate-400 hover:text-slate-100"
+              data-export-dismiss
+            >
+              <i data-lucide="x" class="h-3.5 w-3.5"></i>
+            </button>
+          </div>
+
+          <form method="get" action="{{ url_for('web.export_workouts') }}" class="space-y-3">
+            <input type="hidden" name="export_options" value="1">
+
+            <div class="rounded-md border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300">
+              <p class="font-semibold text-slate-100 mb-1">Always included</p>
+              <div class="flex flex-wrap gap-3">
+                <label class="inline-flex items-center gap-2">
+                  <input type="checkbox" checked disabled>
+                  Workouts
+                </label>
+                <label class="inline-flex items-center gap-2">
+                  <input type="checkbox" checked disabled>
+                  Exercises
+                </label>
+              </div>
+            </div>
+
+            <div class="space-y-2 text-sm text-slate-200">
+              <label class="flex items-center gap-2">
+                <input type="checkbox" name="include_notes" value="1" checked>
+                Notes (workout + exercise)
+              </label>
+              <label class="flex items-center gap-2">
+                <input type="checkbox" name="include_weights" value="1" checked>
+                Weight data (value + unit)
+              </label>
+              <label class="flex items-center gap-2">
+                <input type="checkbox" name="include_sets" value="1" checked>
+                Sets
+              </label>
+              <label class="flex items-center gap-2">
+                <input type="checkbox" name="include_muscles" value="1" checked>
+                Muscle groups
+              </label>
+              <label class="flex items-center gap-2">
+                <input type="checkbox" name="include_timestamps" value="1" checked>
+                Timestamps
+              </label>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                class="text-xs text-slate-400 hover:text-slate-100"
+                data-export-dismiss
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-2 text-xs font-medium text-black hover:bg-emerald-400"
+              >
+                <i data-lucide="download" class="h-4 w-4"></i>
+                Download JSON
+              </button>
+            </div>
+          </form>
         </div>
       </div>
       </section>
@@ -330,4 +426,35 @@
       })();
     </script>
   {% endif %}
+
+  <script>
+    (function () {
+      const trigger = document.getElementById("exportDataTrigger");
+      const overlay = document.getElementById("exportDataOverlay");
+      if (!trigger || !overlay) return;
+
+      const dismissButtons = overlay.querySelectorAll("[data-export-dismiss]");
+
+      const openOverlay = () => {
+        overlay.classList.remove("hidden");
+        overlay.setAttribute("aria-hidden", "false");
+      };
+
+      const closeOverlay = () => {
+        overlay.classList.add("hidden");
+        overlay.setAttribute("aria-hidden", "true");
+      };
+
+      trigger.addEventListener("click", openOverlay);
+      dismissButtons.forEach((el) => {
+        el.addEventListener("click", closeOverlay);
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !overlay.classList.contains("hidden")) {
+          closeOverlay();
+        }
+      });
+    })();
+  </script>
 {% endblock %}

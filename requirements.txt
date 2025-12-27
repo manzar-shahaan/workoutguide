@@ -4,3 +4,4 @@ argon2-cffi
 pyotp
 SQLAlchemy
 psycopg2-binary
+gunicorn

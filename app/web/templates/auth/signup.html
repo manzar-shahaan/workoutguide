@@ -20,6 +20,12 @@
       {{ input_field("name", "Name", required=True, maxlength=80) }}
       {{ input_field("email", "Email", type="email", required=True, maxlength=255) }}
       {{ input_field(
+          "access_code",
+          "Access code",
+          required=True,
+          maxlength=64
+      ) }}
+      {{ input_field(
           "password",
           "Password",
           type="password",

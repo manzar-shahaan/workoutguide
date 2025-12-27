@@ -97,7 +97,7 @@
               <span>
                 {{ g.user["name"] or g.user["email"] }}
               </span>
-              <span class="text-[0.6rem] sm:text-xs text-slate-400">▼</span>
+              <i data-lucide="chevron-down" class="h-3 w-3 text-slate-400"></i>
             </button>
           {% else %}
             <a href="{{ url_for('web.login') }}" class="text-slate-300 hover:text-white">
@@ -172,7 +172,7 @@
               class="text-xs text-slate-400 hover:text-slate-100"
               data-user-menu-dismiss
             >
-              ✕
+              <i data-lucide="x" class="h-3 w-3"></i>
             </button>
           </div>
 
@@ -223,9 +223,14 @@
       </div>
     {% endif %}
 
-      <script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
       // User menu popover / bottom sheet
       document.addEventListener("DOMContentLoaded", () => {
+        if (window.lucide && typeof window.lucide.createIcons === "function") {
+          window.lucide.createIcons();
+        }
+
         const menuButton = document.getElementById("userMenuButton");
         const overlay = document.getElementById("userMenuOverlay");
 

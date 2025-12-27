@@ -131,3 +131,30 @@ def delete_workout(conn, workout_id: int, user_id: int):
     sql = "DELETE FROM workout WHERE id = :workout_id AND user_id = :user_id"
     conn.execute(text(sql), {"workout_id": workout_id, "user_id": user_id})
     conn.commit()
+
+
+def export_workouts_with_exercises(conn, user_id: int):
+    sql = """
+        SELECT
+            w.id AS workout_id,
+            w.date AS workout_date,
+            w.notes AS workout_notes,
+            w.created_at AS workout_created_at,
+            e.id AS exercise_id,
+            e.notes AS exercise_notes,
+            e.weight_used,
+            e.weight_unit,
+            e.weight_used_kg,
+            e.num_of_sets,
+            e.created_at AS exercise_created_at,
+            m.name AS muscle_name,
+            m.color AS muscle_color
+        FROM workout w
+        LEFT JOIN exercise e ON e.workout_id = w.id
+        LEFT JOIN exercise_muscle em ON em.exercise_id = e.id
+        LEFT JOIN muscle m ON m.id = em.muscle_id AND m.user_id = w.user_id
+        WHERE w.user_id = :user_id
+        ORDER BY w.date DESC, w.id DESC, e.id, m.name
+    """
+    result = conn.execute(text(sql), {"user_id": user_id})
+    return result.mappings().all()

@@ -6,9 +6,10 @@
   <div class="max-w-lg mx-auto">
     <a
       href="{{ url_for('web.account_settings') }}"
-      class="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
+      class="inline-flex items-center gap-1.5 text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
     >
-      ← Back to account
+      <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+      Back to account
     </a>
 
     <header class="mb-6">
@@ -40,8 +41,9 @@
         >
         <button
           type="submit"
-          class="inline-flex items-center justify-center rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-slate-900"
+          class="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-slate-900"
         >
+          <i data-lucide="plus" class="h-4 w-4"></i>
           Add
         </button>
       </form>
@@ -57,9 +59,10 @@
           <input type="hidden" name="action" value="reset">
           <button
             type="submit"
-            class="inline-flex items-center rounded-md border border-slate-700 px-3 py-2 text-xs font-medium text-slate-100 hover:bg-slate-900"
+            class="inline-flex items-center gap-1.5 rounded-md border border-slate-700 px-3 py-2 text-xs font-medium text-slate-100 hover:bg-slate-900"
             onclick="return confirm('Reset muscle groups to defaults? This will deactivate your custom list.');"
           >
+            <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i>
             Reset to defaults
           </button>
         </form>
@@ -106,8 +109,9 @@
                   >
                   <button
                     type="submit"
-                    class="inline-flex h-9 w-24 items-center justify-center rounded-md border border-slate-600 px-3 text-xs font-medium text-slate-100 hover:bg-slate-900"
+                    class="inline-flex h-9 w-24 items-center justify-center gap-1.5 rounded-md border border-slate-600 px-3 text-xs font-medium text-slate-100 hover:bg-slate-900"
                   >
+                    <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
                     Rename
                   </button>
                 </form>
@@ -117,9 +121,10 @@
                   <input type="hidden" name="muscle_id" value="{{ m['id'] }}">
                   <button
                     type="submit"
-                    class="inline-flex h-9 w-24 items-center justify-center rounded-md border border-red-700 px-3 text-xs font-medium text-red-400 hover:bg-red-900"
+                    class="inline-flex h-9 w-24 items-center justify-center gap-1.5 rounded-md border border-red-700 px-3 text-xs font-medium text-red-400 hover:bg-red-900"
                     onclick="return confirm('Remove this muscle from your list?');"
                   >
+                    <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
                     Remove
                   </button>
                 </form>

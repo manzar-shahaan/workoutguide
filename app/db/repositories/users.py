@@ -10,6 +10,8 @@ def create_user(
     weight_unit: str = "lb",
     week_start: str = "sun",
     recovery_email: str | None = None,
+    *,
+    commit: bool = True,
 ):
     """
     Create a new user row.
@@ -32,8 +34,15 @@ def create_user(
             "recovery_email": recovery_email,
         },
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     return cur.scalar_one()
+
+
+def delete_user(conn, user_id: int):
+    sql = "DELETE FROM app_user WHERE id = :user_id"
+    conn.execute(text(sql), {"user_id": user_id})
+    conn.commit()
 
 
 def get_user_by_email(conn, email: str):

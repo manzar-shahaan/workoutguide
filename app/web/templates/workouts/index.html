@@ -26,15 +26,17 @@
     <div class="flex items-center gap-2">
       <a
         href="{{ url_for('web.stats_index') }}"
-        class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200 md:hidden"
+        class="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200 md:hidden"
       >
+        <i data-lucide="bar-chart-3" class="h-4 w-4"></i>
         Stats
       </a>
       <a
         href="{{ url_for('web.new_exercise') }}"
-        class="inline-flex items-center rounded-md bg-emerald-500 px-3 py-2 text-xs sm:text-sm font-medium text-black hover:bg-emerald-400"
+        class="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-2 text-xs sm:text-sm font-medium text-black hover:bg-emerald-400"
       >
-        + Add exercise
+        <i data-lucide="plus" class="h-4 w-4"></i>
+        Add exercise
       </a>
     </div>
   </div>
@@ -295,9 +297,10 @@
           </span>
           <a
             href="{{ url_for('web.stats_index', view='month', date=stats_month_anchor.strftime('%Y-%m-%d')) }}"
-            class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
+            class="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
           >
             View more stats
+            <i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
           </a>
         </div>
       </section>

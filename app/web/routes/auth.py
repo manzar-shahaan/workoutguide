@@ -1,6 +1,8 @@
 # app/web/routes/auth.py
 
+import json
 import re
+from datetime import datetime, timezone
 
 from flask import (
     render_template,
@@ -20,6 +22,8 @@ from ...db.connection import get_conn
 from ...db.repositories import users as users_repo
 from ...db.repositories import muscles as muscles_repo
 from ...db.repositories import backup_codes as backup_codes_repo
+from ...db.repositories import access_codes as access_codes_repo
+from ...db.repositories import workouts as workouts_repo
 from .. import web_bp
 from ..auth_utils import login_required, make_user
 
@@ -28,6 +32,7 @@ MAX_NAME_LEN = 80
 MAX_EMAIL_LEN = 255
 MIN_PASSWORD_LEN = 8
 MAX_PASSWORD_LEN = 128
+MAX_ACCESS_CODE_LEN = 64
 
 # Argon2 password hasher
 ph = PasswordHasher()
@@ -53,6 +58,7 @@ def signup():
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
         confirm_password = request.form.get("confirm_password", "")
+        access_code = (request.form.get("access_code") or "").strip().replace(" ", "").upper()
 
         error = None
 
@@ -74,15 +80,24 @@ def signup():
             error = f"Password must be at most {MAX_PASSWORD_LEN} characters."
         elif password != confirm_password:
             error = "Passwords do not match."
+        elif not access_code:
+            error = "Access code is required."
+        elif len(access_code) > MAX_ACCESS_CODE_LEN:
+            error = "Access code is invalid."
 
         conn = get_conn()
         try:
             existing = users_repo.get_user_by_email(conn, email) if email else None
+            code_row = access_codes_repo.get_by_code(conn, access_code) if access_code else None
         finally:
             conn.close()
 
         if existing is not None:
             error = "An account with that email already exists."
+        elif error is None and code_row is None:
+            error = "Invalid access code."
+        elif error is None and code_row and code_row["used_by_user_id"] is not None:
+            error = "Access code has already been used."
 
         if error:
             flash(error, "error")
@@ -93,17 +108,25 @@ def signup():
             conn = get_conn()
             try:
                 user_id = users_repo.create_user(conn, name, email, password_hash)
-                muscles_repo.ensure_default_muscles(conn, user_id)
-                user_row = users_repo.get_user(conn, user_id)
+                code_used = access_codes_repo.mark_used(conn, access_code, user_id)
+                if not code_used:
+                    users_repo.delete_user(conn, user_id)
+                    error = "Access code has already been used."
+                else:
+                    muscles_repo.ensure_default_muscles(conn, user_id)
+                    user_row = users_repo.get_user(conn, user_id)
             finally:
                 conn.close()
 
-            # Log in via Flask-Login
-            user_obj = make_user(user_row)
-            login_user(user_obj)
+            if error:
+                flash(error, "error")
+            else:
+                # Log in via Flask-Login
+                user_obj = make_user(user_row)
+                login_user(user_obj)
 
-            flash("Account created and logged in.", "success")
-            return redirect(url_for("web.workouts_index"))
+                flash("Account created and logged in.", "success")
+                return redirect(url_for("web.workouts_index"))
 
     return render_template("auth/signup.html")
 
@@ -526,5 +549,117 @@ def download_backup_codes():
         mimetype="text/plain",
         headers={
             "Content-Disposition": 'attachment; filename="backup-codes.txt"'
+        },
+    )
+
+
+def _serialize_datetime(value):
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+@web_bp.route("/account/export", methods=["GET"])
+@login_required
+def export_workouts():
+    user_id = g.user["id"]
+    options_submitted = request.args.get("export_options") == "1"
+
+    def option_enabled(name: str, default: bool) -> bool:
+        if not options_submitted:
+            return default
+        return (request.args.get(name) or "").lower() in {"1", "true", "on", "yes"}
+
+    conn = get_conn()
+    try:
+        user = users_repo.get_user(conn, user_id)
+        rows = workouts_repo.export_workouts_with_exercises(conn, user_id)
+    finally:
+        conn.close()
+
+    include_notes = option_enabled("include_notes", True)
+    include_weights = option_enabled("include_weights", True)
+    include_sets = option_enabled("include_sets", True)
+    include_muscles = option_enabled("include_muscles", True)
+    include_timestamps = option_enabled("include_timestamps", True)
+
+    workouts = []
+    workout_lookup = {}
+
+    for row in rows:
+        workout_id = row["workout_id"]
+        workout = workout_lookup.get(workout_id)
+        if workout is None:
+            workout = {
+                "id": workout_id,
+                "date": _serialize_datetime(row["workout_date"]),
+                "exercises": [],
+                "_exercise_lookup": {},
+            }
+            if include_notes:
+                workout["notes"] = row["workout_notes"]
+            if include_timestamps:
+                workout["created_at"] = _serialize_datetime(row["workout_created_at"])
+            workout_lookup[workout_id] = workout
+            workouts.append(workout)
+
+        exercise_id = row["exercise_id"]
+        if exercise_id is None:
+            continue
+
+        exercise_lookup = workout["_exercise_lookup"]
+        exercise = exercise_lookup.get(exercise_id)
+        if exercise is None:
+            exercise = {
+                "id": exercise_id,
+            }
+            if include_notes:
+                exercise["notes"] = row["exercise_notes"]
+            if include_weights:
+                exercise["weight_used"] = row["weight_used"]
+                exercise["weight_unit"] = row["weight_unit"]
+                exercise["weight_used_kg"] = row["weight_used_kg"]
+            if include_sets:
+                exercise["num_of_sets"] = row["num_of_sets"]
+            if include_timestamps:
+                exercise["created_at"] = _serialize_datetime(row["exercise_created_at"])
+            if include_muscles:
+                exercise["muscles"] = []
+            exercise_lookup[exercise_id] = exercise
+            workout["exercises"].append(exercise)
+
+        muscle_name = row["muscle_name"]
+        if include_muscles and muscle_name:
+            exercise["muscles"].append(
+                {
+                    "name": muscle_name,
+                    "color": row["muscle_color"],
+                }
+            )
+
+    for workout in workouts:
+        workout.pop("_exercise_lookup", None)
+
+    exported_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    payload = {
+        "exported_at": exported_at,
+        "user": {
+            "id": user["id"],
+            "name": user["name"],
+            "email": user["email"],
+        },
+        "workouts": workouts,
+    }
+
+    content = json.dumps(payload, indent=2, ensure_ascii=True) + "\n"
+    filename = f"workouts-export-{exported_at[:10]}.json"
+
+    return Response(
+        content,
+        mimetype="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
         },
     )
