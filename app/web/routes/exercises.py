@@ -1,7 +1,7 @@
 # app/web/routes/exercises.py
 # app/web/routes/exercises.py
 
-from datetime import date, timedelta  # ⬅️ updated import
+from datetime import date, datetime, timedelta  # ⬅️ updated import
 
 from flask import (
     render_template,
@@ -52,6 +52,25 @@ def _date_to_str(value) -> str | None:
     if isinstance(value, date):
         return value.isoformat()
     return str(value)
+
+
+def _ordinal(n: int) -> str:
+    if 11 <= n <= 13:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+def _format_date(d: date) -> str:
+    return f"{d.strftime('%b')} {_ordinal(d.day)}, {d.year}"
+
+
+def _format_last_logged(raw_date) -> str | None:
+    if not raw_date:
+        return None
+    date_obj = raw_date if isinstance(raw_date, date) else datetime.strptime(raw_date, "%Y-%m-%d").date()
+    return _format_date(date_obj)
 
 
 @web_bp.route("/exercises/new", methods=["GET", "POST"])
@@ -528,19 +547,46 @@ def exercise_suggestions():
     muscle_id = request.args.get("muscle_id", type=int)
     query = request.args.get("q", "").strip()
 
-    if muscle_id is None:
-        return jsonify({"count": 0, "items": []})
-
     conn = get_conn()
     try:
-        muscle = muscles_repo.get_muscle(conn, user_id, muscle_id)
-        if muscle is None:
-            return jsonify({"count": 0, "items": []})
-        total = exercise_catalog_repo.count_for_muscle(conn, user_id, muscle_id)
-        items = []
-        if query:
-            items = exercise_catalog_repo.search_for_muscle(conn, user_id, muscle_id, query)
+        if muscle_id is not None:
+            muscle = muscles_repo.get_muscle(conn, user_id, muscle_id)
+            if muscle is None:
+                return jsonify({"count": 0, "items": []})
+            total = exercise_catalog_repo.count_for_muscle(conn, user_id, muscle_id)
+            items = []
+            if query:
+                items = exercise_catalog_repo.search_for_muscle_with_counts(
+                    conn,
+                    user_id,
+                    muscle_id,
+                    query,
+                )
+        else:
+            total = exercise_catalog_repo.count_for_user(conn, user_id)
+            items = []
+            if query:
+                items = exercise_catalog_repo.search_all_with_counts(
+                    conn,
+                    user_id,
+                    query,
+                )
     finally:
         conn.close()
 
-    return jsonify({"count": total, "items": items})
+    formatted = [
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "exercise_count": row.get("exercise_count", 0),
+            "muscle_id": row.get("muscle_id"),
+            "muscle_name": row.get("muscle_name"),
+            "muscle_color": row.get("muscle_color"),
+            "last_weight_used": row.get("last_weight_used"),
+            "last_weight_unit": row.get("last_weight_unit"),
+            "last_num_of_sets": row.get("last_num_of_sets"),
+            "last_logged": _format_last_logged(row.get("last_workout_date")),
+        }
+        for row in items
+    ]
+    return jsonify({"count": total, "items": formatted})

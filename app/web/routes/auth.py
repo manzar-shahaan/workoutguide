@@ -21,6 +21,7 @@ import pyotp
 from ...db.connection import get_conn
 from ...db.repositories import users as users_repo
 from ...db.repositories import muscles as muscles_repo
+from ...db.repositories import exercise_catalog as exercise_catalog_repo
 from ...db.repositories import backup_codes as backup_codes_repo
 from ...db.repositories import access_codes as access_codes_repo
 from ...db.repositories import workouts as workouts_repo
@@ -449,6 +450,36 @@ def manage_muscles():
                 elif action == "reset":
                     muscles_repo.reset_to_default(conn, user_id)
                     flash("Muscle groups reset to defaults.", "success")
+                elif action == "template_rename":
+                    muscle_id = request.form.get("muscle_id", type=int)
+                    template_id = request.form.get("template_id", type=int)
+                    new_name = request.form.get("new_name", "").strip()
+                    if muscle_id is None or template_id is None:
+                        raise ValueError("Invalid template selection.")
+                    updated_id = exercise_catalog_repo.rename_template(
+                        conn,
+                        user_id,
+                        muscle_id,
+                        template_id,
+                        new_name,
+                    )
+                    if updated_id is None:
+                        raise ValueError("Template not found.")
+                    flash("Exercise template renamed.", "success")
+                elif action == "template_merge":
+                    muscle_id = request.form.get("muscle_id", type=int)
+                    source_id = request.form.get("source_template_id", type=int)
+                    target_id = request.form.get("target_template_id", type=int)
+                    if muscle_id is None or source_id is None or target_id is None:
+                        raise ValueError("Invalid template selection.")
+                    exercise_catalog_repo.merge_templates(
+                        conn,
+                        user_id,
+                        muscle_id,
+                        source_id,
+                        target_id,
+                    )
+                    flash("Exercise templates merged.", "success")
                 else:
                     flash("Unknown action.", "error")
             except ValueError as exc:
@@ -457,10 +488,20 @@ def manage_muscles():
             return redirect(url_for("web.manage_muscles"))
 
         muscles = muscles_repo.list_muscles(conn, user_id=user_id, active_only=True)
+        template_rows = exercise_catalog_repo.list_all_with_counts(conn, user_id)
+        template_lookup = {m["id"]: [] for m in muscles}
+        for row in template_rows:
+            muscle_id = row["muscle_id"]
+            if muscle_id in template_lookup:
+                template_lookup[muscle_id].append(row)
     finally:
         conn.close()
 
-    return render_template("account/muscles.html", muscles=muscles)
+    return render_template(
+        "account/muscles.html",
+        muscles=muscles,
+        exercise_templates=template_lookup,
+    )
 
 
 @web_bp.route("/login/2fa", methods=["GET", "POST"])

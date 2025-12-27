@@ -224,50 +224,11 @@
     {% endif %}
 
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="{{ url_for('web.static', filename='js/main.js') }}"></script>
     <script>
-      // User menu popover / bottom sheet
       document.addEventListener("DOMContentLoaded", () => {
         if (window.lucide && typeof window.lucide.createIcons === "function") {
           window.lucide.createIcons();
-        }
-
-        const menuButton = document.getElementById("userMenuButton");
-        const overlay = document.getElementById("userMenuOverlay");
-
-        if (menuButton && overlay) {
-          const dismissSelectors = "[data-user-menu-dismiss]";
-          const dismissElements = overlay.querySelectorAll(dismissSelectors);
-
-          const openMenu = () => {
-            overlay.classList.remove("hidden");
-            overlay.setAttribute("aria-hidden", "false");
-          };
-
-          const closeMenu = () => {
-            overlay.classList.add("hidden");
-            overlay.setAttribute("aria-hidden", "true");
-          };
-
-          menuButton.addEventListener("click", () => {
-            const isHidden = overlay.classList.contains("hidden");
-            if (isHidden) {
-              openMenu();
-            } else {
-              closeMenu();
-            }
-          });
-
-          dismissElements.forEach((el) => {
-            el.addEventListener("click", () => {
-              closeMenu();
-            });
-          });
-
-          document.addEventListener("keydown", (event) => {
-            if (event.key === "Escape" && !overlay.classList.contains("hidden")) {
-              closeMenu();
-            }
-          });
         }
 
         // Add .was-validated to forms after first submit attempt

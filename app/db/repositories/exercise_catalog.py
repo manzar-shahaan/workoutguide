@@ -18,6 +18,29 @@ def list_for_muscle(conn, user_id: int, muscle_id: int):
     return result.mappings().all()
 
 
+def list_all_with_counts(conn, user_id: int):
+    sql = """
+        SELECT ec.id, ec.name, ec.muscle_id, COUNT(e.id) AS exercise_count
+        FROM exercise_catalog ec
+        LEFT JOIN exercise e ON e.exercise_catalog_id = ec.id
+        WHERE ec.user_id = :user_id
+        GROUP BY ec.id, ec.name, ec.muscle_id
+        ORDER BY ec.name
+    """
+    result = conn.execute(text(sql), {"user_id": user_id})
+    return result.mappings().all()
+
+
+def get_template(conn, user_id: int, template_id: int):
+    sql = """
+        SELECT id, name, muscle_id
+        FROM exercise_catalog
+        WHERE user_id = :user_id AND id = :id
+    """
+    result = conn.execute(text(sql), {"user_id": user_id, "id": template_id})
+    return result.mappings().fetchone()
+
+
 def search_for_muscle(conn, user_id: int, muscle_id: int, query: str):
     sql = """
         SELECT id, name
@@ -31,6 +54,93 @@ def search_for_muscle(conn, user_id: int, muscle_id: int, query: str):
     result = conn.execute(
         text(sql),
         {"user_id": user_id, "muscle_id": muscle_id, "q": f"%{query}%"},
+    )
+    return result.mappings().all()
+
+
+def search_for_muscle_with_counts(conn, user_id: int, muscle_id: int, query: str):
+    sql = """
+        SELECT
+            ec.id,
+            ec.name,
+            COUNT(e.id) AS exercise_count,
+            m.name AS muscle_name,
+            m.color AS muscle_color,
+            last.weight_used AS last_weight_used,
+            last.weight_unit AS last_weight_unit,
+            last.num_of_sets AS last_num_of_sets,
+            last.workout_date AS last_workout_date
+        FROM exercise_catalog ec
+        JOIN muscle m ON m.id = ec.muscle_id AND m.user_id = ec.user_id
+        LEFT JOIN exercise e ON e.exercise_catalog_id = ec.id
+        LEFT JOIN LATERAL (
+            SELECT e2.weight_used, e2.weight_unit, e2.num_of_sets, w2.date AS workout_date
+            FROM exercise e2
+            JOIN workout w2 ON w2.id = e2.workout_id
+            WHERE e2.exercise_catalog_id = ec.id
+            ORDER BY w2.date DESC NULLS LAST, e2.created_at DESC
+            LIMIT 1
+        ) AS last ON TRUE
+        WHERE ec.user_id = :user_id
+          AND ec.muscle_id = :muscle_id
+          AND ec.name ILIKE :q
+        GROUP BY ec.id, ec.name, m.name, m.color,
+                 last.weight_used, last.weight_unit, last.num_of_sets, last.workout_date
+        ORDER BY ec.name
+        LIMIT 25
+    """
+    result = conn.execute(
+        text(sql),
+        {"user_id": user_id, "muscle_id": muscle_id, "q": f"%{query}%"},
+    )
+    return result.mappings().all()
+
+
+def count_for_user(conn, user_id: int) -> int:
+    sql = """
+        SELECT COUNT(*) AS count
+        FROM exercise_catalog
+        WHERE user_id = :user_id
+    """
+    result = conn.execute(text(sql), {"user_id": user_id})
+    row = result.mappings().fetchone()
+    return row["count"] if row else 0
+
+
+def search_all_with_counts(conn, user_id: int, query: str):
+    sql = """
+        SELECT
+            ec.id,
+            ec.name,
+            ec.muscle_id,
+            m.name AS muscle_name,
+            m.color AS muscle_color,
+            COUNT(e.id) AS exercise_count,
+            last.weight_used AS last_weight_used,
+            last.weight_unit AS last_weight_unit,
+            last.num_of_sets AS last_num_of_sets,
+            last.workout_date AS last_workout_date
+        FROM exercise_catalog ec
+        JOIN muscle m ON m.id = ec.muscle_id AND m.user_id = ec.user_id
+        LEFT JOIN exercise e ON e.exercise_catalog_id = ec.id
+        LEFT JOIN LATERAL (
+            SELECT e2.weight_used, e2.weight_unit, e2.num_of_sets, w2.date AS workout_date
+            FROM exercise e2
+            JOIN workout w2 ON w2.id = e2.workout_id
+            WHERE e2.exercise_catalog_id = ec.id
+            ORDER BY w2.date DESC NULLS LAST, e2.created_at DESC
+            LIMIT 1
+        ) AS last ON TRUE
+        WHERE ec.user_id = :user_id
+          AND ec.name ILIKE :q
+        GROUP BY ec.id, ec.name, ec.muscle_id, m.name, m.color,
+                 last.weight_used, last.weight_unit, last.num_of_sets, last.workout_date
+        ORDER BY ec.name
+        LIMIT 25
+    """
+    result = conn.execute(
+        text(sql),
+        {"user_id": user_id, "q": f"%{query}%"},
     )
     return result.mappings().all()
 
@@ -60,6 +170,114 @@ def get_by_name(conn, user_id: int, muscle_id: int, name: str):
         {"user_id": user_id, "muscle_id": muscle_id, "name": name_norm},
     )
     return result.mappings().fetchone()
+
+
+def rename_template(
+    conn,
+    user_id: int,
+    muscle_id: int,
+    template_id: int,
+    new_name: str,
+) -> int | None:
+    name_norm = _normalize_name(new_name)
+    if not name_norm:
+        raise ValueError("Template name is required.")
+
+    current = get_template(conn, user_id, template_id)
+    if current is None or current["muscle_id"] != muscle_id:
+        return None
+
+    if current["name"] == name_norm:
+        return current["id"]
+
+    existing = get_by_name(conn, user_id, muscle_id, name_norm)
+    if existing:
+        raise ValueError(
+            "An exercise template with that name already exists. Use merge instead."
+        )
+
+    conn.execute(
+        text(
+            """
+            UPDATE exercise_catalog
+            SET name = :name
+            WHERE id = :id AND user_id = :user_id
+            """
+        ),
+        {"id": template_id, "user_id": user_id, "name": name_norm},
+    )
+    conn.execute(
+        text(
+            """
+            UPDATE exercise
+            SET exercise_name = :name
+            WHERE exercise_catalog_id = :id
+            """
+        ),
+        {"id": template_id, "name": name_norm},
+    )
+    conn.commit()
+    return template_id
+
+
+def merge_templates(
+    conn,
+    user_id: int,
+    muscle_id: int,
+    source_template_id: int,
+    target_template_id: int,
+) -> None:
+    if source_template_id == target_template_id:
+        raise ValueError("Pick two different templates to merge.")
+
+    source = get_template(conn, user_id, source_template_id)
+    target = get_template(conn, user_id, target_template_id)
+    if source is None or target is None:
+        raise ValueError("Template not found.")
+    if (
+        source["muscle_id"] != muscle_id
+        or target["muscle_id"] != muscle_id
+        or source["muscle_id"] != target["muscle_id"]
+    ):
+        raise ValueError("Templates must belong to the same muscle.")
+
+    target_name = target["name"]
+
+    conn.execute(
+        text(
+            """
+            UPDATE exercise
+            SET exercise_catalog_id = :target_id,
+                exercise_name = :target_name
+            WHERE exercise_catalog_id = :source_id
+            """
+        ),
+        {
+            "target_id": target_template_id,
+            "target_name": target_name,
+            "source_id": source_template_id,
+        },
+    )
+    conn.execute(
+        text(
+            """
+            UPDATE exercise
+            SET exercise_name = :target_name
+            WHERE exercise_catalog_id = :target_id
+            """
+        ),
+        {"target_id": target_template_id, "target_name": target_name},
+    )
+    conn.execute(
+        text(
+            """
+            DELETE FROM exercise_catalog
+            WHERE id = :source_id AND user_id = :user_id
+            """
+        ),
+        {"source_id": source_template_id, "user_id": user_id},
+    )
+    conn.commit()
 
 
 def get_or_create(

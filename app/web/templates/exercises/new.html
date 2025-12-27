@@ -41,7 +41,7 @@
       {% endif %}
 
       <div
-        class="form-row"
+        class="form-row relative"
         data-exercise-suggestions
         data-suggestions-endpoint="{{ url_for('web.exercise_suggestions') }}"
       >
@@ -53,23 +53,11 @@
           autocomplete="off"
           data-exercise-input
         >
-        <div class="mt-1 text-xs text-slate-500">
-          <span data-exercise-count>0</span> exercises stored
-        </div>
-        <div class="mt-2 hidden" data-exercise-list></div>
+        <div
+          class="absolute left-0 right-0 z-10 mt-2 hidden rounded-md border border-slate-800 bg-slate-950 p-2 text-xs text-slate-100 shadow-md shadow-black/50"
+          data-exercise-list
+        ></div>
       </div>
-
-      {{ input_field("weight_used", "Weight used", type="number", step="0.01") }}
-      {{ select_field(
-          "weight_unit",
-          "Weight unit",
-          weight_units,
-          selected=weight_unit_selected,
-          include_blank=False,
-          blank_label="-- Select unit --",
-          required=True
-      ) }}
-      {{ input_field("num_of_sets", "Number of sets", type="number") }}
 
       {{ select_field(
           "muscle_id",
@@ -87,6 +75,17 @@
         </p>
       {% endif %}
 
+      {{ input_field("weight_used", "Weight used", type="number", step="0.01") }}
+      {{ select_field(
+          "weight_unit",
+          "Weight unit",
+          weight_units,
+          selected=weight_unit_selected,
+          include_blank=False,
+          blank_label="-- Select unit --",
+          required=True
+      ) }}
+      {{ input_field("num_of_sets", "Number of sets", type="number") }}
 
       {{ textarea_field("notes", "Notes") }}
 

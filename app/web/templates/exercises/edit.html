@@ -39,7 +39,7 @@
     ) }}
 
     <div
-      class="form-row"
+      class="form-row relative"
       data-exercise-suggestions
       data-suggestions-endpoint="{{ url_for('web.exercise_suggestions') }}"
     >
@@ -52,11 +52,21 @@
         value="{{ exercise['exercise_name'] or '' }}"
         data-exercise-input
       >
-      <div class="mt-1 text-xs text-slate-500">
-        <span data-exercise-count>0</span> exercises stored
-      </div>
-      <div class="mt-2 hidden" data-exercise-list></div>
+      <div
+        class="absolute left-0 right-0 z-10 mt-2 hidden rounded-md border border-slate-800 bg-slate-950 p-2 text-xs text-slate-100 shadow-md shadow-black/50"
+        data-exercise-list
+      ></div>
     </div>
+
+    {{ select_field(
+         "muscle_id",
+         "Muscle group",
+         muscles,
+         selected=exercise["muscle_id"],
+         include_blank=False,
+         blank_label="-- Select muscle --",
+         required=True
+    ) }}
 
     {{ input_field(
         "weight_used",
@@ -81,16 +91,6 @@
         "Number of sets",
         value=exercise["num_of_sets"] if exercise["num_of_sets"] is not none else "",
         type="number"
-    ) }}
-
-    {{ select_field(
-         "muscle_id",
-         "Muscle group",
-         muscles,
-         selected=exercise["muscle_id"],
-         include_blank=False,
-         blank_label="-- Select muscle --",
-         required=True
     ) }}
 
     {{ textarea_field(
