@@ -450,6 +450,13 @@ def manage_muscles():
                 elif action == "reset":
                     muscles_repo.reset_to_default(conn, user_id)
                     flash("Muscle groups reset to defaults.", "success")
+                elif action == "merge":
+                    source_id = request.form.get("source_muscle_id", type=int)
+                    target_id = request.form.get("target_muscle_id", type=int)
+                    if source_id is None or target_id is None:
+                        raise ValueError("Invalid muscle selection.")
+                    muscles_repo.merge_muscles(conn, user_id, source_id, target_id)
+                    flash("Muscle groups merged.", "success")
                 elif action == "template_rename":
                     muscle_id = request.form.get("muscle_id", type=int)
                     template_id = request.form.get("template_id", type=int)
@@ -664,6 +671,8 @@ def export_workouts():
                 exercise["weight_used_kg"] = row["weight_used_kg"]
             if include_sets:
                 exercise["num_of_sets"] = row["num_of_sets"]
+                exercise["avg_reps"] = row.get("avg_reps")
+                exercise["max_reps"] = row.get("max_reps")
             if include_timestamps:
                 exercise["created_at"] = _serialize_datetime(row["exercise_created_at"])
             if include_muscles:

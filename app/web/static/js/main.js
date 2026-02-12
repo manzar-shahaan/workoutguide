@@ -71,7 +71,16 @@ document.addEventListener("DOMContentLoaded", () => {
         list.classList.remove("hidden");
         return;
       }
+      const activeMuscle = muscleSelect ? muscleSelect.value : "";
+      let lastMuscleId = null;
       items.forEach((item) => {
+        if (!query && !activeMuscle && item.muscle_id !== lastMuscleId) {
+          const header = document.createElement("div");
+          header.className = "mt-2 first:mt-0 text-[11px] uppercase tracking-wide text-slate-500";
+          header.textContent = item.muscle_name || "Uncategorized";
+          list.appendChild(header);
+          lastMuscleId = item.muscle_id;
+        }
         const button = document.createElement("button");
         button.type = "button";
         button.className = "block w-full text-left rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100 hover:bg-slate-800 transition-colors duration-150";
@@ -143,10 +152,6 @@ document.addEventListener("DOMContentLoaded", () => {
         .then((response) => response.json())
         .then((data) => {
           const items = data.items || [];
-          if (!query) {
-            list.classList.add("hidden");
-            return;
-          }
           renderList(items, data.count || 0, query);
         })
         .catch(() => {
@@ -155,14 +160,26 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     if (muscleSelect) {
-      muscleSelect.addEventListener("change", fetchSuggestions);
+      muscleSelect.addEventListener("change", () => {
+        if (document.activeElement === input) {
+          fetchSuggestions();
+        } else {
+          list.classList.add("hidden");
+        }
+      });
     }
     input.addEventListener("input", () => {
       if (timer) window.clearTimeout(timer);
       timer = window.setTimeout(fetchSuggestions, 200);
     });
-    input.addEventListener("focus", fetchSuggestions);
+    input.addEventListener("focus", () => {
+      fetchSuggestions();
+    });
 
-    fetchSuggestions();
+    document.addEventListener("click", (event) => {
+      if (!block.contains(event.target)) {
+        list.classList.add("hidden");
+      }
+    });
   });
 });

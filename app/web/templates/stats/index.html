@@ -22,17 +22,166 @@
       </div>
     </header>
 
-    <div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_320px]">
+    <section class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-5 shadow-md shadow-black/50">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-100">Muscle progression</h2>
+          <p class="text-xs text-slate-500">
+            Track max weight per day for the selected muscle, or filter by exercise.
+          </p>
+          <p class="mt-1 text-[11px] text-slate-500">
+            Use the exercise dropdown to select multiple items.
+          </p>
+        </div>
+        {% if muscles %}
+          <div class="flex flex-wrap items-center gap-2">
+            <select
+              id="muscleSelect"
+              class="h-9 rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100"
+            >
+              {% for m in muscles %}
+                <option
+                  value="{{ m['id'] }}"
+                  data-color="{{ m['color'] or '' }}"
+                  {% if m['id'] == chart_muscle %}selected{% endif %}
+                >
+                  {{ m["name"] }}
+                </option>
+              {% endfor %}
+            </select>
+            <details
+              class="relative"
+              data-exercise-dropdown
+            >
+              <input
+                type="hidden"
+                id="exerciseIds"
+                value="{{ chart_exercise_ids | join(',') }}"
+              >
+              <summary
+                class="list-none inline-flex h-9 min-w-[140px] items-center justify-between rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100 hover:bg-slate-800 cursor-pointer"
+              >
+                <span data-exercise-label>All exercises</span>
+                <span class="text-slate-400">▾</span>
+              </summary>
+              <div
+                class="absolute left-0 z-10 mt-2 w-64 rounded-md border border-slate-700 bg-slate-950 p-2 text-xs text-slate-100 shadow-md shadow-black/50"
+              >
+                <div class="mb-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
+                    data-exercise-select-all
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
+                    data-exercise-clear
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div class="max-h-48 overflow-y-auto space-y-1" data-exercise-list>
+                  {% if exercise_options %}
+                    {% for ex in exercise_options %}
+                      <label class="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-slate-900">
+                        <input
+                          type="checkbox"
+                          value="{{ ex['id'] }}"
+                          {% if ex['id'] in chart_exercise_ids %}checked{% endif %}
+                        >
+                        <span>{{ ex["name"] }}</span>
+                      </label>
+                    {% endfor %}
+                  {% else %}
+                    <p class="px-2 py-1 text-[11px] text-slate-500">No exercises yet.</p>
+                  {% endif %}
+                </div>
+              </div>
+            </details>
+            <select
+              id="metricSelect"
+              class="h-9 rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100"
+            >
+              <option value="weight" {% if chart_metric == 'weight' %}selected{% endif %}>Weight</option>
+              <option value="avg_reps" {% if chart_metric == 'avg_reps' %}selected{% endif %}>Avg reps</option>
+              <option value="max_reps" {% if chart_metric == 'max_reps' %}selected{% endif %}>Max reps</option>
+              <option value="volume" {% if chart_metric == 'volume' %}selected{% endif %}>Est. volume</option>
+            </select>
+            <select
+              id="rangeSelect"
+              class="h-9 rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100"
+            >
+              <option value="last_week" {% if chart_range == 'last_week' %}selected{% endif %}>Last week</option>
+              <option value="last_month" {% if chart_range == 'last_month' %}selected{% endif %}>Last month</option>
+              <option value="last_3_months" {% if chart_range == 'last_3_months' %}selected{% endif %}>Last 3 months</option>
+              <option value="last_6_months" {% if chart_range == 'last_6_months' %}selected{% endif %}>Last 6 months</option>
+              <option value="last_year" {% if chart_range == 'last_year' %}selected{% endif %}>Last year</option>
+              <option value="last_2_years" {% if chart_range == 'last_2_years' %}selected{% endif %}>Last 2 years</option>
+              <option value="custom" {% if chart_range == 'custom' %}selected{% endif %}>Custom range</option>
+            </select>
+            <button
+              type="button"
+              id="resetZoom"
+              class="inline-flex h-9 items-center rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Reset zoom
+            </button>
+          </div>
+        {% endif %}
+      </div>
+
+      {% if muscles %}
+        <div id="customRangeFields" class="flex flex-wrap items-center gap-2 mb-4 {% if chart_range != 'custom' %}hidden{% endif %}">
+          <input
+            type="date"
+            id="customStart"
+            value="{{ custom_start_default.strftime('%Y-%m-%d') }}"
+            class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100"
+          >
+          <input
+            type="date"
+            id="customEnd"
+            value="{{ custom_end_default.strftime('%Y-%m-%d') }}"
+            class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100"
+          >
+          <button
+            type="button"
+            id="applyRange"
+            class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700"
+          >
+            Apply
+          </button>
+        </div>
+
+        <div class="min-h-[320px]" id="chartWrapper">
+          <canvas id="muscleChart" height="160"></canvas>
+          <p id="chartEmptyState" class="mt-4 text-sm text-slate-400 hidden">
+            No weight data for this muscle and range yet.
+          </p>
+        </div>
+      {% else %}
+        <p class="text-sm text-slate-400">
+          Add a muscle group to start tracking progression.
+        </p>
+      {% endif %}
+    </section>
+
+    <div class="mt-6 grid gap-6 md:grid-cols-[minmax(0,1fr)_320px]">
       <section class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-5 shadow-md shadow-black/50">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
           <div>
             <h2 class="text-sm font-semibold text-slate-100">Calendar</h2>
             <p class="text-xs text-slate-500" data-view-block="month">
-              {{ month_calendar.label }} · {{ month_calendar.month_total }} exercises
+              {{ month_calendar.label }} · {{ month_calendar.month_total }}
+              {{ "exercise" if month_calendar.month_total == 1 else "exercises" }}
             </p>
             <p class="text-xs text-slate-500 hidden" data-view-block="week">
               {{ week_calendar.week_start.strftime('%b %d') }} -> {{ week_calendar.week_end.strftime('%b %d, %Y') }}
-              · {{ week_calendar.week_total }} exercises
+              · {{ week_calendar.week_total }}
+              {{ "exercise" if week_calendar.week_total == 1 else "exercises" }}
             </p>
           </div>
 
@@ -155,7 +304,7 @@
           {% endfor %}
         </div>
 
-        <p class="mt-3 text-xs text-slate-500">
+        <p class="mt-3 text-xs text-slate-500 text-left">
           Dots represent muscles trained on that day.
         </p>
 
@@ -263,144 +412,6 @@
         </dl>
       </section>
     </div>
-
-    <section class="mt-6 rounded-lg border border-slate-800 bg-slate-950 px-5 py-5 shadow-md shadow-black/50">
-      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
-        <div>
-          <h2 class="text-sm font-semibold text-slate-100">Muscle progression</h2>
-          <p class="text-xs text-slate-500">
-            Track max weight per day for the selected muscle, or filter by exercise.
-          </p>
-          <p class="mt-1 text-[11px] text-slate-500">
-            Use the exercise dropdown to select multiple items.
-          </p>
-        </div>
-        {% if muscles %}
-          <div class="flex flex-wrap items-center gap-2">
-            <select
-              id="muscleSelect"
-              class="h-9 rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100"
-            >
-              {% for m in muscles %}
-                <option
-                  value="{{ m['id'] }}"
-                  data-color="{{ m['color'] or '' }}"
-                  {% if m['id'] == chart_muscle %}selected{% endif %}
-                >
-                  {{ m["name"] }}
-                </option>
-              {% endfor %}
-            </select>
-            <details
-              class="relative"
-              data-exercise-dropdown
-            >
-              <input
-                type="hidden"
-                id="exerciseIds"
-                value="{{ chart_exercise_ids | join(',') }}"
-              >
-              <summary
-                class="list-none inline-flex h-9 min-w-[140px] items-center justify-between rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100 hover:bg-slate-800 cursor-pointer"
-              >
-                <span data-exercise-label>All exercises</span>
-                <span class="text-slate-400">▾</span>
-              </summary>
-              <div
-                class="absolute left-0 z-10 mt-2 w-64 rounded-md border border-slate-700 bg-slate-950 p-2 text-xs text-slate-100 shadow-md shadow-black/50"
-              >
-                <div class="mb-2 flex items-center gap-2">
-                  <button
-                    type="button"
-                    class="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
-                    data-exercise-select-all
-                  >
-                    Select all
-                  </button>
-                  <button
-                    type="button"
-                    class="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
-                    data-exercise-clear
-                  >
-                    Clear
-                  </button>
-                </div>
-                <div class="max-h-48 overflow-y-auto space-y-1" data-exercise-list>
-                  {% if exercise_options %}
-                    {% for ex in exercise_options %}
-                      <label class="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-slate-900">
-                        <input
-                          type="checkbox"
-                          value="{{ ex['id'] }}"
-                          {% if ex['id'] in chart_exercise_ids %}checked{% endif %}
-                        >
-                        <span>{{ ex["name"] }}</span>
-                      </label>
-                    {% endfor %}
-                  {% else %}
-                    <p class="px-2 py-1 text-[11px] text-slate-500">No exercises yet.</p>
-                  {% endif %}
-                </div>
-              </div>
-            </details>
-            <select
-              id="rangeSelect"
-              class="h-9 rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100"
-            >
-              <option value="last_week" {% if chart_range == 'last_week' %}selected{% endif %}>Last week</option>
-              <option value="last_month" {% if chart_range == 'last_month' %}selected{% endif %}>Last month</option>
-              <option value="last_3_months" {% if chart_range == 'last_3_months' %}selected{% endif %}>Last 3 months</option>
-              <option value="last_6_months" {% if chart_range == 'last_6_months' %}selected{% endif %}>Last 6 months</option>
-              <option value="last_year" {% if chart_range == 'last_year' %}selected{% endif %}>Last year</option>
-              <option value="last_2_years" {% if chart_range == 'last_2_years' %}selected{% endif %}>Last 2 years</option>
-              <option value="custom" {% if chart_range == 'custom' %}selected{% endif %}>Custom range</option>
-            </select>
-            <button
-              type="button"
-              id="resetZoom"
-              class="inline-flex h-9 items-center rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Reset zoom
-            </button>
-          </div>
-        {% endif %}
-      </div>
-
-      {% if muscles %}
-        <div id="customRangeFields" class="flex flex-wrap items-center gap-2 mb-4 {% if chart_range != 'custom' %}hidden{% endif %}">
-          <input
-            type="date"
-            id="customStart"
-            value="{{ custom_start_default.strftime('%Y-%m-%d') }}"
-            class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100"
-          >
-          <input
-            type="date"
-            id="customEnd"
-            value="{{ custom_end_default.strftime('%Y-%m-%d') }}"
-            class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100"
-          >
-          <button
-            type="button"
-            id="applyRange"
-            class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700"
-          >
-            Apply
-          </button>
-        </div>
-
-        <div class="min-h-[320px]" id="chartWrapper">
-          <canvas id="muscleChart" height="160"></canvas>
-          <p id="chartEmptyState" class="mt-4 text-sm text-slate-400 hidden">
-            No weight data for this muscle and range yet.
-          </p>
-        </div>
-      {% else %}
-        <p class="text-sm text-slate-400">
-          Add a muscle group to start tracking progression.
-        </p>
-      {% endif %}
-    </section>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -415,8 +426,9 @@
       chartMuscle: {{ chart_muscle if chart_muscle is not none else "null" }},
       chartExercise: {{ chart_exercise if chart_exercise is not none else "null" }},
       chartExerciseIds: {{ chart_exercise_ids | tojson }},
+      chartMetric: "{{ chart_metric }}",
       view: "{{ view }}"
     };
   </script>
-  <script src="{{ url_for('web.static', filename='js/stats.js') }}?v=7"></script>
+  <script src="{{ url_for('web.static', filename='js/stats.js') }}?v=8"></script>
 {% endblock %}

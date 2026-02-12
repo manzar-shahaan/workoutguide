@@ -4,6 +4,8 @@ import re
 
 from sqlalchemy import text
 
+from . import exercise_catalog as exercise_catalog_repo
+
 DEFAULT_MUSCLES = ["back", "arms", "chest", "abs", "legs", "cardio"]
 DEFAULT_MUSCLE_COLORS = {
     "back": "#38bdf8",
@@ -285,4 +287,96 @@ def reset_to_default(conn, user_id: int) -> None:
             ),
             {"user_id": user_id, "name": name, "color": _default_color_for(name)},
         )
+    conn.commit()
+
+
+def merge_muscles(
+    conn,
+    user_id: int,
+    source_muscle_id: int,
+    target_muscle_id: int,
+) -> None:
+    if source_muscle_id == target_muscle_id:
+        raise ValueError("Pick two different muscles to merge.")
+
+    source = get_muscle(conn, user_id, source_muscle_id)
+    target = get_muscle(conn, user_id, target_muscle_id)
+    if source is None or target is None:
+        raise ValueError("Muscle not found.")
+
+    source_catalogs = conn.execute(
+        text(
+            """
+            SELECT id, name
+            FROM exercise_catalog
+            WHERE user_id = :user_id AND muscle_id = :muscle_id
+            """
+        ),
+        {"user_id": user_id, "muscle_id": source_muscle_id},
+    ).mappings().all()
+
+    for row in source_catalogs:
+        existing = exercise_catalog_repo.get_by_name(
+            conn,
+            user_id,
+            target_muscle_id,
+            row["name"],
+        )
+        if existing:
+            exercise_catalog_repo.merge_templates(
+                conn,
+                user_id,
+                target_muscle_id,
+                row["id"],
+                existing["id"],
+                commit=False,
+            )
+        else:
+            conn.execute(
+                text(
+                    """
+                    UPDATE exercise_catalog
+                    SET muscle_id = :target_id
+                    WHERE id = :catalog_id AND user_id = :user_id
+                    """
+                ),
+                {
+                    "target_id": target_muscle_id,
+                    "catalog_id": row["id"],
+                    "user_id": user_id,
+                },
+            )
+
+    conn.execute(
+        text(
+            """
+            DELETE FROM exercise_muscle
+            WHERE muscle_id = :source_id
+              AND exercise_id IN (
+                SELECT exercise_id FROM exercise_muscle WHERE muscle_id = :target_id
+              )
+            """
+        ),
+        {"source_id": source_muscle_id, "target_id": target_muscle_id},
+    )
+    conn.execute(
+        text(
+            """
+            UPDATE exercise_muscle
+            SET muscle_id = :target_id
+            WHERE muscle_id = :source_id
+            """
+        ),
+        {"source_id": source_muscle_id, "target_id": target_muscle_id},
+    )
+    conn.execute(
+        text(
+            """
+            UPDATE muscle
+            SET active = FALSE
+            WHERE id = :id AND user_id = :user_id
+            """
+        ),
+        {"id": source_muscle_id, "user_id": user_id},
+    )
     conn.commit()

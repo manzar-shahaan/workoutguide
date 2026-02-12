@@ -4,31 +4,32 @@
 {% block title %}Edit exercise{% endblock %}
 
 {% block content %}
-  <a
-    href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=1) }}"
-    class="inline-flex items-center gap-1.5 text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
-  >
-    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
-    Back to workout
-  </a>
+  <div class="max-w-md mx-auto">
+    <a
+      href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=1) }}"
+      class="inline-flex items-center gap-1.5 text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
+    >
+      <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+      Back to workout
+    </a>
 
-  <header class="mb-6">
-    <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100">
-      Edit exercise
-    </h1>
-    <p class="mt-1 text-xs text-slate-500">
-      Workout date
-      <span class="text-sm text-slate-100 font-medium">{{ exercise_date }}</span>
-    </p>
-  </header>
+    <header class="mb-6">
+      <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100">
+        Edit exercise
+      </h1>
+      <p class="mt-1 text-xs text-slate-500">
+        Workout date
+        <span class="text-sm text-slate-100 font-medium">{{ exercise_date }}</span>
+      </p>
+    </header>
 
-  {% if error %}
-    <p class="mb-4 rounded-md border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-100 shadow-md shadow-black/50">
-      {{ error }}
-    </p>
-  {% endif %}
+    {% if error %}
+      <p class="mb-4 rounded-md border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-100 shadow-md shadow-black/50">
+        {{ error }}
+      </p>
+    {% endif %}
 
-  <form method="post" class="bg-slate-950 border border-slate-800 rounded-lg px-5 py-5 max-w-md shadow-md shadow-black/50">
+    <form method="post" class="bg-slate-950 border border-slate-800 rounded-lg px-5 py-5 shadow-md shadow-black/50">
     {{ input_field(
         "date",
         "Workout date",
@@ -93,6 +94,21 @@
         type="number"
     ) }}
 
+    {{ input_field(
+        "avg_reps",
+        "Avg reps (working sets)",
+        value=exercise["avg_reps"] if exercise["avg_reps"] is not none else "",
+        type="number",
+        step="0.1"
+    ) }}
+
+    {{ input_field(
+        "max_reps",
+        "Max reps (optional)",
+        value=exercise["max_reps"] if exercise["max_reps"] is not none else "",
+        type="number"
+    ) }}
+
     {{ textarea_field(
         "notes",
         "Notes",
@@ -116,5 +132,6 @@
         Cancel
       </a>
     </div>
-  </form>
+    </form>
+  </div>
 {% endblock %}

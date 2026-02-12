@@ -18,6 +18,84 @@ def list_for_muscle(conn, user_id: int, muscle_id: int):
     return result.mappings().all()
 
 
+def list_for_muscle_with_counts(conn, user_id: int, muscle_id: int):
+    sql = """
+        SELECT
+            ec.id,
+            ec.name,
+            m.name AS muscle_name,
+            m.color AS muscle_color,
+            COUNT(e.id) AS exercise_count,
+            last.weight_used AS last_weight_used,
+            last.weight_unit AS last_weight_unit,
+            last.num_of_sets AS last_num_of_sets,
+            last.workout_date AS last_workout_date
+        FROM exercise_catalog ec
+        JOIN muscle m ON m.id = ec.muscle_id AND m.user_id = ec.user_id
+        LEFT JOIN exercise e ON e.exercise_catalog_id = ec.id
+        LEFT JOIN LATERAL (
+            SELECT e2.weight_used, e2.weight_unit, e2.num_of_sets, w2.date AS workout_date
+            FROM exercise e2
+            JOIN workout w2 ON w2.id = e2.workout_id
+            WHERE e2.exercise_catalog_id = ec.id
+            ORDER BY w2.date DESC NULLS LAST, e2.created_at DESC
+            LIMIT 1
+        ) AS last ON TRUE
+        WHERE ec.user_id = :user_id
+          AND ec.muscle_id = :muscle_id
+        GROUP BY ec.id, ec.name, m.name, m.color,
+                 last.weight_used, last.weight_unit, last.num_of_sets, last.workout_date
+        ORDER BY ec.name
+    """
+    result = conn.execute(
+        text(sql),
+        {"user_id": user_id, "muscle_id": muscle_id},
+    )
+    return result.mappings().all()
+
+
+def list_all_with_counts_and_last(conn, user_id: int):
+    sql = """
+        SELECT
+            ec.id,
+            ec.name,
+            ec.muscle_id,
+            m.name AS muscle_name,
+            m.color AS muscle_color,
+            COUNT(e.id) AS exercise_count,
+            last.weight_used AS last_weight_used,
+            last.weight_unit AS last_weight_unit,
+            last.num_of_sets AS last_num_of_sets,
+            last.workout_date AS last_workout_date,
+            ml.muscle_last_logged
+        FROM exercise_catalog ec
+        JOIN muscle m ON m.id = ec.muscle_id AND m.user_id = ec.user_id
+        LEFT JOIN exercise e ON e.exercise_catalog_id = ec.id
+        LEFT JOIN LATERAL (
+            SELECT e2.weight_used, e2.weight_unit, e2.num_of_sets, w2.date AS workout_date
+            FROM exercise e2
+            JOIN workout w2 ON w2.id = e2.workout_id
+            WHERE e2.exercise_catalog_id = ec.id
+            ORDER BY w2.date DESC NULLS LAST, e2.created_at DESC
+            LIMIT 1
+        ) AS last ON TRUE
+        LEFT JOIN (
+            SELECT ec2.muscle_id, MAX(w2.date) AS muscle_last_logged
+            FROM exercise_catalog ec2
+            JOIN exercise e2 ON e2.exercise_catalog_id = ec2.id
+            JOIN workout w2 ON w2.id = e2.workout_id
+            WHERE ec2.user_id = :user_id
+            GROUP BY ec2.muscle_id
+        ) AS ml ON ml.muscle_id = ec.muscle_id
+        WHERE ec.user_id = :user_id
+        GROUP BY ec.id, ec.name, ec.muscle_id, m.name, m.color,
+                 last.weight_used, last.weight_unit, last.num_of_sets, last.workout_date,
+                 ml.muscle_last_logged
+        ORDER BY ml.muscle_last_logged ASC NULLS FIRST, m.name, ec.name
+    """
+    result = conn.execute(text(sql), {"user_id": user_id})
+    return result.mappings().all()
+
 def list_all_with_counts(conn, user_id: int):
     sql = """
         SELECT ec.id, ec.name, ec.muscle_id, COUNT(e.id) AS exercise_count
@@ -226,6 +304,8 @@ def merge_templates(
     muscle_id: int,
     source_template_id: int,
     target_template_id: int,
+    *,
+    commit: bool = True,
 ) -> None:
     if source_template_id == target_template_id:
         raise ValueError("Pick two different templates to merge.")
@@ -277,7 +357,8 @@ def merge_templates(
         ),
         {"source_id": source_template_id, "user_id": user_id},
     )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 def get_or_create(

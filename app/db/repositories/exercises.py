@@ -13,6 +13,8 @@ def list_for_workout(conn, workout_id: int):
             e.weight_unit,
             e.weight_used_kg,
             e.num_of_sets,
+            e.avg_reps,
+            e.max_reps,
             COALESCE(string_agg(DISTINCT m.name, ','), '') AS muscles,
             COALESCE(
                 string_agg(
@@ -27,7 +29,8 @@ def list_for_workout(conn, workout_id: int):
         LEFT JOIN muscle m ON m.id = em.muscle_id AND m.user_id = w.user_id
         WHERE e.workout_id = :workout_id
         GROUP BY e.id, e.notes, e.exercise_catalog_id, e.exercise_name,
-                 e.weight_used, e.weight_unit, e.weight_used_kg, e.num_of_sets
+                 e.weight_used, e.weight_unit, e.weight_used_kg, e.num_of_sets,
+                 e.avg_reps, e.max_reps
         ORDER BY e.id
     """
     result = conn.execute(text(sql), {"workout_id": workout_id})
@@ -45,6 +48,8 @@ def search_exercises(conn, user_id: int, query: str):
             e.weight_unit,
             e.weight_used_kg,
             e.num_of_sets,
+            e.avg_reps,
+            e.max_reps,
             w.id AS workout_id,
             w.date AS workout_date,
             COALESCE(string_agg(DISTINCT m.name, ','), '') AS muscles,
@@ -66,10 +71,13 @@ def search_exercises(conn, user_id: int, query: str):
             OR COALESCE(m.name, '') ILIKE :q
             OR COALESCE(e.weight_used::text, '') ILIKE :q
             OR COALESCE(e.num_of_sets::text, '') ILIKE :q
+            OR COALESCE(e.avg_reps::text, '') ILIKE :q
+            OR COALESCE(e.max_reps::text, '') ILIKE :q
             OR COALESCE(w.date::text, '') ILIKE :q
           )
         GROUP BY e.id, e.notes, e.exercise_catalog_id, e.exercise_name,
-                 e.weight_used, e.weight_unit, e.weight_used_kg, e.num_of_sets, w.id, w.date
+                 e.weight_used, e.weight_unit, e.weight_used_kg, e.num_of_sets,
+                 e.avg_reps, e.max_reps, w.id, w.date
         ORDER BY w.date DESC, e.id DESC
     """
     result = conn.execute(
@@ -93,6 +101,8 @@ def get_exercise_with_workout(conn, exercise_id: int):
             e.weight_unit,
             e.weight_used_kg,
             e.num_of_sets,
+            e.avg_reps,
+            e.max_reps,
             e.workout_id,
             w.user_id,
             w.date AS workout_date
@@ -129,6 +139,8 @@ def create_exercise(
     weight_unit,
     weight_used_kg,
     num_of_sets,
+    avg_reps=None,
+    max_reps=None,
     muscle_id=None,
     exercise_catalog_id=None,
     exercise_name=None,
@@ -148,7 +160,9 @@ def create_exercise(
             weight_used,
             weight_unit,
             weight_used_kg,
-            num_of_sets
+            num_of_sets,
+            avg_reps,
+            max_reps
         )
         VALUES (
             :workout_id,
@@ -158,7 +172,9 @@ def create_exercise(
             :weight_used,
             :weight_unit,
             :weight_used_kg,
-            :num_of_sets
+            :num_of_sets,
+            :avg_reps,
+            :max_reps
         )
         RETURNING id
         """,
@@ -172,6 +188,8 @@ def create_exercise(
             "weight_unit": weight_unit,
             "weight_used_kg": weight_used_kg,
             "num_of_sets": num_of_sets,
+            "avg_reps": avg_reps,
+            "max_reps": max_reps,
         },
     )
     exercise_id = cur.scalar_one()
@@ -195,6 +213,8 @@ def update_exercise(
     weight_unit,
     weight_used_kg,
     num_of_sets,
+    avg_reps=None,
+    max_reps=None,
     muscle_id=None,
     workout_id=None,
     exercise_catalog_id=None,
@@ -215,7 +235,9 @@ def update_exercise(
                 weight_used = :weight_used,
                 weight_unit = :weight_unit,
                 weight_used_kg = :weight_used_kg,
-                num_of_sets = :num_of_sets
+                num_of_sets = :num_of_sets,
+                avg_reps = :avg_reps,
+                max_reps = :max_reps
             WHERE id = :exercise_id
             """,
             ),
@@ -227,6 +249,8 @@ def update_exercise(
                 "weight_unit": weight_unit,
                 "weight_used_kg": weight_used_kg,
                 "num_of_sets": num_of_sets,
+                "avg_reps": avg_reps,
+                "max_reps": max_reps,
                 "exercise_id": exercise_id,
             },
         )
@@ -242,6 +266,8 @@ def update_exercise(
                 weight_unit = :weight_unit,
                 weight_used_kg = :weight_used_kg,
                 num_of_sets = :num_of_sets,
+                avg_reps = :avg_reps,
+                max_reps = :max_reps,
                 workout_id = :workout_id
             WHERE id = :exercise_id
             """,
@@ -254,6 +280,8 @@ def update_exercise(
                 "weight_unit": weight_unit,
                 "weight_used_kg": weight_used_kg,
                 "num_of_sets": num_of_sets,
+                "avg_reps": avg_reps,
+                "max_reps": max_reps,
                 "workout_id": workout_id,
                 "exercise_id": exercise_id,
             },

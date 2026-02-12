@@ -99,6 +99,16 @@
                       {% if ex["num_of_sets"] is not none %}
                         {% if show_sep %} | {% endif %}
                         {{ ex["num_of_sets"] }} sets
+                        {% set show_sep = true %}
+                      {% endif %}
+                      {% if ex["avg_reps"] is not none %}
+                        {% if show_sep %} | {% endif %}
+                        Avg {{ ex["avg_reps"] }} reps
+                        {% set show_sep = true %}
+                      {% endif %}
+                      {% if ex["max_reps"] is not none %}
+                        {% if show_sep %} | {% endif %}
+                        Max {{ ex["max_reps"] }} reps
                       {% endif %}
                     </p>
                   </div>
@@ -256,7 +266,8 @@
             <p class="text-xs text-slate-500">{{ stats_month_calendar.label }}</p>
           </div>
           <span class="text-xs text-slate-500">
-            {{ stats_month_calendar.month_total }} exercises
+            {{ stats_month_calendar.month_total }}
+            {{ "exercise" if stats_month_calendar.month_total == 1 else "exercises" }}
           </span>
         </div>
 
@@ -296,13 +307,13 @@
           {% endfor %}
         </div>
 
-        <div class="mt-4 flex items-center justify-between">
-          <span class="text-xs text-slate-500">
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <span class="flex-1 min-w-0 text-xs text-slate-500">
             Colored dots show muscles trained that day.
           </span>
           <a
             href="{{ url_for('web.stats_index', view='month', date=stats_month_anchor.strftime('%Y-%m-%d')) }}"
-            class="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
+            class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
           >
             View more stats
             <i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>

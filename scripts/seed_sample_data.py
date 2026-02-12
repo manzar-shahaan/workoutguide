@@ -100,10 +100,14 @@ def seed_sample_data(user_id: int, seed: int = 7) -> None:
                 weight_used = None
                 weight_unit = "lb"
                 num_of_sets = None
+                avg_reps = None
+                max_reps = None
 
                 if "base" in ex:
                     weight_used = ex["base"] + (idx * ex["step"])
                     num_of_sets = ex["sets"]
+                    avg_reps = random.choice([6, 8, 10, 12])
+                    max_reps = avg_reps + random.choice([0, 1, 2])
 
                 weight_used_kg = _normalize_weight_to_kg(weight_used, weight_unit)
 
@@ -115,6 +119,8 @@ def seed_sample_data(user_id: int, seed: int = 7) -> None:
                     weight_unit=weight_unit,
                     weight_used_kg=weight_used_kg,
                     num_of_sets=num_of_sets,
+                    avg_reps=avg_reps,
+                    max_reps=max_reps,
                     muscle_id=muscle_id,
                 )
     finally:

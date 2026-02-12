@@ -1,5 +1,7 @@
 # Ignore Python cache files
 __pycache__/
+*.pyc
+*.pyo
 
 # Ignore AGENTS file
 AGENTS.md
@@ -14,5 +16,30 @@ debug/
 *.db
 
 legacy.json
-
 import_report.json
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment/config secrets
+.env
+*.env
+.env.*
+
+# Test and coverage outputs
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Type-checking / lint caches
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# IDE/editor settings
+.vscode/
+.idea/
+.ipynb_checkpoints/

@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS exercise (
     weight_unit TEXT NOT NULL DEFAULT 'lb',
     weight_used_kg DOUBLE PRECISION,
     num_of_sets INTEGER,
+    avg_reps DOUBLE PRECISION,
+    max_reps INTEGER,
     workout_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notes TEXT,

@@ -1,5 +1,4 @@
 # app/web/routes/exercises.py
-# app/web/routes/exercises.py
 
 from datetime import date, datetime, timedelta  # ⬅️ updated import
 
@@ -20,6 +19,7 @@ from ...db.repositories import exercise_catalog as exercise_catalog_repo
 from .. import web_bp
 from ..auth_utils import login_required
 from ...db.repositories import muscles as muscles_repo
+from utils.date_utils import format_date
 
 WEIGHT_UNITS = [
     {"id": "lb", "name": "lb"},
@@ -54,23 +54,11 @@ def _date_to_str(value) -> str | None:
     return str(value)
 
 
-def _ordinal(n: int) -> str:
-    if 11 <= n <= 13:
-        suffix = "th"
-    else:
-        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
-    return f"{n}{suffix}"
-
-
-def _format_date(d: date) -> str:
-    return f"{d.strftime('%b')} {_ordinal(d.day)}, {d.year}"
-
-
 def _format_last_logged(raw_date) -> str | None:
     if not raw_date:
         return None
     date_obj = raw_date if isinstance(raw_date, date) else datetime.strptime(raw_date, "%Y-%m-%d").date()
-    return _format_date(date_obj)
+    return format_date(date_obj)
 
 
 @web_bp.route("/exercises/new", methods=["GET", "POST"])
@@ -105,10 +93,53 @@ def new_exercise():
             weight_str = request.form.get("weight_used", "").strip()
             weight_unit = request.form.get("weight_unit", "").strip() or default_unit
             sets_str = request.form.get("num_of_sets", "").strip()
+            avg_reps_str = request.form.get("avg_reps", "").strip()
+            max_reps_str = request.form.get("max_reps", "").strip()
             muscle_str = request.form.get("muscle_id", "").strip()
 
-            weight_used = float(weight_str) if weight_str else None
-            num_of_sets = int(sets_str) if sets_str else None
+            try:
+                weight_used = float(weight_str) if weight_str else None
+                num_of_sets = int(sets_str) if sets_str else None
+                avg_reps = float(avg_reps_str) if avg_reps_str else None
+                max_reps = int(max_reps_str) if max_reps_str else None
+            except ValueError:
+                error = "Please enter valid numbers for sets and reps."
+                return render_template(
+                    "exercises/new.html",
+                    workout=workout,
+                    muscles=muscles,
+                    error=error,
+                    today=today_str,
+                    max_date=max_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
+                )
+
+            if avg_reps is not None and avg_reps <= 0:
+                error = "Average reps must be greater than 0."
+                return render_template(
+                    "exercises/new.html",
+                    workout=workout,
+                    muscles=muscles,
+                    error=error,
+                    today=today_str,
+                    max_date=max_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
+                )
+
+            if max_reps is not None and max_reps <= 0:
+                error = "Max reps must be greater than 0."
+                return render_template(
+                    "exercises/new.html",
+                    workout=workout,
+                    muscles=muscles,
+                    error=error,
+                    today=today_str,
+                    max_date=max_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
+                )
 
             if weight_unit not in VALID_WEIGHT_UNITS:
                 error = "Please select a valid weight unit."
@@ -249,6 +280,8 @@ def new_exercise():
                 weight_unit=weight_unit,
                 weight_used_kg=weight_used_kg,
                 num_of_sets=num_of_sets,
+                avg_reps=avg_reps,
+                max_reps=max_reps,
                 muscle_id=muscle_id,
             )
 
@@ -326,6 +359,8 @@ def edit_exercise(exercise_id):
             weight_str = request.form.get("weight_used", "").strip()
             weight_unit = request.form.get("weight_unit", "").strip() or exercise_unit
             sets_str = request.form.get("num_of_sets", "").strip()
+            avg_reps_str = request.form.get("avg_reps", "").strip()
+            max_reps_str = request.form.get("max_reps", "").strip()
             muscle_str = request.form.get("muscle_id", "").strip()
 
             if weight_unit not in VALID_WEIGHT_UNITS:
@@ -387,8 +422,52 @@ def edit_exercise(exercise_id):
                     weight_unit_selected=weight_unit,
                 )
 
-            weight_used = float(weight_str) if weight_str else None
-            num_of_sets = int(sets_str) if sets_str else None
+            try:
+                weight_used = float(weight_str) if weight_str else None
+                num_of_sets = int(sets_str) if sets_str else None
+                avg_reps = float(avg_reps_str) if avg_reps_str else None
+                max_reps = int(max_reps_str) if max_reps_str else None
+            except ValueError:
+                error = "Please enter valid numbers for sets and reps."
+                return render_template(
+                    "exercises/edit.html",
+                    exercise=exercise,
+                    workout=workout,
+                    muscles=muscles,
+                    error=error,
+                    max_date=max_date_str,
+                    exercise_date=workout_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
+                )
+
+            if avg_reps is not None and avg_reps <= 0:
+                error = "Average reps must be greater than 0."
+                return render_template(
+                    "exercises/edit.html",
+                    exercise=exercise,
+                    workout=workout,
+                    muscles=muscles,
+                    error=error,
+                    max_date=max_date_str,
+                    exercise_date=workout_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
+                )
+
+            if max_reps is not None and max_reps <= 0:
+                error = "Max reps must be greater than 0."
+                return render_template(
+                    "exercises/edit.html",
+                    exercise=exercise,
+                    workout=workout,
+                    muscles=muscles,
+                    error=error,
+                    max_date=max_date_str,
+                    exercise_date=workout_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
+                )
             muscle_id = int(muscle_str) if muscle_str else None
 
             if muscle_id is None:
@@ -472,6 +551,8 @@ def edit_exercise(exercise_id):
                 weight_unit=weight_unit,
                 weight_used_kg=weight_used_kg,
                 num_of_sets=num_of_sets,
+                avg_reps=avg_reps,
+                max_reps=max_reps,
                 muscle_id=muscle_id,
                 workout_id=target_workout_id,
             )
@@ -554,7 +635,6 @@ def exercise_suggestions():
             if muscle is None:
                 return jsonify({"count": 0, "items": []})
             total = exercise_catalog_repo.count_for_muscle(conn, user_id, muscle_id)
-            items = []
             if query:
                 items = exercise_catalog_repo.search_for_muscle_with_counts(
                     conn,
@@ -562,14 +642,24 @@ def exercise_suggestions():
                     muscle_id,
                     query,
                 )
+            else:
+                items = exercise_catalog_repo.list_for_muscle_with_counts(
+                    conn,
+                    user_id,
+                    muscle_id,
+                )
         else:
             total = exercise_catalog_repo.count_for_user(conn, user_id)
-            items = []
             if query:
                 items = exercise_catalog_repo.search_all_with_counts(
                     conn,
                     user_id,
                     query,
+                )
+            else:
+                items = exercise_catalog_repo.list_all_with_counts_and_last(
+                    conn,
+                    user_id,
                 )
     finally:
         conn.close()
@@ -582,6 +672,7 @@ def exercise_suggestions():
             "muscle_id": row.get("muscle_id"),
             "muscle_name": row.get("muscle_name"),
             "muscle_color": row.get("muscle_color"),
+            "muscle_last_logged": _format_last_logged(row.get("muscle_last_logged")),
             "last_weight_used": row.get("last_weight_used"),
             "last_weight_unit": row.get("last_weight_unit"),
             "last_num_of_sets": row.get("last_num_of_sets"),

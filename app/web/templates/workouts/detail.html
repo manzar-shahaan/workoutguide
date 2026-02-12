@@ -160,6 +160,17 @@
                 {% if ex["num_of_sets"] is not none %}
                   {% if show_sep %} | {% endif %}
                   {{ ex["num_of_sets"] }} sets
+                  {% set show_sep = true %}
+                {% endif %}
+                {% if ex["avg_reps"] is not none %}
+                  {% if show_sep %} | {% endif %}
+                  Avg {{ ex["avg_reps"] }} reps
+                  {% set show_sep = true %}
+                {% endif %}
+                {% if ex["max_reps"] is not none %}
+                  {% if show_sep %} | {% endif %}
+                  Max {{ ex["max_reps"] }} reps
+                  {% set show_sep = true %}
                 {% endif %}
               </p>
             </div>

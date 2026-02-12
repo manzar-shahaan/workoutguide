@@ -74,7 +74,7 @@
 
     </style>
   </head>
-  <body class="bg-black text-slate-100">
+  <body class="bg-black text-slate-100 min-h-screen flex flex-col">
     <header class="bg-black border-b border-slate-800">
       {# Full-width nav so it visually matches the popover width on desktop #}
       <nav class="flex items-center justify-between px-4 py-3">
@@ -111,7 +111,7 @@
       </nav>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 py-6">
+    <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
       {# Flash messages in grayscale #}
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -135,6 +135,12 @@
 
       {% block content %}{% endblock %}
     </main>
+    <footer class="mt-10 border-t border-slate-800 bg-black">
+      <div class="max-w-7xl mx-auto px-4 py-4 text-xs text-slate-500 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <span>workout.subterren.org</span>
+        <span>Built for focused training logs.</span>
+      </div>
+    </footer>
 
     {# User menu overlay / bottom sheet / popover #}
     {% if g.user %}
@@ -201,7 +207,7 @@
               class="flex items-center justify-between rounded-md px-3 py-2 text-base sm:text-sm text-slate-100 hover:bg-slate-900"
               data-user-menu-dismiss
             >
-              <span>Muscle groups</span>
+              <span>Muscles &amp; exercises</span>
               <span class="hidden sm:inline text-xs text-slate-500">Edit your list</span>
             </a>
 

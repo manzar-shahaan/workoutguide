@@ -14,28 +14,15 @@ from ...db.repositories import stats as stats_repo
 from ...db.repositories import exercise_catalog as exercise_catalog_repo
 from .. import web_bp
 from ..auth_utils import login_required
+from utils.date_utils import format_date
 
 DEFAULT_MUSCLE_COLOR = "#64748b"
 COLOR_REGEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
-def _ordinal(n: int) -> str:
-    """Return 1 -> '1st', 2 -> '2nd', etc."""
-    if 11 <= n <= 13:
-        suffix = "th"
-    else:
-        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
-    return f"{n}{suffix}"
-
-
-def _format_date(d: _date) -> str:
-    """Format a date like 'Nov 13th, 2025'."""
-    return f"{d.strftime('%b')} {_ordinal(d.day)}, {d.year}"
-
-
 def _format_range(start: _date, end: _date) -> str:
-    return f"{_format_date(start)} → {_format_date(end)}"
+    return f"{format_date(start)} → {format_date(end)}"
 
 
 def _parse_muscle_data(raw_data: str) -> list[dict]:
@@ -231,8 +218,10 @@ def workouts_index():
                     "weight_used": row["weight_used"],
                     "weight_unit": row["weight_unit"],
                     "num_of_sets": row["num_of_sets"],
+                    "avg_reps": row.get("avg_reps"),
+                    "max_reps": row.get("max_reps"),
                     "date": d,
-                    "date_display": _format_date(d),
+                    "date_display": format_date(d),
                     "weekday": d.strftime("%a"),
                     "muscles_list": muscles_list,
                 }
@@ -257,7 +246,7 @@ def workouts_index():
             workout = {
                 "id": row["id"],
                 "date": d,
-                "date_display": _format_date(d),
+                "date_display": format_date(d),
                 "muscles": raw_muscles,
                 "muscles_display": muscles_display,
                 "muscles_list": muscles_list,
@@ -357,7 +346,7 @@ def workout_detail(workout_id):
     workout_date_obj = (
         raw_date if isinstance(raw_date, _date) else datetime.strptime(raw_date, "%Y-%m-%d").date()
     )
-    workout_date_display = _format_date(workout_date_obj)
+    workout_date_display = format_date(workout_date_obj)
 
     return render_template(
         "workouts/detail.html",
@@ -409,12 +398,6 @@ def stats_index():
         month_calendar = _build_month_calendar(anchor_date, daily_lookup, week_start_pref)
         week_calendar = _build_week_calendar(anchor_date, daily_lookup, week_start_pref)
 
-        week_totals = stats_repo.exercise_counts_by_week(
-            conn,
-            user_id=user_id,
-            week_start=week_start_pref,
-        )
-        month_totals = stats_repo.exercise_counts_by_month(conn, user_id=user_id)
         totals = stats_repo.totals(conn, user_id=user_id)
 
         muscles = muscles_repo.list_muscles(conn, user_id=user_id, active_only=True)
@@ -447,6 +430,9 @@ def stats_index():
             chart_exercise_ids = []
     chart_exercise = request.args.get("exercise_id", type=int)
     chart_range = request.args.get("range", "last_3_months")
+    chart_metric = request.args.get("metric", "weight")
+    if chart_metric not in {"weight", "avg_reps", "max_reps", "volume"}:
+        chart_metric = "weight"
     if chart_range not in {
         "last_week",
         "last_month",
@@ -491,6 +477,7 @@ def stats_index():
                     exercise_ids=chart_exercise_ids,
                     start_date=chart_start,
                     end_date=chart_end,
+                    metric=chart_metric,
                 )
             elif chart_exercise:
                 rows = stats_repo.exercise_progression(
@@ -499,6 +486,7 @@ def stats_index():
                     exercise_id=chart_exercise,
                     start_date=chart_start,
                     end_date=chart_end,
+                    metric=chart_metric,
                 )
             else:
                 rows = stats_repo.muscle_progression(
@@ -507,12 +495,13 @@ def stats_index():
                     muscle_id=chart_muscle,
                     start_date=chart_start,
                     end_date=chart_end,
+                    metric=chart_metric,
                 )
         finally:
             conn.close()
         chart_data = {
             "labels": [row["date"].strftime("%Y-%m-%d") for row in rows],
-            "values": [float(row["max_weight_kg"]) for row in rows],
+            "values": [float(row["value"]) for row in rows],
         }
 
     return render_template(
@@ -525,8 +514,6 @@ def stats_index():
         week_next_date=week_next_date,
         month_prev_date=month_prev_date,
         month_next_date=month_next_date,
-        week_totals=week_totals,
-        month_totals=month_totals,
         totals=totals,
         muscles=muscles,
         exercise_options=exercise_options,
@@ -535,6 +522,7 @@ def stats_index():
         chart_exercise=chart_exercise,
         chart_exercise_ids=chart_exercise_ids,
         chart_range=chart_range,
+        chart_metric=chart_metric,
         chart_data=chart_data,
         preferred_unit=g.user.get("weight_unit", "lb"),
         custom_start_default=custom_start_default,
@@ -551,11 +539,14 @@ def stats_muscle_data():
     exercise_ids_raw = request.args.get("exercise_ids")
     exercise_id = request.args.get("exercise_id", type=int)
     range_key = request.args.get("range", "last_3_months")
+    metric = request.args.get("metric", "weight")
     start_raw = request.args.get("start")
     end_raw = request.args.get("end")
 
     if muscle_id is None:
         return jsonify({"labels": [], "values": []})
+    if metric not in {"weight", "avg_reps", "max_reps", "volume"}:
+        metric = "weight"
 
     today = _date.today()
     if range_key == "custom" and start_raw and end_raw:
@@ -588,6 +579,7 @@ def stats_muscle_data():
                 exercise_ids=exercise_ids,
                 start_date=range_start,
                 end_date=range_end,
+                metric=metric,
             )
         else:
             rows = stats_repo.muscle_progression(
@@ -596,6 +588,7 @@ def stats_muscle_data():
                 muscle_id=muscle_id,
                 start_date=range_start,
                 end_date=range_end,
+                metric=metric,
             )
     finally:
         conn.close()
@@ -603,7 +596,7 @@ def stats_muscle_data():
     return jsonify(
         {
             "labels": [row["date"].strftime("%Y-%m-%d") for row in rows],
-            "values": [float(row["max_weight_kg"]) for row in rows],
+            "values": [float(row["value"]) for row in rows],
         }
     )
 

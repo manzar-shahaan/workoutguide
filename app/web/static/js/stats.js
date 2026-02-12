@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const muscleSelect = document.getElementById("muscleSelect");
   const exerciseDropdown = document.querySelector("[data-exercise-dropdown]");
   const exerciseIdsInput = document.getElementById("exerciseIds");
+  const metricSelect = document.getElementById("metricSelect");
   const rangeSelect = document.getElementById("rangeSelect");
   const customFields = document.getElementById("customRangeFields");
   const applyButton = document.getElementById("applyRange");
@@ -30,12 +31,25 @@ document.addEventListener("DOMContentLoaded", () => {
     return config.preferredUnit === "lb" ? kgValue / 0.45359237 : kgValue;
   };
 
+  const METRIC_LABELS = {
+    weight: (unit) => (unit === "lb" ? "Weight (lb)" : "Weight (kg)"),
+    avg_reps: () => "Avg reps",
+    max_reps: () => "Max reps",
+    volume: (unit) => (unit === "lb" ? "Est. volume (lb)" : "Est. volume (kg)"),
+  };
+  const METRIC_PRECISION = {
+    weight: 2,
+    avg_reps: 1,
+    max_reps: 0,
+    volume: 2,
+  };
+
   let chart = null;
-  let emptyMessage = "No weight data for this muscle and range yet.";
+  let emptyMessage = "No data for this muscle and range yet.";
   if (config.chartExerciseIds && config.chartExerciseIds.length) {
-    emptyMessage = "No weight data for the selected exercises and range yet.";
+    emptyMessage = "No data for the selected exercises and range yet.";
   } else if (config.chartExercise) {
-    emptyMessage = "No weight data for this exercise and range yet.";
+    emptyMessage = "No data for this exercise and range yet.";
   }
 
   const getSelectedExerciseIds = () => {
@@ -182,25 +196,42 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const buildChart = (labels, values) => {
+  const buildChart = (labels, values, metric) => {
     if (!chartCanvas) return;
     if (typeof Chart === "undefined") {
       setEmptyState("Chart library failed to load. Check your network connection.");
       return;
     }
 
-    const converted = values.map((value) =>
-      value === null ? null : Number(toPreferred(value).toFixed(2))
-    );
+    const normalizedMetric = METRIC_LABELS[metric] ? metric : "weight";
+    const precision = METRIC_PRECISION[normalizedMetric] ?? 2;
+    const converted = values.map((value) => {
+      if (value === null || value === undefined) return null;
+      const base = ["weight", "volume"].includes(normalizedMetric)
+        ? toPreferred(value)
+        : value;
+      return Number(Number(base).toFixed(precision));
+    });
 
-    const datasetLabel =
-      config.preferredUnit === "lb" ? "Weight (lb)" : "Weight (kg)";
+    const labelFn = METRIC_LABELS[normalizedMetric] || METRIC_LABELS.weight;
+    const datasetLabel = labelFn(config.preferredUnit);
     const accentColor = accentForSelection();
     const maxTicks = isTouch ? 4 : 6;
     const pointRadius = isTouch ? 5 : 4;
     const pointHoverRadius = isTouch ? 7 : 7;
     const pointHitRadius = isTouch ? 18 : 12;
     const interactionMode = isTouch ? "nearest" : "index";
+    const numericValues = converted.filter((value) => value !== null && !Number.isNaN(value));
+    let yMin = null;
+    let yMax = null;
+    if (numericValues.length) {
+      const min = Math.min(...numericValues);
+      const max = Math.max(...numericValues);
+      const range = Math.max(max - min, min === 0 && max === 0 ? 1 : Math.abs(max || 1));
+      const pad = range * 0.08;
+      yMin = min - pad;
+      yMax = max + pad;
+    }
 
     const hasData = converted.some((value) => value !== null && !Number.isNaN(value));
     if (!hasData) {
@@ -230,6 +261,13 @@ document.addEventListener("DOMContentLoaded", () => {
         fillGradient(context.chart, accentColor);
       if (chart.options.scales?.x?.ticks) {
         chart.options.scales.x.ticks.maxTicksLimit = maxTicks;
+      }
+      if (chart.options.scales?.x) {
+        chart.options.scales.x.offset = true;
+      }
+      if (chart.options.scales?.y) {
+        chart.options.scales.y.suggestedMin = yMin;
+        chart.options.scales.y.suggestedMax = yMax;
       }
       if (chart.options.interaction) {
         chart.options.interaction.mode = interactionMode;
@@ -280,6 +318,7 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         scales: {
           x: {
+            offset: true,
             ticks: {
               color: "#94a3b8",
               maxTicksLimit: maxTicks,
@@ -289,6 +328,8 @@ document.addEventListener("DOMContentLoaded", () => {
             },
           },
           y: {
+            suggestedMin: yMin,
+            suggestedMax: yMax,
             ticks: {
               color: "#94a3b8",
               padding: 6,
@@ -333,6 +374,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const muscleId = muscleSelect.value;
     const exerciseIds = getSelectedExerciseIds();
     const range = rangeSelect ? rangeSelect.value : config.chartRange;
+    const metric = metricSelect ? metricSelect.value : config.chartMetric || "weight";
 
     const url = new URL(config.endpoint, window.location.origin);
     url.searchParams.set("muscle_id", muscleId);
@@ -341,11 +383,12 @@ document.addEventListener("DOMContentLoaded", () => {
       url.searchParams.set("exercise_ids", exerciseIds.join(","));
       emptyMessage =
         exerciseIds.length > 1
-          ? "No weight data for the selected exercises and range yet."
-          : "No weight data for this exercise and range yet.";
+          ? "No data for the selected exercises and range yet."
+          : "No data for this exercise and range yet.";
     } else {
-      emptyMessage = "No weight data for this muscle and range yet.";
+      emptyMessage = "No data for this muscle and range yet.";
     }
+    url.searchParams.set("metric", metric);
 
     if (range === "custom" && customStart && customEnd) {
       if (customStart.value && customEnd.value) {
@@ -357,7 +400,7 @@ document.addEventListener("DOMContentLoaded", () => {
     fetch(url.toString())
       .then((response) => response.json())
       .then((data) => {
-        buildChart(data.labels || [], data.values || []);
+        buildChart(data.labels || [], data.values || [], metric);
       })
       .catch(() => {
         setEmptyState("Unable to load chart data.");
@@ -365,7 +408,11 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   if (chartCanvas) {
-    buildChart(config.initial.labels || [], config.initial.values || []);
+    buildChart(
+      config.initial.labels || [],
+      config.initial.values || [],
+      config.chartMetric || "weight"
+    );
   }
 
   if (Array.isArray(config.chartExerciseIds)) {
@@ -381,6 +428,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!isCustom) {
         fetchData();
       }
+    });
+  }
+
+  if (metricSelect) {
+    metricSelect.addEventListener("change", () => {
+      fetchData();
     });
   }
 
@@ -474,6 +527,12 @@ document.addEventListener("DOMContentLoaded", () => {
           renderExerciseOptions([], []);
         });
     }
+
+    document.addEventListener("click", (event) => {
+      if (!exerciseDropdown.contains(event.target)) {
+        exerciseDropdown.removeAttribute("open");
+      }
+    });
   }
 
   if (applyButton) {

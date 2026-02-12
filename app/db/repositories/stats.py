@@ -2,6 +2,30 @@
 
 from sqlalchemy import text
 
+WEIGHT_EXPR = """
+    COALESCE(
+        e.weight_used_kg,
+        CASE
+            WHEN e.weight_unit = 'lb' THEN e.weight_used * 0.45359237
+            WHEN e.weight_unit = 'kg' THEN e.weight_used
+            ELSE NULL
+        END
+    )
+"""
+
+
+def _metric_select(metric: str) -> tuple[str, str]:
+    if metric == "avg_reps":
+        return "AVG(e.avg_reps) AS value", "e.avg_reps IS NOT NULL"
+    if metric == "max_reps":
+        return "MAX(e.max_reps) AS value", "e.max_reps IS NOT NULL"
+    if metric == "volume":
+        return (
+            f"SUM({WEIGHT_EXPR} * e.avg_reps * e.num_of_sets) AS value",
+            f"{WEIGHT_EXPR} IS NOT NULL AND e.avg_reps IS NOT NULL AND e.num_of_sets IS NOT NULL",
+        )
+    return f"MAX({WEIGHT_EXPR}) AS value", f"{WEIGHT_EXPR} IS NOT NULL"
+
 
 def exercise_activity_by_day(conn, user_id: int, start_date, end_date):
     sql = """
@@ -73,34 +97,24 @@ def exercise_counts_by_month(conn, user_id: int):
     return result.mappings().all()
 
 
-def muscle_progression(conn, user_id: int, muscle_id: int, start_date, end_date):
+def muscle_progression(conn, user_id: int, muscle_id: int, start_date, end_date, metric: str = "weight"):
+    select_expr, where_expr = _metric_select(metric)
     sql = """
         SELECT
             w.date,
-            MAX(
-                COALESCE(
-                    e.weight_used_kg,
-                    CASE
-                        WHEN e.weight_unit = 'lb' THEN e.weight_used * 0.45359237
-                        WHEN e.weight_unit = 'kg' THEN e.weight_used
-                        ELSE NULL
-                    END
-                )
-            ) AS max_weight_kg
+            {select_expr}
         FROM workout w
         JOIN exercise e ON e.workout_id = w.id
         JOIN exercise_muscle em ON em.exercise_id = e.id
         WHERE w.user_id = :user_id
           AND em.muscle_id = :muscle_id
-          AND (
-            e.weight_used_kg IS NOT NULL
-            OR (e.weight_used IS NOT NULL AND e.weight_unit IN ('lb', 'kg'))
-          )
+          AND {where_expr}
           AND w.date BETWEEN :start_date AND :end_date
           AND w.date IS NOT NULL
         GROUP BY w.date
         ORDER BY w.date
     """
+    sql = sql.format(select_expr=select_expr, where_expr=where_expr)
     result = conn.execute(
         text(sql),
         {
@@ -113,33 +127,23 @@ def muscle_progression(conn, user_id: int, muscle_id: int, start_date, end_date)
     return result.mappings().all()
 
 
-def exercise_progression(conn, user_id: int, exercise_id: int, start_date, end_date):
+def exercise_progression(conn, user_id: int, exercise_id: int, start_date, end_date, metric: str = "weight"):
+    select_expr, where_expr = _metric_select(metric)
     sql = """
         SELECT
             w.date,
-            MAX(
-                COALESCE(
-                    e.weight_used_kg,
-                    CASE
-                        WHEN e.weight_unit = 'lb' THEN e.weight_used * 0.45359237
-                        WHEN e.weight_unit = 'kg' THEN e.weight_used
-                        ELSE NULL
-                    END
-                )
-            ) AS max_weight_kg
+            {select_expr}
         FROM workout w
         JOIN exercise e ON e.workout_id = w.id
         WHERE w.user_id = :user_id
           AND e.exercise_catalog_id = :exercise_id
-          AND (
-            e.weight_used_kg IS NOT NULL
-            OR (e.weight_used IS NOT NULL AND e.weight_unit IN ('lb', 'kg'))
-          )
+          AND {where_expr}
           AND w.date BETWEEN :start_date AND :end_date
           AND w.date IS NOT NULL
         GROUP BY w.date
         ORDER BY w.date
     """
+    sql = sql.format(select_expr=select_expr, where_expr=where_expr)
     result = conn.execute(
         text(sql),
         {
@@ -159,22 +163,15 @@ def exercise_progression_multi(
     exercise_ids: list[int],
     start_date,
     end_date,
+    metric: str = "weight",
 ):
     if not exercise_ids:
         return []
+    select_expr, where_expr = _metric_select(metric)
     sql = """
         SELECT
             w.date,
-            MAX(
-                COALESCE(
-                    e.weight_used_kg,
-                    CASE
-                        WHEN e.weight_unit = 'lb' THEN e.weight_used * 0.45359237
-                        WHEN e.weight_unit = 'kg' THEN e.weight_used
-                        ELSE NULL
-                    END
-                )
-            ) AS max_weight_kg
+            {select_expr}
         FROM workout w
         JOIN exercise e ON e.workout_id = w.id
         JOIN exercise_catalog ec ON ec.id = e.exercise_catalog_id
@@ -182,15 +179,13 @@ def exercise_progression_multi(
           AND ec.user_id = :user_id
           AND ec.muscle_id = :muscle_id
           AND e.exercise_catalog_id = ANY(:exercise_ids)
-          AND (
-            e.weight_used_kg IS NOT NULL
-            OR (e.weight_used IS NOT NULL AND e.weight_unit IN ('lb', 'kg'))
-          )
+          AND {where_expr}
           AND w.date BETWEEN :start_date AND :end_date
           AND w.date IS NOT NULL
         GROUP BY w.date
         ORDER BY w.date
     """
+    sql = sql.format(select_expr=select_expr, where_expr=where_expr)
     result = conn.execute(
         text(sql),
         {
