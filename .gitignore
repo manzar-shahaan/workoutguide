@@ -43,3 +43,6 @@ htmlcov/
 .vscode/
 .idea/
 .ipynb_checkpoints/
+
+# Server metadata (not source)
+server_setup.yaml
