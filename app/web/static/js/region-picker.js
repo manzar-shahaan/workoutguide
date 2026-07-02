@@ -24,7 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const highlighter = createBodyHighlighter({
     container: mapEl,
     type: currentView,
-    bodyColor: "#3f3f46",
+    bodyColor: "#404040", // neutral-700
     highlightedColors: ["#22c55e"],
     style: { width: "100%", maxWidth: "140px", margin: "0 auto" },
     onClick: ({ muscle }) => toggleRegion(muscle),

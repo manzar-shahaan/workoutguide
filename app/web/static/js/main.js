@@ -99,7 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const renderList = (items, totalCount, query) => {
       list.innerHTML = "";
       const header = document.createElement("div");
-      header.className = "mb-2 text-[11px] text-slate-400";
+      header.className = "mb-2 text-[11px] text-neutral-400";
       if (query) {
         header.textContent = `${items.length} of ${totalCount} exercises`;
       } else {
@@ -109,7 +109,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (!items.length) {
         const empty = document.createElement("div");
-        empty.className = "text-[11px] text-slate-500";
+        empty.className = "text-[11px] text-neutral-500";
         empty.textContent = query ? "No matches yet." : "No exercises yet.";
         list.appendChild(empty);
         list.classList.remove("hidden");
@@ -120,14 +120,14 @@ document.addEventListener("DOMContentLoaded", () => {
       items.forEach((item) => {
         if (!query && !activeMuscle && item.muscle_id !== lastMuscleId) {
           const header = document.createElement("div");
-          header.className = "mt-2 first:mt-0 text-[11px] uppercase tracking-wide text-slate-500";
+          header.className = "mt-2 first:mt-0 text-[11px] uppercase tracking-wide text-neutral-500";
           header.textContent = item.muscle_name || "Uncategorized";
           list.appendChild(header);
           lastMuscleId = item.muscle_id;
         }
         const button = document.createElement("button");
         button.type = "button";
-        button.className = "block w-full text-left rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100 hover:bg-slate-800 transition-colors duration-150";
+        button.className = "block w-full text-left rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-neutral-100 hover:bg-neutral-800 transition-colors duration-150";
         const count = Number.isFinite(item.exercise_count)
           ? ` (${item.exercise_count})`
           : "";
@@ -140,7 +140,7 @@ document.addEventListener("DOMContentLoaded", () => {
         left.appendChild(name);
         if (item.muscle_name) {
           const muscle = document.createElement("span");
-          muscle.className = "inline-flex items-center gap-1 text-[11px] text-slate-400";
+          muscle.className = "inline-flex items-center gap-1 text-[11px] text-neutral-400";
           if (item.muscle_color) {
             const dot = document.createElement("span");
             dot.className = "inline-flex h-2 w-2 rounded-full";
@@ -155,7 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
         row.appendChild(left);
         if (item.last_logged) {
           const date = document.createElement("span");
-          date.className = "text-[10px] text-slate-400 whitespace-nowrap";
+          date.className = "text-[10px] text-neutral-400 whitespace-nowrap";
           date.textContent = item.last_logged;
           row.appendChild(date);
         }

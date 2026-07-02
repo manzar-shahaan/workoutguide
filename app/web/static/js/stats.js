@@ -89,7 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
     items.forEach((item) => {
       const wrapper = document.createElement("label");
       wrapper.className =
-        "flex items-center gap-2 rounded-md px-2 py-1 hover:bg-slate-900";
+        "flex items-center gap-2 rounded-md px-2 py-1 hover:bg-neutral-900";
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.value = String(item.id);
@@ -173,9 +173,9 @@ document.addEventListener("DOMContentLoaded", () => {
       button.classList.toggle("bg-emerald-500", isActive);
       button.classList.toggle("text-black", isActive);
       button.classList.toggle("border", !isActive);
-      button.classList.toggle("border-slate-700", !isActive);
-      button.classList.toggle("bg-slate-900", !isActive);
-      button.classList.toggle("text-slate-200", !isActive);
+      button.classList.toggle("border-neutral-700", !isActive);
+      button.classList.toggle("bg-neutral-900", !isActive);
+      button.classList.toggle("text-neutral-200", !isActive);
     });
   };
 

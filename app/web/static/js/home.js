@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const highlighter = createBodyHighlighter({
     container: mapContainer,
     type: currentView,
-    bodyColor: "#3f3f46", // zinc-700: visible silhouette against black, no color signal
+    bodyColor: "#404040", // neutral-700: visible silhouette against black, no color signal
     highlightedColors: ["#22c55e"], // the one accent color, only on what's selected
     style: { width: "100%", maxWidth: "280px", margin: "0 auto" },
     onClick: ({ muscle }) => toggleRegion(muscle),
@@ -54,12 +54,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const buildCard = ({ name, subtitle, imageUrl, dimmed, onSelect }) => {
     const button = document.createElement("button");
     button.type = "button";
-    const borderClass = dimmed ? "border-dashed border-slate-800" : "border-slate-800";
-    const opacityClass = dimmed ? "opacity-60 hover:opacity-90" : "hover:border-slate-600";
-    button.className = `flex w-full items-center gap-3 rounded-lg border ${borderClass} bg-slate-900 p-3 text-left transition-opacity duration-150 ${opacityClass}`;
+    const borderClass = dimmed ? "border-dashed border-neutral-800" : "border-neutral-800";
+    const opacityClass = dimmed ? "opacity-60 hover:opacity-90" : "hover:border-neutral-600";
+    button.className = `flex w-full items-center gap-3 rounded-lg border ${borderClass} bg-neutral-900 p-3 text-left transition-opacity duration-150 ${opacityClass}`;
 
     const thumb = document.createElement("div");
-    thumb.className = "h-12 w-12 flex-shrink-0 overflow-hidden rounded bg-slate-800";
+    thumb.className = "h-12 w-12 flex-shrink-0 overflow-hidden rounded bg-neutral-800";
     if (imageUrl) {
       const img = document.createElement("img");
       img.src = imageUrl;
@@ -74,10 +74,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const text = document.createElement("div");
     text.className = "min-w-0 flex-1";
     const nameEl = document.createElement("p");
-    nameEl.className = "truncate text-sm text-slate-100 capitalize";
+    nameEl.className = "truncate text-sm text-neutral-100 capitalize";
     nameEl.textContent = name;
     const subEl = document.createElement("p");
-    subEl.className = "truncate text-xs text-slate-500";
+    subEl.className = "truncate text-xs text-neutral-500";
     subEl.textContent = subtitle;
     text.appendChild(nameEl);
     text.appendChild(subEl);
@@ -111,7 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!yourExercises.length && !suggestions.length) {
       const empty = document.createElement("p");
-      empty.className = "text-sm text-slate-500";
+      empty.className = "text-sm text-neutral-500";
       empty.textContent = "Nothing here yet.";
       drawerBody.appendChild(empty);
       return;
@@ -135,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (suggestions.length) {
       const divider = document.createElement("p");
-      divider.className = "mt-3 mb-2 text-[11px] uppercase tracking-wide text-slate-600";
+      divider.className = "mt-3 mb-2 text-[11px] uppercase tracking-wide text-neutral-600";
       divider.textContent = "Not logged yet";
       drawerBody.appendChild(divider);
 
@@ -161,14 +161,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const url = new URL(shortlistEndpoint, window.location.origin);
     url.searchParams.set("regions", selectedRegions.join(","));
     drawerTitle.textContent = selectedRegions.map(regionLabel).join(" + ");
-    drawerBody.innerHTML = '<p class="text-sm text-slate-500">Loading…</p>';
+    drawerBody.innerHTML = '<p class="text-sm text-neutral-500">Loading…</p>';
     openDrawer();
 
     fetch(url.toString(), { headers: { Accept: "application/json" } })
       .then((response) => response.json())
       .then((data) => renderDrawer(data))
       .catch(() => {
-        drawerBody.innerHTML = '<p class="text-sm text-slate-500">Couldn\'t load exercises.</p>';
+        drawerBody.innerHTML = '<p class="text-sm text-neutral-500">Couldn\'t load exercises.</p>';
       });
   };
 

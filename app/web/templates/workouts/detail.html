@@ -5,7 +5,7 @@
 {% block content %}
   <a
     href="{{ url_for('web.workouts_index') }}"
-    class="inline-flex items-center gap-1.5 text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
+    class="inline-flex items-center gap-1.5 text-xs sm:text-sm text-neutral-400 hover:text-neutral-100 mb-4"
   >
     <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
     Back to workouts
@@ -13,17 +13,17 @@
 
   <header class="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6 gap-3">
     <div>
-      <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100">
+      <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-neutral-100">
         {{ workout_date_display }}
       </h1>
-      <p class="mt-1 text-xs text-slate-500">
+      <p class="mt-1 text-xs text-neutral-500">
         ID: {{ workout["id"] }}
       </p>
 
       {% if workout_muscles %}
-        <div class="mt-2 text-xs text-slate-500">
+        <div class="mt-2 text-xs text-neutral-500">
           Muscles targeted:
-          <span class="ml-1 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-100 font-medium">
+          <span class="ml-1 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-100 font-medium">
             {% for m in workout_muscles %}
               <span class="inline-flex items-center gap-1">
                 <span
@@ -31,7 +31,7 @@
                   style="background-color: {{ m['color'] }};"
                 ></span>
                 {{ m["name"] }}
-              </span>{% if not loop.last %}<span class="text-slate-500">,</span>{% endif %}
+              </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
             {% endfor %}
           </span>
         </div>
@@ -44,7 +44,7 @@
           type="button"
           id="unitToggle"
           data-mode="{{ unit_pref }}"
-          class="inline-flex w-full items-center justify-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200 sm:w-auto sm:text-sm"
+          class="inline-flex w-full items-center justify-center rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs font-medium text-neutral-200 hover:bg-neutral-700 transition-colors duration-200 sm:w-auto sm:text-sm"
         >
           <span
             data-unit-label
@@ -62,7 +62,7 @@
         {% if editable %}
           <a
             href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=0, unit=unit_pref) }}"
-            class="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors duration-200 sm:w-auto sm:text-sm"
+            class="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-700 transition-colors duration-200 sm:w-auto sm:text-sm"
           >
             <i data-lucide="check" class="h-4 w-4"></i>
             Done editing
@@ -70,7 +70,7 @@
         {% else %}
           <a
             href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=1, unit=unit_pref) }}"
-            class="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors duration-200 sm:w-auto sm:text-sm"
+            class="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-700 transition-colors duration-200 sm:w-auto sm:text-sm"
           >
             <i data-lucide="pencil" class="h-4 w-4"></i>
             Edit workout
@@ -82,7 +82,7 @@
 
   <section aria-labelledby="exercises-heading">
     <div class="flex items-center justify-between mb-3">
-      <h2 id="exercises-heading" class="text-base sm:text-lg font-semibold text-slate-100">
+      <h2 id="exercises-heading" class="text-base sm:text-lg font-semibold text-neutral-100">
         Exercises
       </h2>
 
@@ -98,24 +98,24 @@
     </div>
 
     {% if not exercises %}
-      <p class="text-sm text-slate-400">
+      <p class="text-sm text-neutral-400">
         No exercises logged for this workout.
       </p>
     {% else %}
       <ul class="space-y-3">
         {% for ex in exercises %}
-          <li class="rounded-lg border border-slate-800 bg-slate-900 px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-md shadow-black/50 hover:border-[#1f3370] hover:bg-[#152856] transition-all duration-200">
+          <li class="rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-md shadow-black/50 hover:border-[#1f3370] hover:bg-[#152856] transition-all duration-200">
             <div>
-              <p class="font-medium text-slate-100 text-sm">
+              <p class="font-medium text-neutral-100 text-sm">
                 {{ ex["exercise_name"] or ex["notes"] or "(no notes)" }}
               </p>
               {% if ex["exercise_name"] and ex["notes"] %}
-                <p class="mt-1 text-xs text-slate-500">
+                <p class="mt-1 text-xs text-neutral-500">
                   {{ ex["notes"] }}
                 </p>
               {% endif %}
 
-              <p class="mt-1 text-sm text-slate-500">
+              <p class="mt-1 text-sm text-neutral-500">
                 {% set show_sep = false %}
                 {% if ex["muscles_list"] %}
                   <span class="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -126,7 +126,7 @@
                           style="background-color: {{ m['color'] }};"
                         ></span>
                         {{ m["name"] }}
-                      </span>{% if not loop.last %}<span class="text-slate-500">,</span>{% endif %}
+                      </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
                     {% endfor %}
                   </span>
                   {% set show_sep = true %}
@@ -179,7 +179,7 @@
               <div class="flex items-center gap-2">
                 <a
                   href="{{ url_for('web.edit_exercise', exercise_id=ex['id']) }}"
-                  class="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-700 transition-colors duration-200"
                 >
                   <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
                   Edit

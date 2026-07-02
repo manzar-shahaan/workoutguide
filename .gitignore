@@ -6,6 +6,9 @@ __pycache__/
 # Ignore AGENTS file
 AGENTS.md
 
+# Ignore CLAUDE file (operational/server notes, not source)
+CLAUDE.md
+
 # Ignore desktop files
 .DS_Store
 

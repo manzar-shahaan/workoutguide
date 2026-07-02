@@ -6,19 +6,19 @@
 {% block content %}
   <a
     href="{{ url_for('web.login') }}"
-    class="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
+    class="inline-flex items-center text-xs sm:text-sm text-neutral-400 hover:text-neutral-100 mb-4"
   >
     ← Back to login
   </a>
 
-  <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100 mb-2">
+  <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-neutral-100 mb-2">
     Two-factor authentication
   </h1>
-  <p class="text-xs sm:text-sm text-slate-400 mb-4">
+  <p class="text-xs sm:text-sm text-neutral-400 mb-4">
     Enter the 6-digit code from your authenticator app, or one of your backup codes.
   </p>
 
-  <form method="post" class="max-w-xs space-y-4 rounded-lg border border-slate-800 bg-slate-950 px-5 py-5 shadow-md shadow-black/50">
+  <form method="post" class="max-w-xs space-y-4 rounded-lg border border-neutral-800 bg-neutral-950 px-5 py-5 shadow-md shadow-black/50">
     {{ input_field("code", "Code", type="text", required=True) }}
 
     <button

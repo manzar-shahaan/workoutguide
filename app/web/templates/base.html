@@ -57,24 +57,29 @@
       .form-row textarea {
         display: block;
         width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
         border-radius: 0.375rem;
-        border: 1px solid rgb(75 85 99);         /* border-slate-600 */
-        background-color: rgb(15 23 42);         /* slate-900-ish */
+        border: 1px solid rgb(82 82 82);         /* neutral-600 */
+        background-color: rgb(23 23 23);         /* neutral-900 */
         color: rgb(249 250 251);                 /* near-white */
         padding: 0.5rem 0.75rem;
         font-size: 0.875rem;
       }
+      .form-row input[type="date"] {
+        -webkit-appearance: none;
+        appearance: none;
+      }
       .form-row input::placeholder,
       .form-row textarea::placeholder {
-        color: rgb(148 163 184);                /* muted gray */
+        color: rgb(163 163 163);                /* neutral-400 */
       }
       .form-row input:focus,
       .form-row select:focus,
       .form-row textarea:focus {
         outline: none;
-        border-color: rgb(148 163 184);         /* gray focus */
-        box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.4);
-        
+        border-color: rgb(163 163 163);         /* neutral-400 focus */
+        box-shadow: 0 0 0 2px rgba(163, 163, 163, 0.4);
       }
       /* Highlight invalid fields in red */
       .was-validated .form-row input:invalid,
@@ -88,14 +93,14 @@
         padding: 0.375rem 0.75rem;
         min-height: 32px;
         border-radius: 9999px;
-        border: 1px solid rgb(39 39 42); /* zinc-800 */
-        color: rgb(148 163 184);
+        border: 1px solid rgb(38 38 38); /* neutral-800 */
+        color: rgb(163 163 163);         /* neutral-400 */
         touch-action: manipulation;
       }
       .view-toggle-btn.is-active {
-        border-color: rgb(100 116 139);
-        color: rgb(241 245 249);
-        background-color: rgb(39 39 42);
+        border-color: rgb(115 115 115); /* neutral-500 */
+        color: rgb(245 245 245);        /* neutral-100 */
+        background-color: rgb(38 38 38); /* neutral-800 */
       }
 
       /* Muscle-map SVGs: prevent iOS Safari's double-tap-to-zoom delay
@@ -107,19 +112,41 @@
       #mapClearBtn {
         touch-action: manipulation;
       }
+
+      /* Outline each muscle region so adjacent same-colored polygons read
+         as separate anatomical segments instead of one flat blob. */
+      #bodyMap svg polygon,
+      [data-region-picker-map] svg polygon {
+        stroke: #000000;
+        stroke-width: 0.6;
+        stroke-linejoin: round;
+      }
+
+      /* iOS PWA standalone mode draws under the status bar/notch unless
+         the chrome is explicitly padded for the safe area. */
+      header {
+        padding-top: env(safe-area-inset-top);
+      }
+      body {
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+      }
+      #regionDrawerOverlay .fixed.bottom-0 {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
     </style>
   </head>
-  <body class="bg-black text-slate-100 min-h-screen flex flex-col">
-    <header class="bg-black border-b border-slate-800">
+  <body class="bg-black text-neutral-100 min-h-screen flex flex-col">
+    <header class="bg-black border-b border-neutral-800">
       {# Full-width nav so it visually matches the popover width on desktop #}
       <nav class="flex items-center justify-between px-4 py-3">
-        <a href="{{ url_for('web.workouts_index') }}" class="font-semibold tracking-tight text-slate-100">
+        <a href="{{ url_for('web.workouts_index') }}" class="font-semibold tracking-tight text-neutral-100">
           Workout tracker
         </a>
 
         <div class="flex items-center gap-4 text-xs sm:text-sm">
           {% if g.user %}
-            <a href="{{ url_for('web.workouts_index') }}" class="text-slate-300 hover:text-white">
+            <a href="{{ url_for('web.workouts_index') }}" class="text-neutral-300 hover:text-white">
               Workouts
             </a>
 
@@ -127,18 +154,18 @@
             <button
               id="userMenuButton"
               type="button"
-              class="inline-flex items-center gap-1 rounded-md border border-slate-600 px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-100 hover:bg-slate-900"
+              class="inline-flex items-center gap-1 rounded-md border border-neutral-600 px-3 py-1.5 text-xs sm:text-sm font-medium text-neutral-100 hover:bg-neutral-900"
             >
               <span>
                 {{ g.user["name"] or g.user["email"] }}
               </span>
-              <i data-lucide="chevron-down" class="h-3 w-3 text-slate-400"></i>
+              <i data-lucide="chevron-down" class="h-3 w-3 text-neutral-400"></i>
             </button>
           {% else %}
-            <a href="{{ url_for('web.login') }}" class="text-slate-300 hover:text-white">
+            <a href="{{ url_for('web.login') }}" class="text-neutral-300 hover:text-white">
               Log in
             </a>
-            <a href="{{ url_for('web.signup') }}" class="text-slate-300 hover:text-white">
+            <a href="{{ url_for('web.signup') }}" class="text-neutral-300 hover:text-white">
               Sign up
             </a>
           {% endif %}
@@ -154,11 +181,11 @@
             {% for category, message in messages %}
               {# all grayscale, just slightly different shades #}
               {% if category == 'error' or category == 'danger' %}
-                {% set box_classes = 'bg-slate-900 border border-slate-700 text-slate-100' %}
+                {% set box_classes = 'bg-neutral-900 border border-neutral-700 text-neutral-100' %}
               {% elif category == 'success' %}
-                {% set box_classes = 'bg-slate-900 border border-slate-700 text-slate-100' %}
+                {% set box_classes = 'bg-neutral-900 border border-neutral-700 text-neutral-100' %}
               {% else %}
-                {% set box_classes = 'bg-slate-900 border border-slate-700 text-slate-100' %}
+                {% set box_classes = 'bg-neutral-900 border border-neutral-700 text-neutral-100' %}
               {% endif %}
               <div class="rounded-md px-3 py-2 text-sm {{ box_classes }}">
                 {{ message }}
@@ -170,8 +197,8 @@
 
       {% block content %}{% endblock %}
     </main>
-    <footer class="mt-10 border-t border-slate-800 bg-black">
-      <div class="max-w-7xl mx-auto px-4 py-4 text-xs text-slate-500 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+    <footer class="mt-10 border-t border-neutral-800 bg-black">
+      <div class="max-w-7xl mx-auto px-4 py-4 text-xs text-neutral-500 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <span>workout.subterren.org</span>
         <span>Built for focused training logs.</span>
       </div>
@@ -193,57 +220,57 @@
         {# Panel: bottom sheet on mobile, popover on desktop #}
         <div
           class="fixed inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto
-         rounded-t-2xl bg-slate-950 border-t border-slate-800 p-4
+         rounded-t-2xl bg-neutral-950 border-t border-neutral-800 p-4
          md:inset-auto md:right-4 md:top-14 md:bottom-auto md:w-72
          md:min-h-0 md:max-h-none
-         md:rounded-xl md:border md:bg-slate-950"
+         md:rounded-xl md:border md:bg-neutral-950"
         >
 
           <div class="flex items-start justify-between mb-3">
             <div>
-              <p class="text-sm font-semibold text-slate-100">
+              <p class="text-sm font-semibold text-neutral-100">
                 {{ g.user["name"] or "User" }}
               </p>
-              <p class="text-xs text-slate-400 break-all">
+              <p class="text-xs text-neutral-400 break-all">
                 {{ g.user["email"] }}
               </p>
             </div>
             <button
               type="button"
-              class="text-xs text-slate-400 hover:text-slate-100"
+              class="text-xs text-neutral-400 hover:text-neutral-100"
               data-user-menu-dismiss
             >
               <i data-lucide="x" class="h-3 w-3"></i>
             </button>
           </div>
 
-          <div class="border-t border-slate-800 pt-3 mt-2 space-y-3 text-sm">
+          <div class="border-t border-neutral-800 pt-3 mt-2 space-y-3 text-sm">
             {# Account settings – will route to a dedicated page later #}
             <a
               href="{{ url_for('web.account_settings') }}"
-              class="flex items-center justify-between rounded-md px-3 py-2 text-base sm:text-sm text-slate-100 hover:bg-slate-900"
+              class="flex items-center justify-between rounded-md px-3 py-2 text-base sm:text-sm text-neutral-100 hover:bg-neutral-900"
               data-user-menu-dismiss
             >
               <span>Account</span>
-              <span class="hidden sm:inline text-xs text-slate-500">Manage profile &amp; data</span>
+              <span class="hidden sm:inline text-xs text-neutral-500">Manage profile &amp; data</span>
             </a>
 
             <a
               href="{{ url_for('web.preferences') }}"
-              class="flex items-center justify-between rounded-md px-3 py-2 text-base sm:text-sm text-slate-100 hover:bg-slate-900"
+              class="flex items-center justify-between rounded-md px-3 py-2 text-base sm:text-sm text-neutral-100 hover:bg-neutral-900"
               data-user-menu-dismiss
             >
               <span>Preferences</span>
-              <span class="hidden sm:inline text-xs text-slate-500">Units &amp; defaults</span>
+              <span class="hidden sm:inline text-xs text-neutral-500">Units &amp; defaults</span>
             </a>
 
             <a
               href="{{ url_for('web.manage_muscles') }}"
-              class="flex items-center justify-between rounded-md px-3 py-2 text-base sm:text-sm text-slate-100 hover:bg-slate-900"
+              class="flex items-center justify-between rounded-md px-3 py-2 text-base sm:text-sm text-neutral-100 hover:bg-neutral-900"
               data-user-menu-dismiss
             >
               <span>Muscles &amp; exercises</span>
-              <span class="hidden sm:inline text-xs text-slate-500">Edit your list</span>
+              <span class="hidden sm:inline text-xs text-neutral-500">Edit your list</span>
             </a>
 
             {# Logout form #}
@@ -254,7 +281,7 @@
             >
               <button
                 type="submit"
-                class="w-full inline-flex items-center justify-center rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-slate-900"
+                class="w-full inline-flex items-center justify-center rounded-md border border-neutral-600 px-3 py-2 text-sm font-medium text-neutral-100 hover:bg-neutral-900"
               >
                 Logout
               </button>

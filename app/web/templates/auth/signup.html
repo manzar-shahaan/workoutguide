@@ -6,17 +6,17 @@
 
 {% block content %}
   <div class="max-w-md mx-auto">
-    <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100 mb-6">
+    <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-neutral-100 mb-6">
       Sign up
     </h1>
 
     {% if error %}
-      <p class="mb-4 rounded-md border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-100 shadow-md shadow-black/50">
+      <p class="mb-4 rounded-md border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm text-neutral-100 shadow-md shadow-black/50">
         {{ error }}
       </p>
     {% endif %}
 
-    <form method="post" class="bg-slate-950 border border-slate-800 rounded-lg px-5 py-5 shadow-md shadow-black/50">
+    <form method="post" class="bg-neutral-950 border border-neutral-800 rounded-lg px-5 py-5 shadow-md shadow-black/50">
       {{ input_field("name", "Name", required=True, maxlength=80) }}
       {{ input_field("email", "Email", type="email", required=True, maxlength=255) }}
       {{ input_field(
@@ -50,9 +50,9 @@
       </button>
     </form>
 
-    <p class="mt-4 text-sm text-slate-400">
+    <p class="mt-4 text-sm text-neutral-400">
       Already have an account?
-      <a href="{{ url_for('web.login') }}" class="text-slate-100 hover:text-white">Log in</a>
+      <a href="{{ url_for('web.login') }}" class="text-neutral-100 hover:text-white">Log in</a>
     </p>
   </div>
 {% endblock %}

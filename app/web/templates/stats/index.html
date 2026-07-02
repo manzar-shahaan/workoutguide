@@ -6,30 +6,30 @@
   <div class="max-w-5xl mx-auto">
     <a
       href="{{ url_for('web.workouts_index') }}"
-      class="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
+      class="inline-flex items-center text-xs sm:text-sm text-neutral-400 hover:text-neutral-100 mb-4"
     >
       ← Back to workouts
     </a>
 
     <header class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
-        <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100">
+        <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-neutral-100">
           Stats
         </h1>
-        <p class="mt-1 text-xs sm:text-sm text-slate-400">
+        <p class="mt-1 text-xs sm:text-sm text-neutral-400">
           Track exercise volume and muscle progression over time.
         </p>
       </div>
     </header>
 
-    <section class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-5 shadow-md shadow-black/50">
+    <section class="rounded-lg border border-neutral-800 bg-neutral-950 px-5 py-5 shadow-md shadow-black/50">
       <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
         <div>
-          <h2 class="text-sm font-semibold text-slate-100">Muscle progression</h2>
-          <p class="text-xs text-slate-500">
+          <h2 class="text-sm font-semibold text-neutral-100">Muscle progression</h2>
+          <p class="text-xs text-neutral-500">
             Track max weight per day for the selected muscle, or filter by exercise.
           </p>
-          <p class="mt-1 text-[11px] text-slate-500">
+          <p class="mt-1 text-[11px] text-neutral-500">
             Use the exercise dropdown to select multiple items.
           </p>
         </div>
@@ -37,7 +37,7 @@
           <div class="flex flex-wrap items-center gap-2">
             <select
               id="muscleSelect"
-              class="h-9 rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100"
+              class="h-9 rounded-md border border-neutral-700 bg-neutral-900 px-3 text-xs text-neutral-100"
             >
               {% for m in muscles %}
                 <option
@@ -59,25 +59,25 @@
                 value="{{ chart_exercise_ids | join(',') }}"
               >
               <summary
-                class="list-none inline-flex h-9 min-w-[140px] items-center justify-between rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100 hover:bg-slate-800 cursor-pointer"
+                class="list-none inline-flex h-9 min-w-[140px] items-center justify-between rounded-md border border-neutral-700 bg-neutral-900 px-3 text-xs text-neutral-100 hover:bg-neutral-800 cursor-pointer"
               >
                 <span data-exercise-label>All exercises</span>
-                <span class="text-slate-400">▾</span>
+                <span class="text-neutral-400">▾</span>
               </summary>
               <div
-                class="absolute left-0 z-10 mt-2 w-64 rounded-md border border-slate-700 bg-slate-950 p-2 text-xs text-slate-100 shadow-md shadow-black/50"
+                class="absolute left-0 z-10 mt-2 w-64 rounded-md border border-neutral-700 bg-neutral-950 p-2 text-xs text-neutral-100 shadow-md shadow-black/50"
               >
                 <div class="mb-2 flex items-center gap-2">
                   <button
                     type="button"
-                    class="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
+                    class="rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-[11px] text-neutral-200 hover:bg-neutral-800"
                     data-exercise-select-all
                   >
                     Select all
                   </button>
                   <button
                     type="button"
-                    class="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
+                    class="rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-[11px] text-neutral-200 hover:bg-neutral-800"
                     data-exercise-clear
                   >
                     Clear
@@ -86,7 +86,7 @@
                 <div class="max-h-48 overflow-y-auto space-y-1" data-exercise-list>
                   {% if exercise_options %}
                     {% for ex in exercise_options %}
-                      <label class="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-slate-900">
+                      <label class="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-neutral-900">
                         <input
                           type="checkbox"
                           value="{{ ex['id'] }}"
@@ -96,14 +96,14 @@
                       </label>
                     {% endfor %}
                   {% else %}
-                    <p class="px-2 py-1 text-[11px] text-slate-500">No exercises yet.</p>
+                    <p class="px-2 py-1 text-[11px] text-neutral-500">No exercises yet.</p>
                   {% endif %}
                 </div>
               </div>
             </details>
             <select
               id="metricSelect"
-              class="h-9 rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100"
+              class="h-9 rounded-md border border-neutral-700 bg-neutral-900 px-3 text-xs text-neutral-100"
             >
               <option value="weight" {% if chart_metric == 'weight' %}selected{% endif %}>Weight</option>
               <option value="avg_reps" {% if chart_metric == 'avg_reps' %}selected{% endif %}>Avg reps</option>
@@ -112,7 +112,7 @@
             </select>
             <select
               id="rangeSelect"
-              class="h-9 rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100"
+              class="h-9 rounded-md border border-neutral-700 bg-neutral-900 px-3 text-xs text-neutral-100"
             >
               <option value="last_week" {% if chart_range == 'last_week' %}selected{% endif %}>Last week</option>
               <option value="last_month" {% if chart_range == 'last_month' %}selected{% endif %}>Last month</option>
@@ -125,7 +125,7 @@
             <button
               type="button"
               id="resetZoom"
-              class="inline-flex h-9 items-center rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              class="inline-flex h-9 items-center rounded-md border border-neutral-700 bg-neutral-900 px-3 text-xs text-neutral-100 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Reset zoom
             </button>
@@ -139,18 +139,18 @@
             type="date"
             id="customStart"
             value="{{ custom_start_default.strftime('%Y-%m-%d') }}"
-            class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100"
+            class="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs text-neutral-100"
           >
           <input
             type="date"
             id="customEnd"
             value="{{ custom_end_default.strftime('%Y-%m-%d') }}"
-            class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100"
+            class="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs text-neutral-100"
           >
           <button
             type="button"
             id="applyRange"
-            class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700"
+            class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs font-medium text-neutral-200 hover:bg-neutral-700"
           >
             Apply
           </button>
@@ -158,27 +158,27 @@
 
         <div class="min-h-[320px]" id="chartWrapper">
           <canvas id="muscleChart" height="160"></canvas>
-          <p id="chartEmptyState" class="mt-4 text-sm text-slate-400 hidden">
+          <p id="chartEmptyState" class="mt-4 text-sm text-neutral-400 hidden">
             No weight data for this muscle and range yet.
           </p>
         </div>
       {% else %}
-        <p class="text-sm text-slate-400">
+        <p class="text-sm text-neutral-400">
           Add a muscle group to start tracking progression.
         </p>
       {% endif %}
     </section>
 
     <div class="mt-6 grid gap-6 md:grid-cols-[minmax(0,1fr)_320px]">
-      <section class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-5 shadow-md shadow-black/50">
+      <section class="rounded-lg border border-neutral-800 bg-neutral-950 px-5 py-5 shadow-md shadow-black/50">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
           <div>
-            <h2 class="text-sm font-semibold text-slate-100">Calendar</h2>
-            <p class="text-xs text-slate-500" data-view-block="month">
+            <h2 class="text-sm font-semibold text-neutral-100">Calendar</h2>
+            <p class="text-xs text-neutral-500" data-view-block="month">
               {{ month_calendar.label }} · {{ month_calendar.month_total }}
               {{ "exercise" if month_calendar.month_total == 1 else "exercises" }}
             </p>
-            <p class="text-xs text-slate-500 hidden" data-view-block="week">
+            <p class="text-xs text-neutral-500 hidden" data-view-block="week">
               {{ week_calendar.week_start.strftime('%b %d') }} -> {{ week_calendar.week_end.strftime('%b %d, %Y') }}
               · {{ week_calendar.week_total }}
               {{ "exercise" if week_calendar.week_total == 1 else "exercises" }}
@@ -188,19 +188,19 @@
           <div class="flex items-center gap-2" data-view-block="month">
             <a
               href="{{ url_for('web.stats_index', view='month', date=month_prev_date.strftime('%Y-%m-%d')) }}"
-              class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
+              class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-700"
             >
               Prev
             </a>
             <a
               href="{{ url_for('web.stats_index', view='month', date=today.strftime('%Y-%m-%d')) }}"
-              class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
+              class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-700"
             >
               Today
             </a>
             <a
               href="{{ url_for('web.stats_index', view='month', date=month_next_date.strftime('%Y-%m-%d')) }}"
-              class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
+              class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-700"
             >
               Next
             </a>
@@ -209,19 +209,19 @@
           <div class="flex items-center gap-2 hidden" data-view-block="week">
             <a
               href="{{ url_for('web.stats_index', view='week', date=week_prev_date.strftime('%Y-%m-%d')) }}"
-              class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
+              class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-700"
             >
               Prev
             </a>
             <a
               href="{{ url_for('web.stats_index', view='week', date=today.strftime('%Y-%m-%d')) }}"
-              class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
+              class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-700"
             >
               Today
             </a>
             <a
               href="{{ url_for('web.stats_index', view='week', date=week_next_date.strftime('%Y-%m-%d')) }}"
-              class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
+              class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-700"
             >
               Next
             </a>
@@ -232,20 +232,20 @@
           <button
             type="button"
             data-view-button="month"
-            class="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
+            class="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium border border-neutral-700 bg-neutral-900 text-neutral-200 hover:bg-neutral-800"
           >
             Month
           </button>
           <button
             type="button"
             data-view-button="week"
-            class="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
+            class="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium border border-neutral-700 bg-neutral-900 text-neutral-200 hover:bg-neutral-800"
           >
             Week
           </button>
         </div>
 
-        <div class="grid grid-cols-7 gap-2 text-[10px] text-slate-500 mb-2">
+        <div class="grid grid-cols-7 gap-2 text-[10px] text-neutral-500 mb-2">
           {% for label in weekdays %}
             <span>{{ label }}</span>
           {% endfor %}
@@ -255,8 +255,8 @@
           {% for week in month_calendar.weeks %}
             {% for day in week.days %}
               <div
-                class="aspect-square w-full rounded-md border border-slate-800 px-2 py-2 text-[10px]
-                       {% if day.in_month %}bg-slate-900{% else %}bg-slate-900/40 text-slate-600{% endif %}
+                class="aspect-square w-full rounded-md border border-neutral-800 px-2 py-2 text-[10px]
+                       {% if day.in_month %}bg-neutral-900{% else %}bg-neutral-900/40 text-neutral-600{% endif %}
                        {% if day.date == today %}border-emerald-300 bg-emerald-500/70 text-emerald-50 ring-2 ring-emerald-400/70{% endif %}"
               >
                 <div class="flex items-center justify-center">
@@ -282,7 +282,7 @@
         <div class="grid grid-cols-7 gap-2 hidden" data-view-block="week">
           {% for day in week_calendar.days %}
             <div
-              class="aspect-square w-full rounded-md border border-slate-800 bg-slate-900 px-2 py-2 text-[10px]
+              class="aspect-square w-full rounded-md border border-neutral-800 bg-neutral-900 px-2 py-2 text-[10px]
                      {% if day.date == today %}border-emerald-300 bg-emerald-500/70 text-emerald-50 ring-2 ring-emerald-400/70{% endif %}"
             >
               <div class="flex items-center justify-center">
@@ -304,30 +304,30 @@
           {% endfor %}
         </div>
 
-        <p class="mt-3 text-xs text-slate-500 text-left">
+        <p class="mt-3 text-xs text-neutral-500 text-left">
           Dots represent muscles trained on that day.
         </p>
 
       </section>
 
-      <section class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-5 shadow-md shadow-black/50">
-        <h2 class="text-sm font-semibold text-slate-100 mb-3">Totals</h2>
+      <section class="rounded-lg border border-neutral-800 bg-neutral-950 px-5 py-5 shadow-md shadow-black/50">
+        <h2 class="text-sm font-semibold text-neutral-100 mb-3">Totals</h2>
         <dl class="space-y-2 text-sm">
           <div class="flex items-center justify-between">
-            <dt class="text-slate-400">Workouts logged</dt>
-            <dd class="text-slate-100">{{ totals.workouts }}</dd>
+            <dt class="text-neutral-400">Workouts logged</dt>
+            <dd class="text-neutral-100">{{ totals.workouts }}</dd>
           </div>
           <div class="flex items-center justify-between">
-            <dt class="text-slate-400">Exercises logged</dt>
-            <dd class="text-slate-100">{{ totals.exercises }}</dd>
+            <dt class="text-neutral-400">Exercises logged</dt>
+            <dd class="text-neutral-100">{{ totals.exercises }}</dd>
           </div>
           <div class="flex items-center justify-between">
-            <dt class="text-slate-400">Active muscles</dt>
-            <dd class="text-slate-100">{{ totals.muscles }}</dd>
+            <dt class="text-neutral-400">Active muscles</dt>
+            <dd class="text-neutral-100">{{ totals.muscles }}</dd>
           </div>
           <div class="flex items-center justify-between">
-            <dt class="text-slate-400">Last workout</dt>
-            <dd class="text-slate-100">
+            <dt class="text-neutral-400">Last workout</dt>
+            <dd class="text-neutral-100">
               {% if totals.last_workout %}
                 {{ totals.last_workout.strftime('%b %d, %Y') }}
               {% else %}
@@ -336,8 +336,8 @@
             </dd>
           </div>
           <div class="flex items-center justify-between">
-            <dt class="text-slate-400">First workout</dt>
-            <dd class="text-slate-100">
+            <dt class="text-neutral-400">First workout</dt>
+            <dd class="text-neutral-100">
               {% if totals.first_workout %}
                 {{ totals.first_workout.strftime('%b %d, %Y') }}
               {% else %}
@@ -346,8 +346,8 @@
             </dd>
           </div>
           <div class="flex items-start justify-between gap-4">
-            <dt class="text-slate-400">Most targeted</dt>
-            <dd class="text-slate-100 text-right">
+            <dt class="text-neutral-400">Most targeted</dt>
+            <dd class="text-neutral-100 text-right">
               {% if totals.most_targeted %}
                 {% for row in totals.most_targeted %}
                   <span class="inline-flex items-center gap-1">
@@ -364,8 +364,8 @@
             </dd>
           </div>
           <div class="flex items-start justify-between gap-4">
-            <dt class="text-slate-400">Least targeted</dt>
-            <dd class="text-slate-100 text-right">
+            <dt class="text-neutral-400">Least targeted</dt>
+            <dd class="text-neutral-100 text-right">
               {% if totals.least_targeted %}
                 {% for row in totals.least_targeted %}
                   <span class="inline-flex items-center gap-1">
@@ -382,8 +382,8 @@
             </dd>
           </div>
           <div class="flex items-start justify-between gap-4">
-            <dt class="text-slate-400">Most active month</dt>
-            <dd class="text-slate-100 text-right">
+            <dt class="text-neutral-400">Most active month</dt>
+            <dd class="text-neutral-100 text-right">
               {% if totals.most_active_month %}
                 {% for row in totals.most_active_month %}
                   <span>
@@ -396,8 +396,8 @@
             </dd>
           </div>
           <div class="flex items-start justify-between gap-4">
-            <dt class="text-slate-400">Least active month</dt>
-            <dd class="text-slate-100 text-right">
+            <dt class="text-neutral-400">Least active month</dt>
+            <dd class="text-neutral-100 text-right">
               {% if totals.least_active_month %}
                 {% for row in totals.least_active_month %}
                   <span>

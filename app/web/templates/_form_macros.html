@@ -43,8 +43,8 @@
    (must exist elsewhere in the same form); JS is app/web/static/js/region-picker.js #}
 {% macro region_picker_field() %}
   <div class="form-row" data-region-picker>
-    <label>Muscles targeted <span class="text-slate-500">(optional, up to 2)</span></label>
-    <div class="flex items-start gap-3 rounded-md border border-slate-700 bg-slate-900 px-3 py-3">
+    <label>Muscles targeted <span class="text-neutral-500">(optional, up to 2)</span></label>
+    <div class="flex items-start gap-3 rounded-md border border-neutral-700 bg-neutral-900 px-3 py-3">
       <div class="flex-shrink-0" style="width: 140px;">
         <div data-region-picker-map></div>
         <div class="mt-1 flex justify-center gap-1">
@@ -52,7 +52,7 @@
           <button type="button" data-view-toggle="posterior" class="view-toggle-btn" style="font-size: 10px;">Back</button>
         </div>
       </div>
-      <p data-region-picker-hint class="self-center text-xs text-slate-500">
+      <p data-region-picker-hint class="self-center text-xs text-neutral-500">
         Optional: tap to tag muscles
       </p>
     </div>

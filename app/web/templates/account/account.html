@@ -7,7 +7,7 @@
   <div class="max-w-lg mx-auto">
     <a
       href="{{ url_for('web.workouts_index') }}"
-      class="inline-flex items-center gap-1.5 text-xs sm:text-sm text-slate-400 hover:text-slate-100 mb-4"
+      class="inline-flex items-center gap-1.5 text-xs sm:text-sm text-neutral-400 hover:text-neutral-100 mb-4"
     >
       <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
       Back to workouts
@@ -15,10 +15,10 @@
 
     <header class="mb-6 flex items-center justify-between gap-3">
       <div>
-        <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100">
+        <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-neutral-100">
           Account
         </h1>
-        <p class="mt-1 text-xs sm:text-sm text-slate-400">
+        <p class="mt-1 text-xs sm:text-sm text-neutral-400">
           Manage your profile and data.
         </p>
       </div>
@@ -26,7 +26,7 @@
       {% if not edit_mode %}
         <a
           href="{{ url_for('web.account_settings', edit=1) }}"
-          class="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
+          class="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-xs sm:text-sm font-medium text-neutral-200 hover:bg-neutral-700 transition-colors duration-200"
         >
           <i data-lucide="pencil" class="h-4 w-4"></i>
           Edit profile
@@ -37,8 +37,8 @@
     {% if edit_mode %}
       {# --- EDIT MODE: form with inputs --- #}
       <form method="post" id="accountForm" class="space-y-4">
-      <div class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-4 shadow-md shadow-black/50">
-        <h2 class="text-sm font-semibold text-slate-100 mb-2">
+      <div class="rounded-lg border border-neutral-800 bg-neutral-950 px-5 py-4 shadow-md shadow-black/50">
+        <h2 class="text-sm font-semibold text-neutral-100 mb-2">
           Profile
         </h2>
 
@@ -51,28 +51,28 @@
             type="email"
         ) }}
 
-        <p class="mt-2 text-xs text-slate-500">
+        <p class="mt-2 text-xs text-neutral-500">
           Changing your email or recovery email will require your password.
         </p>
       </div>
 
-      <div class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-4 shadow-md shadow-black/50">
-        <h2 class="text-sm font-semibold text-slate-100 mb-2">
+      <div class="rounded-lg border border-neutral-800 bg-neutral-950 px-5 py-4 shadow-md shadow-black/50">
+        <h2 class="text-sm font-semibold text-neutral-100 mb-2">
           Security
         </h2>
-        <p class="text-sm text-slate-500">
+        <p class="text-sm text-neutral-500">
           Change password options are unavailable while editing profile details.
         </p>
       </div>
 
-      <div class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-4 space-y-3 shadow-md shadow-black/50">
-        <h2 class="text-sm font-semibold text-slate-100">
+      <div class="rounded-lg border border-neutral-800 bg-neutral-950 px-5 py-4 space-y-3 shadow-md shadow-black/50">
+        <h2 class="text-sm font-semibold text-neutral-100">
           Data &amp; account
         </h2>
         <div class="flex flex-col sm:flex-row gap-2">
           <button
             type="button"
-            class="flex-1 rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-500 cursor-not-allowed opacity-40"
+            class="flex-1 rounded-md border border-neutral-700 px-3 py-2 text-sm text-neutral-500 cursor-not-allowed opacity-40"
             disabled
           >
             Export data (unavailable while editing)
@@ -103,7 +103,7 @@
         </button>
         <a
           href="{{ url_for('web.account_settings') }}"
-          class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-100"
+          class="inline-flex items-center gap-1.5 text-sm text-neutral-400 hover:text-neutral-100"
         >
           <i data-lucide="x" class="h-3.5 w-3.5"></i>
           Cancel
@@ -113,66 +113,66 @@
     {% else %}
       {# --- VIEW MODE: read-only account info --- #}
       <section class="space-y-4">
-      <div class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-4 shadow-md shadow-black/50">
-        <h2 class="text-sm font-semibold text-slate-100 mb-2">
+      <div class="rounded-lg border border-neutral-800 bg-neutral-950 px-5 py-4 shadow-md shadow-black/50">
+        <h2 class="text-sm font-semibold text-neutral-100 mb-2">
           Profile
         </h2>
         <dl class="space-y-2 text-sm">
           <div class="flex justify-between gap-4">
-            <dt class="text-slate-400">Name</dt>
-            <dd class="text-slate-100 text-right break-all">
+            <dt class="text-neutral-400">Name</dt>
+            <dd class="text-neutral-100 text-right break-all">
               {{ user["name"] }}
             </dd>
           </div>
           <div class="flex justify-between gap-4">
-            <dt class="text-slate-400">Email</dt>
-            <dd class="text-slate-100 text-right break-all">
+            <dt class="text-neutral-400">Email</dt>
+            <dd class="text-neutral-100 text-right break-all">
               {{ user["email"] }}
             </dd>
           </div>
           <div class="flex justify-between gap-4">
-            <dt class="text-slate-400">Recovery email</dt>
-            <dd class="text-slate-100 text-right break-all">
+            <dt class="text-neutral-400">Recovery email</dt>
+            <dd class="text-neutral-100 text-right break-all">
               {{ user["recovery_email"] or "Not set" }}
             </dd>
           </div>
         </dl>
       </div>
 
-      <div class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-4 shadow-md shadow-black/50">
-        <h2 class="text-sm font-semibold text-slate-100 mb-2">
+      <div class="rounded-lg border border-neutral-800 bg-neutral-950 px-5 py-4 shadow-md shadow-black/50">
+        <h2 class="text-sm font-semibold text-neutral-100 mb-2">
           Security
         </h2>
-        <p class="text-sm text-slate-400">
+        <p class="text-sm text-neutral-400">
           Password change options will be added here.
         </p>
       </div>
 
-      <div class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-4 shadow-md shadow-black/50">
-        <h2 class="text-sm font-semibold text-slate-100 mb-2">
+      <div class="rounded-lg border border-neutral-800 bg-neutral-950 px-5 py-4 shadow-md shadow-black/50">
+        <h2 class="text-sm font-semibold text-neutral-100 mb-2">
             Security
         </h2>
-        <p class="text-sm text-slate-400 mb-2">
+        <p class="text-sm text-neutral-400 mb-2">
             Strengthen your account with two-factor authentication.
         </p>
         <a
             href="{{ url_for('web.account_2fa') }}"
-            class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs sm:text-sm text-slate-200 hover:bg-slate-700 transition-colors duration-200"
+            class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-xs sm:text-sm text-neutral-200 hover:bg-neutral-700 transition-colors duration-200"
         >
             Manage 2FA &amp; backup codes
         </a>
     </div>
 
 
-      <div class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-4 space-y-3 shadow-md shadow-black/50">
-        <h2 class="text-sm font-semibold text-slate-100">
+      <div class="rounded-lg border border-neutral-800 bg-neutral-950 px-5 py-4 space-y-3 shadow-md shadow-black/50">
+        <h2 class="text-sm font-semibold text-neutral-100">
           Data &amp; account
         </h2>
         <div class="flex flex-col sm:flex-row gap-2">
           <button
             type="button"
             id="exportDataTrigger"
-            class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-slate-600 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900"
+            class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-neutral-600 px-3 py-2 text-sm text-neutral-100 hover:bg-neutral-900"
           >
             <i data-lucide="download" class="h-4 w-4"></i>
             Export workouts
@@ -193,23 +193,23 @@
       >
         <div class="absolute inset-0 bg-black/70" data-export-dismiss></div>
         <div
-          class="fixed inset-x-4 top-1/4 max-w-md mx-auto rounded-xl border border-slate-700 bg-slate-950 px-5 py-5 shadow-md shadow-black/70"
+          class="fixed inset-x-4 top-1/4 max-w-md mx-auto rounded-xl border border-neutral-700 bg-neutral-950 px-5 py-5 shadow-md shadow-black/70"
           role="dialog"
           aria-modal="true"
           aria-labelledby="exportDataTitle"
         >
           <div class="flex items-start justify-between mb-3">
             <div>
-              <h2 id="exportDataTitle" class="text-sm font-semibold text-slate-100">
+              <h2 id="exportDataTitle" class="text-sm font-semibold text-neutral-100">
                 Export workouts
               </h2>
-              <p class="text-xs text-slate-400">
+              <p class="text-xs text-neutral-400">
                 Choose which fields to include in your JSON export.
               </p>
             </div>
             <button
               type="button"
-              class="text-xs text-slate-400 hover:text-slate-100"
+              class="text-xs text-neutral-400 hover:text-neutral-100"
               data-export-dismiss
             >
               <i data-lucide="x" class="h-3.5 w-3.5"></i>
@@ -219,8 +219,8 @@
           <form method="get" action="{{ url_for('web.export_workouts') }}" class="space-y-3">
             <input type="hidden" name="export_options" value="1">
 
-            <div class="rounded-md border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300">
-              <p class="font-semibold text-slate-100 mb-1">Always included</p>
+            <div class="rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-xs text-neutral-300">
+              <p class="font-semibold text-neutral-100 mb-1">Always included</p>
               <div class="flex flex-wrap gap-3">
                 <label class="inline-flex items-center gap-2">
                   <input type="checkbox" checked disabled>
@@ -233,7 +233,7 @@
               </div>
             </div>
 
-            <div class="space-y-2 text-sm text-slate-200">
+            <div class="space-y-2 text-sm text-neutral-200">
               <label class="flex items-center gap-2">
                 <input type="checkbox" name="include_notes" value="1" checked>
                 Notes (workout + exercise)
@@ -259,7 +259,7 @@
             <div class="flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                class="text-xs text-slate-400 hover:text-slate-100"
+                class="text-xs text-neutral-400 hover:text-neutral-100"
                 data-export-dismiss
               >
                 Cancel
@@ -288,36 +288,36 @@
     >
       <div class="absolute inset-0 bg-black/70"></div>
       <div
-        class="fixed inset-x-4 top-1/4 max-w-md mx-auto rounded-xl border border-slate-700 bg-slate-950 px-5 py-5 shadow-md shadow-black/70"
+        class="fixed inset-x-4 top-1/4 max-w-md mx-auto rounded-xl border border-neutral-700 bg-neutral-950 px-5 py-5 shadow-md shadow-black/70"
       >
-        <h2 class="text-sm font-semibold text-slate-100 mb-2">
+        <h2 class="text-sm font-semibold text-neutral-100 mb-2">
           Confirm your password
         </h2>
-        <p class="text-xs text-slate-400 mb-3">
+        <p class="text-xs text-neutral-400 mb-3">
           For security, please enter your current password to confirm email changes.
         </p>
         <div class="mb-3">
-          <label for="passwordConfirmInput" class="block text-xs text-slate-300 mb-1">
+          <label for="passwordConfirmInput" class="block text-xs text-neutral-300 mb-1">
             Current password
           </label>
           <input
             id="passwordConfirmInput"
             type="password"
-            class="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+            class="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100"
           >
         </div>
         <div class="flex justify-end gap-2">
           <button
             type="button"
             id="passwordConfirmCancel"
-            class="text-xs text-slate-400 hover:text-slate-100"
+            class="text-xs text-neutral-400 hover:text-neutral-100"
           >
             Cancel
           </button>
           <button
             type="button"
             id="passwordConfirmSubmit"
-            class="rounded-md border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-900"
+            class="rounded-md border border-neutral-600 px-3 py-1.5 text-xs font-medium text-neutral-100 hover:bg-neutral-900"
           >
             Confirm &amp; save
           </button>
