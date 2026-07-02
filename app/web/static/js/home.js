@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
     type: currentView,
     bodyColor: "#3f3f46", // zinc-700: visible silhouette against black, no color signal
     highlightedColors: ["#22c55e"], // the one accent color, only on what's selected
-    style: { width: "100%", maxWidth: "220px", margin: "0 auto" },
+    style: { width: "100%", maxWidth: "280px", margin: "0 auto" },
     onClick: ({ muscle }) => toggleRegion(muscle),
   });
 

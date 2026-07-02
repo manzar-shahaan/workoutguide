@@ -85,15 +85,27 @@
       }
 
       .view-toggle-btn {
-        padding: 0.25rem 0.625rem;
+        padding: 0.375rem 0.75rem;
+        min-height: 32px;
         border-radius: 9999px;
         border: 1px solid rgb(39 39 42); /* zinc-800 */
         color: rgb(148 163 184);
+        touch-action: manipulation;
       }
       .view-toggle-btn.is-active {
         border-color: rgb(100 116 139);
         color: rgb(241 245 249);
         background-color: rgb(39 39 42);
+      }
+
+      /* Muscle-map SVGs: prevent iOS Safari's double-tap-to-zoom delay
+         from making single taps feel laggy or occasionally misfire. */
+      #bodyMap svg,
+      [data-region-picker-map] svg {
+        touch-action: manipulation;
+      }
+      #mapClearBtn {
+        touch-action: manipulation;
       }
     </style>
   </head>

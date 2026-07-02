@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
     type: currentView,
     bodyColor: "#3f3f46",
     highlightedColors: ["#22c55e"],
-    style: { width: "100%", maxWidth: "110px", margin: "0 auto" },
+    style: { width: "100%", maxWidth: "140px", margin: "0 auto" },
     onClick: ({ muscle }) => toggleRegion(muscle),
   });
 
