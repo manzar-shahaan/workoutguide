@@ -5,13 +5,13 @@
 // below, de-emphasized); tapping an item hands off to /exercises/new via
 // query params, where main.js's applyExercisePrefill picks it back up.
 
-import createBodyHighlighter, { ModelType } from "https://cdn.jsdelivr.net/npm/body-highlighter@3.0.2/dist/body-highlighter.esm.js";
+import { createBodyMap } from "./body-map-render.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const mapContainer = document.getElementById("bodyMap");
   if (!mapContainer) return; // not on the home page
 
-  const drawerOverlay = document.getElementById("regionDrawerOverlay");
+  const shortlistPanel = document.getElementById("shortlistPanel");
   const drawerTitle = document.getElementById("drawerTitle");
   const drawerBody = document.getElementById("drawerBody");
   const clearBtn = document.getElementById("mapClearBtn");
@@ -23,31 +23,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const MAX_SELECTED = 2;
   let selectedRegions = []; // slugs, order = tap order (first = primary)
-  let currentView = ModelType.ANTERIOR;
 
-  const highlighter = createBodyHighlighter({
+  const highlighter = createBodyMap({
     container: mapContainer,
-    type: currentView,
+    view: "anterior",
     bodyColor: "#404040", // neutral-700: visible silhouette against black, no color signal
-    highlightedColors: ["#22c55e"], // the one accent color, only on what's selected
+    highlightColor: "#22c55e", // the one accent color, only on what's selected
     style: { width: "100%", maxWidth: "280px", margin: "0 auto" },
     onClick: ({ muscle }) => toggleRegion(muscle),
   });
 
   const syncHighlight = () => {
-    highlighter.update({
-      data: selectedRegions.map((slug) => ({ name: slug, muscles: [slug], frequency: 1 })),
-    });
+    highlighter.setSelected(selectedRegions);
   };
 
-  const closeDrawer = () => {
-    drawerOverlay.classList.add("hidden");
-    drawerOverlay.setAttribute("aria-hidden", "true");
+  const closePanel = () => {
+    shortlistPanel.classList.add("hidden");
   };
 
-  const openDrawer = () => {
-    drawerOverlay.classList.remove("hidden");
-    drawerOverlay.setAttribute("aria-hidden", "false");
+  const openPanel = () => {
+    shortlistPanel.classList.remove("hidden");
   };
 
   const regionLabel = (slug) => slug.replace(/-/g, " ");
@@ -130,7 +125,6 @@ document.addEventListener("DOMContentLoaded", () => {
         dimmed: false,
         onSelect: () => goToForm(item),
       });
-      card.classList.add("mb-2");
       drawerBody.appendChild(card);
     });
 
@@ -148,22 +142,21 @@ document.addEventListener("DOMContentLoaded", () => {
           dimmed: true,
           onSelect: () => goToForm(item),
         });
-        card.classList.add("mb-2");
-        drawerBody.appendChild(card);
+          drawerBody.appendChild(card);
       });
     }
   };
 
   const fetchShortlist = () => {
     if (!selectedRegions.length) {
-      closeDrawer();
+      closePanel();
       return;
     }
     const url = new URL(shortlistEndpoint, window.location.origin);
     url.searchParams.set("regions", selectedRegions.join(","));
     drawerTitle.textContent = selectedRegions.map(regionLabel).join(" + ");
     drawerBody.innerHTML = '<p class="text-sm text-neutral-500">Loading…</p>';
-    openDrawer();
+    openPanel();
 
     fetch(url.toString(), { headers: { Accept: "application/json" } })
       .then((response) => response.json())
@@ -202,18 +195,15 @@ document.addEventListener("DOMContentLoaded", () => {
     syncHighlight();
     clearBtn.classList.add("hidden");
     mapHint.textContent = "Tap a muscle to see exercises";
-    closeDrawer();
-  });
-
-  drawerOverlay.querySelectorAll("[data-drawer-dismiss]").forEach((el) => {
-    el.addEventListener("click", closeDrawer);
+    closePanel();
   });
 
   viewToggleButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
-      currentView = btn.dataset.viewToggle === "posterior" ? ModelType.POSTERIOR : ModelType.ANTERIOR;
+      const nextView = btn.dataset.viewToggle === "posterior" ? "posterior" : "anterior";
       viewToggleButtons.forEach((b) => b.classList.toggle("is-active", b === btn));
-      highlighter.update({ type: currentView });
+      highlighter.setView(nextView);
+      syncHighlight(); // setView rebuilds polygons, so re-apply current selection
     });
   });
 });

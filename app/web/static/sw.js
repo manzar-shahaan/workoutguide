@@ -6,12 +6,15 @@
 // no-store headers on every page because workout data is per-user and
 // changes constantly, and this worker respects that.
 
-const CACHE_NAME = "shell-v3";
+const CACHE_NAME = "shell-v4";
 const SHELL_ASSETS = [
   "/static/manifest.webmanifest",
   "/static/js/main.js",
   "/static/js/stats.js",
   "/static/js/home.js",
+  "/static/js/region-picker.js",
+  "/static/js/body-map-render.js",
+  "/static/js/body-map-data.js",
   "/static/icons/icon-192.png",
   "/static/icons/icon-512.png",
   "/static/icons/apple-touch-icon.png",

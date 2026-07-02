@@ -5,7 +5,7 @@
 // 2 body regions (same exercise_catalog_region data the muscle-map home
 // page writes) instead of only ever getting tags via the map flow.
 
-import createBodyHighlighter, { ModelType } from "https://cdn.jsdelivr.net/npm/body-highlighter@3.0.2/dist/body-highlighter.esm.js";
+import { createBodyMap } from "./body-map-render.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const container = document.querySelector("[data-region-picker]");
@@ -19,21 +19,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const MAX_SELECTED = 2;
   let selected = hiddenInput.value ? hiddenInput.value.split(",").filter(Boolean) : [];
-  let currentView = ModelType.ANTERIOR;
 
-  const highlighter = createBodyHighlighter({
+  const highlighter = createBodyMap({
     container: mapEl,
-    type: currentView,
+    view: "anterior",
     bodyColor: "#404040", // neutral-700
-    highlightedColors: ["#22c55e"],
+    highlightColor: "#22c55e",
     style: { width: "100%", maxWidth: "140px", margin: "0 auto" },
     onClick: ({ muscle }) => toggleRegion(muscle),
   });
 
   const sync = () => {
-    highlighter.update({
-      data: selected.map((slug) => ({ name: slug, muscles: [slug], frequency: 1 })),
-    });
+    highlighter.setSelected(selected);
     hiddenInput.value = selected.join(",");
     hint.textContent = selected.length
       ? selected.map((s) => s.replace(/-/g, " ")).join(" + ")
@@ -53,9 +50,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   toggleButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
-      currentView = btn.dataset.viewToggle === "posterior" ? ModelType.POSTERIOR : ModelType.ANTERIOR;
+      const nextView = btn.dataset.viewToggle === "posterior" ? "posterior" : "anterior";
       toggleButtons.forEach((b) => b.classList.toggle("is-active", b === btn));
-      highlighter.update({ type: currentView });
+      highlighter.setView(nextView);
+      sync(); // setView rebuilds polygons, so re-apply current selection
     });
   });
 
