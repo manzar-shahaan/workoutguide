@@ -104,7 +104,7 @@
     {% else %}
       <ul class="space-y-3">
         {% for ex in exercises %}
-          <li class="rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-md shadow-black/50 hover:border-[#1f3370] hover:bg-[#152856] transition-all duration-200">
+          <li class="surface-raised rounded-xl px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-all duration-200">
             <div>
               <p class="font-medium text-neutral-100 text-sm">
                 {{ ex["exercise_name"] or ex["notes"] or "(no notes)" }}

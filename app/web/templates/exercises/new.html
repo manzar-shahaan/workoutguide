@@ -18,12 +18,12 @@
     </h1>
 
     {% if error %}
-      <p class="mb-4 rounded-md border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm text-neutral-100 shadow-md shadow-black/50">
+      <p class="mb-4 surface-raised rounded-xl px-4 py-3 text-sm text-neutral-100">
         {{ error }}
       </p>
     {% endif %}
 
-    <form method="post" class="bg-neutral-950 border border-neutral-800 rounded-lg px-5 py-5 shadow-md shadow-black/50">
+    <form method="post" class="surface rounded-2xl px-5 py-5">
       <input type="hidden" name="region_slugs" id="region_slugs" value="{{ region_slugs or '' }}">
       {% if not workout %}
         {{ input_field(
@@ -55,7 +55,7 @@
           data-exercise-input
         >
         <div
-          class="absolute left-0 right-0 z-10 mt-2 hidden rounded-md border border-neutral-800 bg-neutral-950 p-2 text-xs text-neutral-100 shadow-md shadow-black/50"
+          class="absolute left-0 right-0 z-10 mt-2 hidden surface rounded-xl p-2 text-xs text-neutral-100"
           data-exercise-list
         ></div>
       </div>

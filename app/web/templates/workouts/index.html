@@ -20,13 +20,13 @@
       </a>
     </div>
 
-    <div class="rounded-lg border border-neutral-800 bg-neutral-950 p-4">
-      <div class="mb-3 flex items-center justify-between">
+    <div id="mapCard" class="map-card surface p-5">
+      <div class="mb-4 flex items-center justify-between">
         <div class="flex gap-1 text-xs">
           <button type="button" data-view-toggle="anterior" class="view-toggle-btn is-active">Front</button>
           <button type="button" data-view-toggle="posterior" class="view-toggle-btn">Back</button>
         </div>
-        <button type="button" id="mapClearBtn" class="hidden text-xs text-neutral-500 hover:text-neutral-300">Clear</button>
+        <button type="button" id="mapClearBtn" class="hidden text-xs text-neutral-500 hover:text-neutral-300 transition-colors duration-200">Clear</button>
       </div>
       <div
         id="bodyMap"
@@ -39,11 +39,11 @@
 
   <div id="regionDrawerOverlay" class="fixed inset-0 z-40 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-black/70" data-drawer-dismiss></div>
-    <div class="fixed inset-x-0 bottom-0 max-h-[75vh] overflow-y-auto rounded-t-2xl border-t border-neutral-800 bg-neutral-950 p-4
-                md:inset-auto md:right-4 md:top-20 md:bottom-auto md:w-96 md:rounded-xl md:border">
+    <div class="surface fixed inset-x-0 bottom-0 max-h-[75vh] overflow-y-auto rounded-t-[24px] p-4
+                md:inset-auto md:right-4 md:top-20 md:bottom-auto md:w-96 md:rounded-2xl">
       <div class="mb-3 flex items-center justify-between">
         <h2 id="drawerTitle" class="text-sm font-semibold capitalize text-neutral-100"></h2>
-        <button type="button" data-drawer-dismiss class="text-neutral-400 hover:text-neutral-100">
+        <button type="button" data-drawer-dismiss class="text-neutral-400 hover:text-neutral-100 transition-colors duration-200">
           <i data-lucide="x" class="h-4 w-4"></i>
         </button>
       </div>
@@ -59,12 +59,12 @@
           name="q"
           value="{{ search_query }}"
           placeholder="Search exercises, notes, muscles, weight, sets, date"
-          class="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs sm:text-sm text-neutral-100 placeholder:text-neutral-500"
+          class="surface-raised w-full rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-neutral-100 placeholder:text-neutral-500 border-none outline-none focus:shadow-[0_0_0_2px_rgba(34,197,94,0.5)] transition-shadow duration-200"
         >
         {% if search_query %}
           <a
             href="{{ url_for('web.workouts_index') }}"
-            class="text-xs text-neutral-400 hover:text-neutral-100"
+            class="text-xs text-neutral-400 hover:text-neutral-100 transition-colors duration-200"
           >
             Clear
           </a>
@@ -74,14 +74,14 @@
     <div class="flex items-center gap-2">
       <a
         href="{{ url_for('web.stats_index') }}"
-        class="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs sm:text-sm font-medium text-neutral-200 hover:bg-neutral-700 transition-colors duration-200 md:hidden"
+        class="surface-raised inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-medium text-neutral-200 md:hidden"
       >
         <i data-lucide="bar-chart-3" class="h-4 w-4"></i>
         Stats
       </a>
       <a
         href="{{ url_for('web.new_exercise') }}"
-        class="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-2 text-xs sm:text-sm font-medium text-black hover:bg-emerald-400"
+        class="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-2 text-xs sm:text-sm font-medium text-black hover:bg-emerald-400 transition-colors duration-200"
       >
         <i data-lucide="plus" class="h-4 w-4"></i>
         Add exercise
@@ -108,7 +108,7 @@
             <li>
               <a
                 href="{{ url_for('web.workout_detail', workout_id=ex['workout_id']) }}"
-                class="block rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm shadow-md shadow-black/50 hover:border-[#1f3370] hover:bg-[#152856] transition-all duration-200"
+                class="block surface-raised rounded-xl px-4 py-3 text-sm transition-all duration-200"
               >
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
@@ -120,7 +120,7 @@
                         {{ ex["notes"] }}
                       </p>
                     {% endif %}
-                    <p class="mt-1 text-sm text-neutral-500">
+                    <p class="mt-1 text-sm text-neutral-500 tabular">
                       {% set show_sep = false %}
                       {% if ex["muscles_list"] %}
                         <span class="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -160,7 +160,7 @@
                       {% endif %}
                     </p>
                   </div>
-                  <span class="text-sm text-neutral-500">
+                  <span class="text-sm text-neutral-500 tabular">
                     {{ ex["weekday"] }} | {{ ex["date_display"] }}
                   </span>
                 </div>
@@ -201,7 +201,7 @@
                 <li>
                   <a
                     href="{{ url_for('web.workout_detail', workout_id=w['id']) }}"
-                    class="block rounded-lg bg-neutral-900 px-5 py-4 border border-neutral-800 shadow-md shadow-black/50 hover:border-[#1f3370] hover:bg-[#152856] transition-all duration-200"
+                    class="block surface-raised rounded-xl px-5 py-4 transition-all duration-200"
                   >
                     <div class="flex items-center justify-between">
                       <div>
@@ -217,19 +217,19 @@
                               </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
                             {% endfor %}
                           </div>
-                          <p class="mt-1 text-sm text-neutral-500">
+                          <p class="mt-1 text-sm text-neutral-500 tabular">
                             {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
                           </p>
                         {% else %}
                           <p class="text-sm font-semibold text-neutral-100">
                             {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
                           </p>
-                          <p class="mt-1 text-sm text-neutral-500">
+                          <p class="mt-1 text-sm text-neutral-500 tabular">
                             No muscle groups logged yet
                           </p>
                         {% endif %}
                       </div>
-                      <span class="text-sm text-neutral-500">
+                      <span class="text-sm text-neutral-500 tabular">
                         #{{ w["id"] }}
                       </span>
                     </div>
@@ -249,7 +249,7 @@
 
             <div class="space-y-2">
               {% for group in month_groups %}
-                <details class="border border-neutral-800 rounded-md bg-neutral-900 shadow-md shadow-black/50">
+                <details class="surface-raised rounded-xl">
                   <summary class="cursor-pointer select-none px-4 py-2 text-sm text-neutral-100 flex items-center justify-between">
                     <span>{{ group.heading }}</span>
                     <span class="text-xs text-neutral-500">Tap to expand</span>
@@ -260,7 +260,7 @@
                         <li>
                           <a
                             href="{{ url_for('web.workout_detail', workout_id=w['id']) }}"
-                            class="block rounded-lg bg-neutral-950 px-5 py-4 border border-neutral-800 shadow-md shadow-black/50 hover:border-[#1f3370] hover:bg-[#152856] transition-all duration-200"
+                            class="block surface rounded-xl px-5 py-4 transition-all duration-200"
                           >
                             <div class="flex items-center justify-between">
                               <div>
@@ -276,19 +276,19 @@
                                       </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
                                     {% endfor %}
                                   </div>
-                                  <p class="mt-1 text-sm text-neutral-500">
+                                  <p class="mt-1 text-sm text-neutral-500 tabular">
                                     {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
                                   </p>
                                 {% else %}
                                   <p class="text-sm font-semibold text-neutral-100">
                                     {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
                                   </p>
-                                  <p class="mt-1 text-sm text-neutral-500">
+                                  <p class="mt-1 text-sm text-neutral-500 tabular">
                                     No muscle groups logged yet
                                   </p>
                                 {% endif %}
                               </div>
-                              <span class="text-sm text-neutral-500">
+                              <span class="text-sm text-neutral-500 tabular">
                                 #{{ w["id"] }}
                               </span>
                             </div>
@@ -307,7 +307,7 @@
   </div>
 
     <aside class="hidden md:block md:mt-6">
-      <section class="rounded-lg border border-neutral-800 bg-neutral-950 px-5 py-5 shadow-md shadow-black/50">
+      <section class="surface rounded-2xl px-5 py-5">
         <div class="flex items-center justify-between mb-3">
           <div>
             <h2 class="text-sm font-semibold text-neutral-100">Monthly stats</h2>
@@ -335,7 +335,7 @@
               >
                 <div class="absolute inset-0 flex flex-col items-center px-2 py-2">
                   <div class="flex items-center justify-center">
-                    <span>{{ day.date.day }}</span>
+                    <span class="tabular">{{ day.date.day }}</span>
                   </div>
                   {% if day.muscles %}
                     {% set compact_dots = day.muscles|length > 3 %}

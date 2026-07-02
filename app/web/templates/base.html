@@ -21,27 +21,68 @@
     {# Tailwind CDN #}
     <script src="https://cdn.tailwindcss.com"></script>
 
-    {# Titillium Web 200 from Bunny #}
+    {# Geist for UI text, Geist Mono for numbers (weights/reps/sets/dates) --
+       tabular figures so data columns actually line up, from Bunny #}
     <link
       rel="stylesheet"
-      href="https://fonts.bunny.net/css?family=titillium-web:200"
+      href="https://fonts.bunny.net/css?family=geist:400,500,600,700"
     >
     <link
       rel="stylesheet"
-      href="https://fonts.bunny.net/css?family=space-grotesk:400"
+      href="https://fonts.bunny.net/css?family=geist-mono:400,500,600"
     >
 
     <style>
       body {
-        font-family: 'Titillium Web', sans-serif;
-        font-weight: 200;
+        font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-weight: 400;
+        letter-spacing: -0.01em;
       }
       h1, h2, h3, h4, h5, h6 {
-        font-family: 'Space Grotesk', sans-serif;
-        font-weight: 400;
+        font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-weight: 600;
+        letter-spacing: -0.02em;
       }
 
-      /* Dark-theme forms for your macros */
+      /* Numeric data (weights, reps, sets, dates, calendar cells) gets the
+         mono face with tabular figures, so numbers align in columns instead
+         of shifting width digit to digit -- distinct from prose on sight. */
+      .tabular {
+        font-family: 'Geist Mono', ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: 'tnum' 1;
+      }
+
+      /* Elevation system: surfaces are told apart by a soft shadow + a
+         hairline-thin light inset ring, not a solid border. Two steps --
+         .surface for primary cards, .surface-raised for nested/list rows
+         sitting a little further off the page. */
+      .surface {
+        background-color: #141414;
+        border-radius: 16px;
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.06),
+          0 1px 2px rgba(0, 0, 0, 0.3),
+          0 8px 24px rgba(0, 0, 0, 0.35);
+      }
+      .surface-raised {
+        background-color: #1c1c1c;
+        border-radius: 16px;
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.05),
+          0 1px 2px rgba(0, 0, 0, 0.25);
+        transition: box-shadow 200ms ease, background-color 200ms ease, transform 200ms ease;
+      }
+      a:has(> .surface-raised):hover .surface-raised,
+      .surface-raised:hover {
+        background-color: #212121;
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.1),
+          0 4px 16px rgba(0, 0, 0, 0.4);
+      }
+
+      /* Forms: same elevation recipe as .surface-raised (soft shadow, no
+         hard border), accent-colored focus ring instead of a gray one. */
       .form-row {
         margin-bottom: 1rem;
       }
@@ -49,8 +90,8 @@
         display: block;
         font-size: 0.875rem;
         font-weight: 500;
-        color: rgb(209 213 219); /* light gray */
-        margin-bottom: 0.25rem;
+        color: rgb(212 212 212); /* neutral-300 */
+        margin-bottom: 0.375rem;
       }
       .form-row input,
       .form-row select,
@@ -59,12 +100,14 @@
         width: 100%;
         min-width: 0;
         box-sizing: border-box;
-        border-radius: 0.375rem;
-        border: 1px solid rgb(82 82 82);         /* neutral-600 */
-        background-color: rgb(23 23 23);         /* neutral-900 */
-        color: rgb(249 250 251);                 /* near-white */
-        padding: 0.5rem 0.75rem;
+        border-radius: 12px;
+        border: none;
+        background-color: #1c1c1c;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+        color: rgb(250 250 250);
+        padding: 0.625rem 0.875rem;
         font-size: 0.875rem;
+        transition: box-shadow 200ms ease, background-color 200ms ease;
       }
       .form-row input[type="date"] {
         -webkit-appearance: none;
@@ -72,35 +115,37 @@
       }
       .form-row input::placeholder,
       .form-row textarea::placeholder {
-        color: rgb(163 163 163);                /* neutral-400 */
+        color: rgb(115 115 115); /* neutral-500 */
       }
       .form-row input:focus,
       .form-row select:focus,
       .form-row textarea:focus {
         outline: none;
-        border-color: rgb(163 163 163);         /* neutral-400 focus */
-        box-shadow: 0 0 0 2px rgba(163, 163, 163, 0.4);
+        background-color: #212121;
+        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.5); /* emerald-500, the one accent */
       }
       /* Highlight invalid fields in red */
       .was-validated .form-row input:invalid,
       .was-validated .form-row select:invalid,
       .was-validated .form-row textarea:invalid {
-        border-color: rgb(239 68 68); /* red-500-ish */
-        box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.4);
+        box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.5);
       }
 
       .view-toggle-btn {
-        padding: 0.375rem 0.75rem;
+        padding: 0.375rem 0.875rem;
         min-height: 32px;
         border-radius: 9999px;
-        border: 1px solid rgb(38 38 38); /* neutral-800 */
-        color: rgb(163 163 163);         /* neutral-400 */
+        border: none;
+        background-color: #141414;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+        color: rgb(163 163 163); /* neutral-400 */
+        transition: box-shadow 200ms ease, background-color 200ms ease, color 200ms ease;
         touch-action: manipulation;
       }
       .view-toggle-btn.is-active {
-        border-color: rgb(115 115 115); /* neutral-500 */
-        color: rgb(245 245 245);        /* neutral-100 */
-        background-color: rgb(38 38 38); /* neutral-800 */
+        background-color: #212121;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+        color: rgb(250 250 250);
       }
 
       /* Muscle-map SVGs: prevent iOS Safari's double-tap-to-zoom delay
@@ -114,12 +159,26 @@
       }
 
       /* Outline each muscle region so adjacent same-colored polygons read
-         as separate anatomical segments instead of one flat blob. */
+         as separate anatomical segments instead of one flat blob. Fill
+         transitions smoothly on selection instead of snapping -- the one
+         piece of real motion in the app, on the one truly unique
+         interaction (tapping a body part). */
       #bodyMap svg polygon,
       [data-region-picker-map] svg polygon {
         stroke: #000000;
         stroke-width: 0.6;
         stroke-linejoin: round;
+        transition: fill 220ms ease;
+      }
+
+      /* Brief accent-colored glow on the map card itself when a region is
+         tapped -- the instrument acknowledging input. */
+      @keyframes map-select-pulse {
+        0% { box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.5), 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(34, 197, 94, 0.35); }
+        100% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 14px rgba(34, 197, 94, 0); }
+      }
+      .map-card.is-pulsing {
+        animation: map-select-pulse 550ms ease-out;
       }
 
       /* iOS PWA standalone mode draws under the status bar/notch unless
@@ -137,16 +196,16 @@
     </style>
   </head>
   <body class="bg-black text-neutral-100 min-h-screen flex flex-col">
-    <header class="bg-black border-b border-neutral-800">
+    <header class="bg-black">
       {# Full-width nav so it visually matches the popover width on desktop #}
-      <nav class="flex items-center justify-between px-4 py-3">
+      <nav class="flex items-center justify-between px-4 py-4">
         <a href="{{ url_for('web.workouts_index') }}" class="font-semibold tracking-tight text-neutral-100">
           Workout tracker
         </a>
 
         <div class="flex items-center gap-4 text-xs sm:text-sm">
           {% if g.user %}
-            <a href="{{ url_for('web.workouts_index') }}" class="text-neutral-300 hover:text-white">
+            <a href="{{ url_for('web.workouts_index') }}" class="text-neutral-300 hover:text-white transition-colors duration-200">
               Workouts
             </a>
 
@@ -154,7 +213,7 @@
             <button
               id="userMenuButton"
               type="button"
-              class="inline-flex items-center gap-1 rounded-md border border-neutral-600 px-3 py-1.5 text-xs sm:text-sm font-medium text-neutral-100 hover:bg-neutral-900"
+              class="surface-raised inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs sm:text-sm font-medium text-neutral-100"
             >
               <span>
                 {{ g.user["name"] or g.user["email"] }}
@@ -162,10 +221,10 @@
               <i data-lucide="chevron-down" class="h-3 w-3 text-neutral-400"></i>
             </button>
           {% else %}
-            <a href="{{ url_for('web.login') }}" class="text-neutral-300 hover:text-white">
+            <a href="{{ url_for('web.login') }}" class="text-neutral-300 hover:text-white transition-colors duration-200">
               Log in
             </a>
-            <a href="{{ url_for('web.signup') }}" class="text-neutral-300 hover:text-white">
+            <a href="{{ url_for('web.signup') }}" class="text-neutral-300 hover:text-white transition-colors duration-200">
               Sign up
             </a>
           {% endif %}
@@ -174,20 +233,11 @@
     </header>
 
     <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
-      {# Flash messages in grayscale #}
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           <div class="mb-4 space-y-2" aria-live="polite">
             {% for category, message in messages %}
-              {# all grayscale, just slightly different shades #}
-              {% if category == 'error' or category == 'danger' %}
-                {% set box_classes = 'bg-neutral-900 border border-neutral-700 text-neutral-100' %}
-              {% elif category == 'success' %}
-                {% set box_classes = 'bg-neutral-900 border border-neutral-700 text-neutral-100' %}
-              {% else %}
-                {% set box_classes = 'bg-neutral-900 border border-neutral-700 text-neutral-100' %}
-              {% endif %}
-              <div class="rounded-md px-3 py-2 text-sm {{ box_classes }}">
+              <div class="surface rounded-2xl px-4 py-3 text-sm text-neutral-100">
                 {{ message }}
               </div>
             {% endfor %}
@@ -197,7 +247,7 @@
 
       {% block content %}{% endblock %}
     </main>
-    <footer class="mt-10 border-t border-neutral-800 bg-black">
+    <footer class="mt-10 bg-black">
       <div class="max-w-7xl mx-auto px-4 py-4 text-xs text-neutral-500 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <span>workout.subterren.org</span>
         <span>Built for focused training logs.</span>
@@ -219,11 +269,10 @@
 
         {# Panel: bottom sheet on mobile, popover on desktop #}
         <div
-          class="fixed inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto
-         rounded-t-2xl bg-neutral-950 border-t border-neutral-800 p-4
-         md:inset-auto md:right-4 md:top-14 md:bottom-auto md:w-72
-         md:min-h-0 md:max-h-none
-         md:rounded-xl md:border md:bg-neutral-950"
+          class="surface fixed inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto
+         rounded-t-[24px] p-4
+         md:inset-auto md:right-4 md:top-16 md:bottom-auto md:w-72
+         md:min-h-0 md:max-h-none md:rounded-2xl"
         >
 
           <div class="flex items-start justify-between mb-3">
@@ -237,18 +286,18 @@
             </div>
             <button
               type="button"
-              class="text-xs text-neutral-400 hover:text-neutral-100"
+              class="text-xs text-neutral-400 hover:text-neutral-100 transition-colors duration-200"
               data-user-menu-dismiss
             >
               <i data-lucide="x" class="h-3 w-3"></i>
             </button>
           </div>
 
-          <div class="border-t border-neutral-800 pt-3 mt-2 space-y-3 text-sm">
+          <div class="pt-3 mt-2 space-y-1 text-sm">
             {# Account settings – will route to a dedicated page later #}
             <a
               href="{{ url_for('web.account_settings') }}"
-              class="flex items-center justify-between rounded-md px-3 py-2 text-base sm:text-sm text-neutral-100 hover:bg-neutral-900"
+              class="flex items-center justify-between rounded-xl px-3 py-2.5 text-base sm:text-sm text-neutral-100 hover:bg-white/5 transition-colors duration-200"
               data-user-menu-dismiss
             >
               <span>Account</span>
@@ -257,7 +306,7 @@
 
             <a
               href="{{ url_for('web.preferences') }}"
-              class="flex items-center justify-between rounded-md px-3 py-2 text-base sm:text-sm text-neutral-100 hover:bg-neutral-900"
+              class="flex items-center justify-between rounded-xl px-3 py-2.5 text-base sm:text-sm text-neutral-100 hover:bg-white/5 transition-colors duration-200"
               data-user-menu-dismiss
             >
               <span>Preferences</span>
@@ -266,7 +315,7 @@
 
             <a
               href="{{ url_for('web.manage_muscles') }}"
-              class="flex items-center justify-between rounded-md px-3 py-2 text-base sm:text-sm text-neutral-100 hover:bg-neutral-900"
+              class="flex items-center justify-between rounded-xl px-3 py-2.5 text-base sm:text-sm text-neutral-100 hover:bg-white/5 transition-colors duration-200"
               data-user-menu-dismiss
             >
               <span>Muscles &amp; exercises</span>
@@ -277,11 +326,11 @@
             <form
               method="post"
               action="{{ url_for('web.logout') }}"
-              class="mt-2"
+              class="mt-2 pt-2"
             >
               <button
                 type="submit"
-                class="w-full inline-flex items-center justify-center rounded-md border border-neutral-600 px-3 py-2 text-sm font-medium text-neutral-100 hover:bg-neutral-900"
+                class="surface-raised w-full inline-flex items-center justify-center rounded-xl px-3 py-2.5 text-sm font-medium text-neutral-100"
               >
                 Logout
               </button>

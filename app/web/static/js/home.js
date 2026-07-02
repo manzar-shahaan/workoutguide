@@ -16,6 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const drawerBody = document.getElementById("drawerBody");
   const clearBtn = document.getElementById("mapClearBtn");
   const mapHint = document.getElementById("mapHint");
+  const mapCard = document.getElementById("mapCard");
   const newExerciseUrl = mapContainer.dataset.newExerciseUrl;
   const shortlistEndpoint = mapContainer.dataset.shortlistEndpoint;
   const viewToggleButtons = document.querySelectorAll("[data-view-toggle]");
@@ -54,12 +55,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const buildCard = ({ name, subtitle, imageUrl, dimmed, onSelect }) => {
     const button = document.createElement("button");
     button.type = "button";
-    const borderClass = dimmed ? "border-dashed border-neutral-800" : "border-neutral-800";
-    const opacityClass = dimmed ? "opacity-60 hover:opacity-90" : "hover:border-neutral-600";
-    button.className = `flex w-full items-center gap-3 rounded-lg border ${borderClass} bg-neutral-900 p-3 text-left transition-opacity duration-150 ${opacityClass}`;
+    const surfaceClass = dimmed ? "border border-dashed border-white/10" : "surface-raised";
+    const opacityClass = dimmed ? "opacity-60 hover:opacity-90" : "";
+    button.className = `flex w-full items-center gap-3 rounded-2xl ${surfaceClass} p-3 text-left transition-opacity duration-150 ${opacityClass}`;
 
     const thumb = document.createElement("div");
-    thumb.className = "h-12 w-12 flex-shrink-0 overflow-hidden rounded bg-neutral-800";
+    thumb.className = "h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-neutral-800";
     if (imageUrl) {
       const img = document.createElement("img");
       img.src = imageUrl;
@@ -77,7 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
     nameEl.className = "truncate text-sm text-neutral-100 capitalize";
     nameEl.textContent = name;
     const subEl = document.createElement("p");
-    subEl.className = "truncate text-xs text-neutral-500";
+    subEl.className = "truncate text-xs text-neutral-500 tabular";
     subEl.textContent = subtitle;
     text.appendChild(nameEl);
     text.appendChild(subEl);
@@ -174,17 +175,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const toggleRegion = (slug) => {
     const index = selectedRegions.indexOf(slug);
+    let added = false;
     if (index !== -1) {
       selectedRegions.splice(index, 1);
     } else {
       selectedRegions.push(slug);
       if (selectedRegions.length > MAX_SELECTED) selectedRegions.shift();
+      added = true;
     }
     syncHighlight();
     clearBtn.classList.toggle("hidden", selectedRegions.length === 0);
     mapHint.textContent = selectedRegions.length
       ? `Selected: ${selectedRegions.map(regionLabel).join(" + ")}`
       : "Tap a muscle to see exercises";
+    if (added && mapCard) {
+      mapCard.classList.remove("is-pulsing");
+      // eslint-disable-next-line no-unused-expressions
+      mapCard.offsetWidth; // restart the CSS animation
+      mapCard.classList.add("is-pulsing");
+    }
     fetchShortlist();
   };
 
