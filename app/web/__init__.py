@@ -17,6 +17,7 @@ web_bp = Blueprint(
 from .routes import workouts  # noqa: E402,F401
 from .routes import auth      # noqa: E402,F401
 from .routes import exercises # noqa: E402,F401
+from .routes import pwa       # noqa: E402,F401
 
 
 @web_bp.before_app_request

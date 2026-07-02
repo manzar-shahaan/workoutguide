@@ -17,6 +17,9 @@
     {% endif %}
 
     <form method="post" class="bg-slate-950 border border-slate-800 rounded-lg px-5 py-5 shadow-md shadow-black/50">
+      {% if next_url %}
+        <input type="hidden" name="next" value="{{ next_url }}">
+      {% endif %}
       {{ input_field("email", "Email", type="email", required=True, maxlength=255) }}
       {{ input_field("password", "Password", type="password", required=True, maxlength=128) }}
 

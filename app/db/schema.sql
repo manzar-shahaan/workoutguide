@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS app_user (
     last_login DATE,
     weight_unit TEXT DEFAULT 'lb',
     week_start TEXT DEFAULT 'sun',
+    body_model TEXT DEFAULT 'male',
     email TEXT UNIQUE NOT NULL,
     recovery_email TEXT,
     password_hash TEXT NOT NULL,
@@ -89,3 +90,48 @@ CREATE TABLE IF NOT EXISTS access_code (
     FOREIGN KEY (used_by_user_id) REFERENCES app_user (id),
     UNIQUE (name)
 );
+
+-- Fixed, non-user-editable anatomical regions for the muscle-map picker.
+-- Seeded from utils/body_regions.py (scripts/migrate_body_regions.py).
+CREATE TABLE IF NOT EXISTS body_region (
+    slug TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    view TEXT NOT NULL
+);
+
+-- Which tapped regions surface a given exercise_catalog entry. One
+-- exercise can have several regions (bench = chest + triceps + delts).
+CREATE TABLE IF NOT EXISTS exercise_catalog_region (
+    exercise_catalog_id INTEGER NOT NULL,
+    region_slug TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'primary',
+    PRIMARY KEY (exercise_catalog_id, region_slug),
+    FOREIGN KEY (exercise_catalog_id) REFERENCES exercise_catalog (id) ON DELETE CASCADE,
+    FOREIGN KEY (region_slug) REFERENCES body_region (slug)
+);
+
+-- Exercises you haven't logged yet, sourced from wger (CC-BY-SA), shown
+-- de-emphasized below your own exercises in the region shortlist.
+CREATE TABLE IF NOT EXISTS suggested_exercise (
+    id SERIAL PRIMARY KEY,
+    wger_id INTEGER UNIQUE,
+    name TEXT NOT NULL,
+    image_path TEXT,
+    license_author TEXT,
+    license_name TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS suggested_exercise_region (
+    suggested_exercise_id INTEGER NOT NULL,
+    region_slug TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'primary',
+    PRIMARY KEY (suggested_exercise_id, region_slug),
+    FOREIGN KEY (suggested_exercise_id) REFERENCES suggested_exercise (id) ON DELETE CASCADE,
+    FOREIGN KEY (region_slug) REFERENCES body_region (slug)
+);
+
+-- Best-effort link from a catalog entry to a matching wger suggestion,
+-- used only to borrow its preview image. Computed with rapidfuzz when
+-- the catalog entry is created (see exercise_catalog_repo.get_or_create).
+ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS suggested_exercise_id INTEGER REFERENCES suggested_exercise (id);

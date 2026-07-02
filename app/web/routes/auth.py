@@ -3,6 +3,7 @@
 import json
 import re
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 from flask import (
     render_template,
@@ -37,6 +38,21 @@ MAX_ACCESS_CODE_LEN = 64
 
 # Argon2 password hasher
 ph = PasswordHasher()
+
+
+def _safe_next_url(value):
+    """
+    Only allow same-origin relative paths as a post-login redirect target,
+    so a crafted `next` can't bounce the user off-site.
+    """
+    if not value:
+        return None
+    parts = urlsplit(value)
+    if parts.scheme or parts.netloc:
+        return None
+    if not parts.path.startswith("/"):
+        return None
+    return value
 
 
 def row_value(row, key, default=None):
@@ -124,7 +140,7 @@ def signup():
             else:
                 # Log in via Flask-Login
                 user_obj = make_user(user_row)
-                login_user(user_obj)
+                login_user(user_obj, remember=True)
 
                 flash("Account created and logged in.", "success")
                 return redirect(url_for("web.workouts_index"))
@@ -134,9 +150,12 @@ def signup():
 
 @web_bp.route("/login", methods=["GET", "POST"])
 def login():
+    next_url = _safe_next_url(request.args.get("next"))
+
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
+        next_url = _safe_next_url(request.form.get("next")) or next_url
 
         error = None
 
@@ -167,16 +186,17 @@ def login():
             if totp_enabled and has_secret:
                 # Step 1 passed → go to 2FA step
                 session["pending_2fa_user_id"] = user["id"]
+                session["pending_2fa_next"] = next_url
                 flash("Enter your 2FA or backup code to complete login.", "info")
                 return redirect(url_for("web.login_2fa"))
 
             # No 2FA → log in directly
             user_obj = make_user(user)
-            login_user(user_obj)
+            login_user(user_obj, remember=True)
             flash("Logged in successfully.", "success")
-            return redirect(url_for("web.workouts_index"))
+            return redirect(next_url or url_for("web.workouts_index"))
 
-    return render_template("auth/login.html")
+    return render_template("auth/login.html", next_url=next_url)
 
 
 
@@ -391,6 +411,12 @@ def preferences():
                     raise ValueError("Week start must be Sunday or Monday.")
                 users_repo.update_week_start(conn, user_id, week_start)
                 flash("Week start preference updated.", "success")
+            elif action == "body_model":
+                body_model = (request.form.get("body_model") or "").strip().lower()
+                if body_model not in {"male", "female"}:
+                    raise ValueError("Body model must be male or female.")
+                users_repo.update_body_model(conn, user_id, body_model)
+                flash("Muscle map body model updated.", "success")
             else:
                 flash("Unknown preference update.", "error")
         except ValueError as exc:
@@ -529,6 +555,7 @@ def login_2fa():
         return redirect(url_for("web.login"))
 
     error = None
+    next_url = _safe_next_url(session.get("pending_2fa_next"))
 
     if request.method == "POST":
         code = (request.form.get("code") or "").strip()
@@ -537,24 +564,26 @@ def login_2fa():
         totp = pyotp.TOTP(row_value(user, "totp_secret", ""))
         if totp.verify(code, valid_window=1):
             user_obj = make_user(user)
-            login_user(user_obj)
+            login_user(user_obj, remember=True)
             session.pop("pending_2fa_user_id", None)
+            session.pop("pending_2fa_next", None)
             flash("Logged in with 2FA.", "success")
-            return redirect(url_for("web.workouts_index"))
+            return redirect(next_url or url_for("web.workouts_index"))
 
         # If TOTP fails, try backup codes
         conn = get_conn()
         try:
             if backup_codes_repo.consume_code(conn, user["id"], code):
                 user_obj = make_user(user)
-                login_user(user_obj)
+                login_user(user_obj, remember=True)
                 session.pop("pending_2fa_user_id", None)
+                session.pop("pending_2fa_next", None)
                 flash(
                     "Logged in using a backup code. "
                     "This code has been marked as used.",
                     "success",
                 )
-                return redirect(url_for("web.workouts_index"))
+                return redirect(next_url or url_for("web.workouts_index"))
             else:
                 error = "Invalid 2FA or backup code."
         finally:

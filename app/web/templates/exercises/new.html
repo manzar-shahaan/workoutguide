@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_form_macros.html" import input_field, textarea_field, select_field %}
+{% from "_form_macros.html" import input_field, textarea_field, select_field, region_picker_field %}
 
 {% block title %}Add exercise{% endblock %}
 
@@ -24,6 +24,7 @@
     {% endif %}
 
     <form method="post" class="bg-slate-950 border border-slate-800 rounded-lg px-5 py-5 shadow-md shadow-black/50">
+      <input type="hidden" name="region_slugs" id="region_slugs" value="{{ region_slugs or '' }}">
       {% if not workout %}
         {{ input_field(
             "date",
@@ -75,6 +76,8 @@
         </p>
       {% endif %}
 
+      {{ region_picker_field() }}
+
       {{ input_field("weight_used", "Weight used", type="number", step="0.01") }}
       {{ select_field(
           "weight_unit",
@@ -120,4 +123,8 @@
       </div>
     </form>
   </div>
+{% endblock %}
+
+{% block scripts %}
+  <script type="module" src="{{ url_for('web.static', filename='js/region-picker.js') }}"></script>
 {% endblock %}

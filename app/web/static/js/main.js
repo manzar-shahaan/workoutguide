@@ -1,6 +1,50 @@
 // app/web/static/js/main.js
 
+// Applies a suggestion/shortlist item's fields onto the exercise form.
+// Shared by the typeahead suggestion list and the muscle-map shortlist
+// (home.js) so both paths prefill identically.
+function applyExercisePrefill(form, item) {
+  if (!form || !item) return;
+  const nameInput = form.querySelector("input[name='exercise_name']");
+  const muscleSelect = form.querySelector("select[name='muscle_id']");
+  const weightInput = form.querySelector("input[name='weight_used']");
+  const unitSelect = form.querySelector("select[name='weight_unit']");
+  const setsInput = form.querySelector("input[name='num_of_sets']");
+  const regionSlugsInput = form.querySelector("input[name='region_slugs']");
+
+  if (nameInput && item.name) nameInput.value = item.name;
+  if (muscleSelect && item.muscle_id) muscleSelect.value = String(item.muscle_id);
+  if (weightInput && item.last_weight_used !== null && item.last_weight_used !== undefined) {
+    weightInput.value = item.last_weight_used;
+  }
+  if (unitSelect && item.last_weight_unit) unitSelect.value = item.last_weight_unit;
+  if (setsInput && item.last_num_of_sets !== null && item.last_num_of_sets !== undefined) {
+    setsInput.value = item.last_num_of_sets;
+  }
+  if (regionSlugsInput && item.region_slugs) {
+    regionSlugsInput.value = item.region_slugs.join(",");
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  // Muscle-map handoff: home.js sends the tapped item's fields via query
+  // params instead of an in-page click, since the map lives on a
+  // different page than the form.
+  const newExerciseForm = document.querySelector("[data-exercise-suggestions]")?.closest("form");
+  if (newExerciseForm) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("exercise_name")) {
+      applyExercisePrefill(newExerciseForm, {
+        name: params.get("exercise_name"),
+        muscle_id: params.get("muscle_id") ? Number(params.get("muscle_id")) : null,
+        last_weight_used: params.get("weight_used"),
+        last_weight_unit: params.get("weight_unit"),
+        last_num_of_sets: params.get("num_of_sets"),
+        region_slugs: params.get("region_slugs") ? params.get("region_slugs").split(",") : null,
+      });
+    }
+  }
+
   const menuButton = document.getElementById("userMenuButton");
   const overlay = document.getElementById("userMenuOverlay");
 
@@ -117,22 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         button.appendChild(row);
         button.addEventListener("click", () => {
-          input.value = item.name;
-          if (item.muscle_id && muscleSelect) {
-            muscleSelect.value = String(item.muscle_id);
-          }
-          const weightInput = form ? form.querySelector("input[name='weight_used']") : null;
-          const unitSelect = form ? form.querySelector("select[name='weight_unit']") : null;
-          const setsInput = form ? form.querySelector("input[name='num_of_sets']") : null;
-          if (weightInput && item.last_weight_used !== null && item.last_weight_used !== undefined) {
-            weightInput.value = item.last_weight_used;
-          }
-          if (unitSelect && item.last_weight_unit) {
-            unitSelect.value = item.last_weight_unit;
-          }
-          if (setsInput && item.last_num_of_sets !== null && item.last_num_of_sets !== undefined) {
-            setsInput.value = item.last_num_of_sets;
-          }
+          applyExercisePrefill(form, item);
           list.classList.add("hidden");
         });
         list.appendChild(button);

@@ -4,7 +4,19 @@
   <head>
     <meta charset="utf-8">
     <title>{% block title %}Workout tracker{% endblock %}</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+    {# PWA: manifest + icons #}
+    <link rel="manifest" href="{{ url_for('web.static', filename='manifest.webmanifest') }}">
+    <link rel="icon" href="{{ url_for('web.static', filename='icons/favicon-32.png') }}" sizes="32x32">
+    <link rel="icon" href="{{ url_for('web.static', filename='icons/favicon-16.png') }}" sizes="16x16">
+    <link rel="apple-touch-icon" href="{{ url_for('web.static', filename='icons/apple-touch-icon.png') }}">
+    <meta name="theme-color" content="#000000">
+
+    {# iOS home-screen app behavior (manifest 'display' is ignored by iOS Safari) #}
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Workout">
 
     {# Tailwind CDN #}
     <script src="https://cdn.tailwindcss.com"></script>
@@ -72,6 +84,17 @@
         box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.4);
       }
 
+      .view-toggle-btn {
+        padding: 0.25rem 0.625rem;
+        border-radius: 9999px;
+        border: 1px solid rgb(39 39 42); /* zinc-800 */
+        color: rgb(148 163 184);
+      }
+      .view-toggle-btn.is-active {
+        border-color: rgb(100 116 139);
+        color: rgb(241 245 249);
+        background-color: rgb(39 39 42);
+      }
     </style>
   </head>
   <body class="bg-black text-slate-100 min-h-screen flex flex-col">
@@ -253,6 +276,13 @@
           window.location.reload();
         }
       });
+
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js");
+        });
+      }
     </script>
+    {% block scripts %}{% endblock %}
   </body>
 </html>

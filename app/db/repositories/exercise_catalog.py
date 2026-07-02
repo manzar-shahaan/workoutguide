@@ -1,6 +1,75 @@
 # app/db/repositories/exercise_catalog.py
 
-from sqlalchemy import text
+from rapidfuzz import fuzz, process, utils
+from sqlalchemy import bindparam, text
+
+SUGGESTION_MATCH_THRESHOLD = 88
+
+
+def list_for_regions(conn, user_id: int, region_slugs: list[str], *, single_region_category: str | None):
+    """
+    Catalog entries matching ALL selected regions (bench = chest + triceps
+    narrows correctly as more regions are tapped). Entries tagged before
+    this feature existed have no exercise_catalog_region rows at all; for
+    a single-region tap those fall back to a match on their broad muscle
+    category so existing history doesn't just disappear. With 2+ regions
+    selected there's no safe fallback (can't verify an intersection without
+    tags), so untagged rows simply don't show until backfilled/re-tagged.
+    """
+    sql = text(
+        """
+        SELECT
+            ec.id,
+            ec.name,
+            ec.muscle_id,
+            m.name AS muscle_name,
+            m.color AS muscle_color,
+            se.image_path,
+            last.weight_used AS last_weight_used,
+            last.weight_unit AS last_weight_unit,
+            last.num_of_sets AS last_num_of_sets,
+            last.workout_date AS last_workout_date
+        FROM exercise_catalog ec
+        JOIN muscle m ON m.id = ec.muscle_id AND m.user_id = ec.user_id
+        LEFT JOIN suggested_exercise se ON se.id = ec.suggested_exercise_id
+        LEFT JOIN LATERAL (
+            SELECT e2.weight_used, e2.weight_unit, e2.num_of_sets, w2.date AS workout_date
+            FROM exercise e2
+            JOIN workout w2 ON w2.id = e2.workout_id
+            WHERE e2.exercise_catalog_id = ec.id
+            ORDER BY w2.date DESC NULLS LAST, e2.created_at DESC
+            LIMIT 1
+        ) AS last ON TRUE
+        WHERE ec.user_id = :user_id
+          AND (
+            (
+              SELECT COUNT(DISTINCT ecr.region_slug)
+              FROM exercise_catalog_region ecr
+              WHERE ecr.exercise_catalog_id = ec.id AND ecr.region_slug IN :slugs
+            ) = :slug_count
+            OR (
+              :single_region_category IS NOT NULL
+              AND m.name = :single_region_category
+              AND NOT EXISTS (
+                SELECT 1 FROM exercise_catalog_region ecr2
+                WHERE ecr2.exercise_catalog_id = ec.id
+              )
+            )
+          )
+        ORDER BY last.workout_date DESC NULLS LAST, ec.name
+        """
+    ).bindparams(bindparam("slugs", expanding=True))
+
+    result = conn.execute(
+        sql,
+        {
+            "user_id": user_id,
+            "slugs": region_slugs,
+            "slug_count": len(region_slugs),
+            "single_region_category": single_region_category,
+        },
+    )
+    return result.mappings().all()
 
 
 def _normalize_name(name: str) -> str:
@@ -16,6 +85,22 @@ def list_for_muscle(conn, user_id: int, muscle_id: int):
     """
     result = conn.execute(text(sql), {"user_id": user_id, "muscle_id": muscle_id})
     return result.mappings().all()
+
+
+def get_regions(conn, exercise_catalog_id: int) -> list[str]:
+    """Region slugs tagged on this catalog entry, primary first."""
+    result = conn.execute(
+        text(
+            """
+            SELECT region_slug
+            FROM exercise_catalog_region
+            WHERE exercise_catalog_id = :id
+            ORDER BY (role = 'primary') DESC, region_slug
+            """
+        ),
+        {"id": exercise_catalog_id},
+    )
+    return [row["region_slug"] for row in result.mappings().all()]
 
 
 def list_for_muscle_with_counts(conn, user_id: int, muscle_id: int):
@@ -385,9 +470,113 @@ def get_or_create(
         ),
         {"user_id": user_id, "muscle_id": muscle_id, "name": name_norm},
     )
+    new_id = result.scalar_one()
+    link_suggested_match(conn, new_id, name_norm, commit=False)
     if commit:
         conn.commit()
-    return result.scalar_one()
+    return new_id
+
+
+def link_suggested_match(conn, exercise_catalog_id: int, name: str, *, commit: bool = True) -> int | None:
+    """
+    Best-effort fuzzy match against the wger-sourced suggested_exercise
+    table, used only to borrow a preview image for a catalog entry. Not
+    exact-name lookup -- catalog names are free text ("db bench" should
+    still find "Dumbbell Bench Press").
+    """
+    name_norm = _normalize_name(name)
+    if not name_norm:
+        return None
+
+    rows = conn.execute(text("SELECT id, name FROM suggested_exercise")).mappings().all()
+    if not rows:
+        return None
+
+    choices = {row["id"]: row["name"] for row in rows}
+    match = process.extractOne(
+        name_norm, choices, scorer=fuzz.WRatio, processor=utils.default_process
+    )
+    if match is None:
+        return None
+
+    _matched_name, score, matched_id = match
+    if score < SUGGESTION_MATCH_THRESHOLD:
+        return None
+
+    conn.execute(
+        text("UPDATE exercise_catalog SET suggested_exercise_id = :sid WHERE id = :id"),
+        {"sid": matched_id, "id": exercise_catalog_id},
+    )
+    if commit:
+        conn.commit()
+    return matched_id
+
+
+def tag_regions(conn, exercise_catalog_id: int, region_slugs: list[str], *, commit: bool = True) -> None:
+    """
+    Tag a catalog entry with the body regions it was reached through.
+    region_slugs[0] is treated as the primary target, the rest secondary.
+    Additive/idempotent -- re-tapping the same regions is a no-op, tapping
+    new ones adds to (doesn't replace) the existing tag set.
+    """
+    for index, slug in enumerate(dict.fromkeys(region_slugs)):  # dedupe, keep order
+        role = "primary" if index == 0 else "secondary"
+        conn.execute(
+            text(
+                """
+                INSERT INTO exercise_catalog_region (exercise_catalog_id, region_slug, role)
+                VALUES (:id, :slug, :role)
+                ON CONFLICT (exercise_catalog_id, region_slug) DO UPDATE SET role = :role
+                """
+            ),
+            {"id": exercise_catalog_id, "slug": slug, "role": role},
+        )
+    if commit:
+        conn.commit()
+
+
+def backfill_regions_from_suggestions(conn) -> int:
+    """
+    One-time (re-runnable) pass for exercise_catalog rows created before
+    the muscle-map existed: fuzzy-match each untagged row's name against
+    suggested_exercise and, on a confident match, copy that suggestion's
+    region tags over. Rows with no good match stay untagged; the region
+    shortlist query falls back to their broad muscle category for those.
+    """
+    untagged = conn.execute(
+        text(
+            """
+            SELECT ec.id, ec.name
+            FROM exercise_catalog ec
+            LEFT JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = ec.id
+            WHERE ecr.exercise_catalog_id IS NULL
+            """
+        )
+    ).mappings().all()
+
+    tagged_count = 0
+    for row in untagged:
+        matched_id = link_suggested_match(conn, row["id"], row["name"], commit=False)
+        if matched_id is None:
+            continue
+        region_rows = conn.execute(
+            text(
+                """
+                SELECT region_slug, role
+                FROM suggested_exercise_region
+                WHERE suggested_exercise_id = :sid
+                ORDER BY (role = 'primary') DESC
+                """
+            ),
+            {"sid": matched_id},
+        ).mappings().all()
+        slugs = [r["region_slug"] for r in region_rows]
+        if slugs:
+            tag_regions(conn, row["id"], slugs, commit=False)
+            tagged_count += 1
+
+    conn.commit()
+    return tagged_count
 
 
 def ensure_names_for_muscle(conn, user_id: int, muscle_id: int, names: list[str]) -> dict[str, int]:

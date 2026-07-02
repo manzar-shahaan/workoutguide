@@ -3,6 +3,54 @@
 {% block title %}Your workouts{% endblock %}
 
 {% block content %}
+  <div class="mb-8">
+    <div class="mb-4 flex items-center justify-between gap-3">
+      <p class="text-sm text-slate-400 truncate">
+        {% if last_workout %}
+          Last workout:
+          <a href="{{ url_for('web.workout_detail', workout_id=last_workout.id) }}" class="text-slate-100 hover:text-white">
+            {% if last_workout.muscles_display %}{{ last_workout.muscles_display }} on {% endif %}{{ last_workout.weekday }}
+          </a>
+        {% else %}
+          No workouts logged yet.
+        {% endif %}
+      </p>
+      <a href="{{ url_for('web.new_exercise') }}" class="shrink-0 text-xs text-slate-500 hover:text-slate-300">
+        Type instead
+      </a>
+    </div>
+
+    <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="flex gap-1 text-xs">
+          <button type="button" data-view-toggle="anterior" class="view-toggle-btn is-active">Front</button>
+          <button type="button" data-view-toggle="posterior" class="view-toggle-btn">Back</button>
+        </div>
+        <button type="button" id="mapClearBtn" class="hidden text-xs text-slate-500 hover:text-slate-300">Clear</button>
+      </div>
+      <div
+        id="bodyMap"
+        data-new-exercise-url="{{ url_for('web.new_exercise') }}"
+        data-shortlist-endpoint="{{ url_for('web.region_shortlist') }}"
+      ></div>
+      <p id="mapHint" class="mt-2 text-center text-xs text-slate-500">Tap a muscle to see exercises</p>
+    </div>
+  </div>
+
+  <div id="regionDrawerOverlay" class="fixed inset-0 z-40 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-black/70" data-drawer-dismiss></div>
+    <div class="fixed inset-x-0 bottom-0 max-h-[75vh] overflow-y-auto rounded-t-2xl border-t border-slate-800 bg-slate-950 p-4
+                md:inset-auto md:right-4 md:top-20 md:bottom-auto md:w-96 md:rounded-xl md:border">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 id="drawerTitle" class="text-sm font-semibold capitalize text-slate-100"></h2>
+        <button type="button" data-drawer-dismiss class="text-slate-400 hover:text-slate-100">
+          <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+      </div>
+      <div id="drawerBody"></div>
+    </div>
+  </div>
+
   <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-8">
     <form method="get" class="w-full sm:max-w-md">
       <div class="flex items-center gap-2">
@@ -322,4 +370,8 @@
       </section>
     </aside>
   </div>
+{% endblock %}
+
+{% block scripts %}
+  <script type="module" src="{{ url_for('web.static', filename='js/home.js') }}"></script>
 {% endblock %}

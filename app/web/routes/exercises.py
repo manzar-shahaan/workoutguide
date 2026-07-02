@@ -19,7 +19,9 @@ from ...db.repositories import exercise_catalog as exercise_catalog_repo
 from .. import web_bp
 from ..auth_utils import login_required
 from ...db.repositories import muscles as muscles_repo
+from ...db.repositories import suggested_exercises as suggested_exercises_repo
 from utils.date_utils import format_date
+from utils.body_regions import REGION_SLUGS, REGION_TO_MUSCLE_CATEGORY
 
 WEIGHT_UNITS = [
     {"id": "lb", "name": "lb"},
@@ -269,6 +271,13 @@ def new_exercise():
                     muscle_id=muscle_id,
                     name=exercise_name,
                 )
+                region_slugs = [
+                    slug.strip()
+                    for slug in request.form.get("region_slugs", "").split(",")
+                    if slug.strip() in REGION_SLUGS
+                ]
+                if exercise_catalog_id and region_slugs:
+                    exercise_catalog_repo.tag_regions(conn, exercise_catalog_id, region_slugs)
 
             exercises_repo.create_exercise(
                 conn,
@@ -540,6 +549,13 @@ def edit_exercise(exercise_id):
                     muscle_id=muscle_id,
                     name=exercise_name,
                 )
+                region_slugs = [
+                    slug.strip()
+                    for slug in request.form.get("region_slugs", "").split(",")
+                    if slug.strip() in REGION_SLUGS
+                ]
+                if exercise_catalog_id and region_slugs:
+                    exercise_catalog_repo.tag_regions(conn, exercise_catalog_id, region_slugs)
 
             exercises_repo.update_exercise(
                 conn,
@@ -567,6 +583,12 @@ def edit_exercise(exercise_id):
             return redirect(url_for("web.workout_detail", workout_id=target_workout_id))
 
         # GET → show form with current values
+        existing_catalog_id = exercise["exercise_catalog_id"] if "exercise_catalog_id" in exercise.keys() else None
+        region_slugs_value = (
+            ",".join(exercise_catalog_repo.get_regions(conn, existing_catalog_id))
+            if existing_catalog_id
+            else ""
+        )
         return render_template(
             "exercises/edit.html",
             exercise=exercise,
@@ -577,6 +599,7 @@ def edit_exercise(exercise_id):
             exercise_date=workout_date_str,
             weight_units=WEIGHT_UNITS,
             weight_unit_selected=exercise_unit,
+            region_slugs=region_slugs_value,
         )
     finally:
         conn.close()
@@ -681,3 +704,65 @@ def exercise_suggestions():
         for row in items
     ]
     return jsonify({"count": total, "items": formatted})
+
+
+@web_bp.route("/api/exercises/region-shortlist")
+@login_required
+def region_shortlist():
+    user_id = g.user["id"]
+    raw_regions = (request.args.get("regions") or "").strip()
+    slugs = [slug for slug in raw_regions.split(",") if slug in REGION_SLUGS]
+    if not slugs:
+        return jsonify({"regions": [], "your_exercises": [], "suggestions": []})
+
+    single_region_category = REGION_TO_MUSCLE_CATEGORY.get(slugs[0]) if len(slugs) == 1 else None
+
+    conn = get_conn()
+    try:
+        your_rows = exercise_catalog_repo.list_for_regions(
+            conn,
+            user_id,
+            slugs,
+            single_region_category=single_region_category,
+        )
+        suggestion_rows = suggested_exercises_repo.list_for_regions(conn, user_id, slugs)
+
+        # Suggestions prefill the muscle dropdown too -- resolve each
+        # suggestion's primary region to this user's category row id.
+        muscles = muscles_repo.list_muscles(conn, user_id=user_id, active_only=True)
+    finally:
+        conn.close()
+
+    category_to_muscle_id = {m["name"]: m["id"] for m in muscles}
+
+    your_exercises = [
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "muscle_id": row["muscle_id"],
+            "muscle_name": row["muscle_name"],
+            "muscle_color": row["muscle_color"],
+            "image_url": url_for("web.static", filename=row["image_path"]) if row.get("image_path") else None,
+            "last_weight_used": row.get("last_weight_used"),
+            "last_weight_unit": row.get("last_weight_unit"),
+            "last_num_of_sets": row.get("last_num_of_sets"),
+            "last_logged": _format_last_logged(row.get("last_workout_date")),
+        }
+        for row in your_rows
+    ]
+
+    suggestions = [
+        {
+            "name": row["name"],
+            "muscle_id": category_to_muscle_id.get(
+                REGION_TO_MUSCLE_CATEGORY.get(row["primary_region"])
+            ),
+            "image_url": url_for("web.static", filename=row["image_path"]) if row.get("image_path") else None,
+            "license_author": row.get("license_author"),
+            "license_name": row.get("license_name"),
+            "region_slugs": slugs,
+        }
+        for row in suggestion_rows
+    ]
+
+    return jsonify({"regions": slugs, "your_exercises": your_exercises, "suggestions": suggestions})

@@ -52,6 +52,25 @@ def get_workout(conn, workout_id: int, user_id: int):
     return result.mappings().fetchone()
 
 
+def get_most_recent(conn, user_id: int):
+    sql = """
+        SELECT
+            w.id,
+            w.date,
+            COALESCE(string_agg(DISTINCT m.name, ', ' ORDER BY m.name), '') AS muscles
+        FROM workout w
+        LEFT JOIN exercise e ON e.workout_id = w.id
+        LEFT JOIN exercise_muscle em ON em.exercise_id = e.id
+        LEFT JOIN muscle m ON m.id = em.muscle_id AND m.user_id = w.user_id
+        WHERE w.user_id = :user_id
+        GROUP BY w.id, w.date
+        ORDER BY w.date DESC, w.id DESC
+        LIMIT 1
+    """
+    result = conn.execute(text(sql), {"user_id": user_id})
+    return result.mappings().fetchone()
+
+
 def find_by_user_and_date(conn, user_id: int, date: str):
     sql = """
         SELECT id, date, user_id

@@ -54,6 +54,7 @@ def get_user_by_email(conn, email: str):
             password_hash,
             weight_unit,
             week_start,
+            body_model,
             recovery_email,
             totp_secret,
             totp_enabled,
@@ -75,6 +76,7 @@ def get_user(conn, user_id: int):
             password_hash,
             weight_unit,
             week_start,
+            body_model,
             recovery_email,
             totp_secret,
             totp_enabled,
@@ -154,6 +156,19 @@ def update_week_start(conn, user_id: int, week_start: str):
         WHERE id = :user_id
     """
     conn.execute(text(sql), {"week_start": week_start, "user_id": user_id})
+    conn.commit()
+
+
+def update_body_model(conn, user_id: int, body_model: str):
+    """
+    Update the user's preferred muscle-map body model ('male' or 'female').
+    """
+    sql = """
+        UPDATE app_user
+        SET body_model = :body_model
+        WHERE id = :user_id
+    """
+    conn.execute(text(sql), {"body_model": body_model, "user_id": user_id})
     conn.commit()
 
 

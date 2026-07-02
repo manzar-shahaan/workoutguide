@@ -96,6 +96,47 @@
         </button>
       </form>
     </div>
+
+    <div class="rounded-lg border border-slate-800 bg-slate-950 px-5 py-4 shadow-md shadow-black/50">
+      <h2 class="text-sm font-semibold text-slate-100 mb-3">
+        Muscle map body model
+      </h2>
+      <p class="text-sm text-slate-400 mb-3">
+        Used by the muscle-map exercise picker on your home screen.
+      </p>
+
+      {% set current_body_model = user["body_model"] or "male" %}
+      <form method="post" class="space-y-3">
+        <input type="hidden" name="action" value="body_model">
+        <div class="flex items-center gap-3 text-sm">
+          <label class="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="body_model"
+              value="male"
+              {% if current_body_model == "male" %}checked{% endif %}
+            >
+            Male
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="body_model"
+              value="female"
+              {% if current_body_model == "female" %}checked{% endif %}
+            >
+            Female
+          </label>
+        </div>
+        <button
+          type="submit"
+          class="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors duration-200"
+        >
+          <i data-lucide="save" class="h-3.5 w-3.5"></i>
+          Save body model
+        </button>
+      </form>
+    </div>
     </section>
   </div>
 {% endblock %}

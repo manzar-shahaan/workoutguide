@@ -4,6 +4,10 @@ Workout logging web app built with Flask + Postgres. Users track workouts, exerc
 
 ## Features
 
+- Installable PWA: manifest + service worker, launches straight to the home/log screen, persistent login (Flask-Login remember-me).
+- Home screen has a tappable front/back muscle-map picker (`body-highlighter`) — tap 1-2 regions to narrow a shortlist of your own exercises (prioritized) plus unlogged suggestions sourced from wger (de-emphasized), each with a preview image.
+- Manual "add/edit exercise" forms have a small inline version of the same map (`region-picker.js`) to tag up to 2 muscles when typing an exercise name directly, instead of only via the home-screen map.
+- `body_model` account preference (male/female, default male) for the muscle map — stored and editable in Preferences now; `body-highlighter` only ships one unisex silhouette today so both currently render identically until a second asset is added.
 - Workouts per day with multiple exercises.
 - Muscle groups with colors and active/inactive status.
 - Exercise catalog per user and muscle, used for suggestions and stats.
@@ -18,6 +22,9 @@ Workout logging web app built with Flask + Postgres. Users track workouts, exerc
 - `exercise_catalog`: user-specific exercise names scoped to a muscle.
 - `exercise`: logged entries with optional `exercise_name` and `exercise_catalog_id`.
 - `exercise_muscle`: join table linking exercises to muscles.
+- `body_region`: fixed, non-user-editable anatomical regions for the muscle-map (seeded from `utils/body_regions.py`, keyed to `body-highlighter`'s SVG).
+- `exercise_catalog_region`: which regions surface a given catalog exercise (primary/secondary), e.g. bench press -> chest (primary), triceps + front-deltoids (secondary).
+- `suggested_exercise` / `suggested_exercise_region`: unlogged exercises imported from wger.de (CC-BY-SA), shown below your own history in the region shortlist.
 
 ## Setup
 
@@ -47,6 +54,9 @@ python run.py
 
 - `scripts/migrate_exercise_real.py`: adds weight unit columns and backfills kg.
 - `scripts/migrate_exercise_catalog.py`: adds exercise catalog table and links on exercise.
+- `scripts/migrate_body_regions.py`: adds `body_region`/`exercise_catalog_region`/`suggested_exercise*` tables and seeds the 17 regions. Run this once on an existing DB.
+- `scripts/import_wger_exercises.py`: pulls exercises from the public wger.de API into `suggested_exercise`, mirrors a small preview image for each locally. Re-runnable/idempotent (`--max N` to test with a small batch first).
+- `scripts/backfill_exercise_regions.py`: fuzzy-matches existing `exercise_catalog` rows (logged before the muscle-map existed) against `suggested_exercise` to tag them with regions. Run after the two scripts above; re-runnable.
 - `scripts/seed_sample_data.py`: optional seed data.
 - `scripts/smoke_db.py`: quick DB connectivity check.
 

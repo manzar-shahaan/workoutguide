@@ -173,6 +173,8 @@ def workouts_index():
         else:
             rows = workouts_repo.list_workouts(conn, user_id=user_id)
 
+        most_recent_workout = workouts_repo.get_most_recent(conn, user_id=user_id)
+
         week_start_pref = g.user.get("week_start", "sun")
         month_anchor = _date.today()
         month_start = month_anchor.replace(day=1)
@@ -192,6 +194,17 @@ def workouts_index():
     today = _date.today()
     current_week_start = today - timedelta(days=today.weekday())  # Monday
     recent_cutoff = current_week_start - timedelta(weeks=4)       # 4 weeks before this week
+
+    last_workout = None
+    if most_recent_workout is not None and most_recent_workout["date"]:
+        raw_date = most_recent_workout["date"]
+        d = raw_date if isinstance(raw_date, _date) else datetime.strptime(raw_date, "%Y-%m-%d").date()
+        last_workout = {
+            "id": most_recent_workout["id"],
+            "weekday": d.strftime("%a"),
+            "date_display": format_date(d),
+            "muscles_display": most_recent_workout["muscles"] or None,
+        }
 
     week_groups = {}   # week_start (date) -> [workouts]
     month_groups = {}  # (year, month) -> [workouts]
@@ -305,6 +318,7 @@ def workouts_index():
         search_query=search_query,
         search_results=search_results,
         today=today,
+        last_workout=last_workout,
     )
 
 
