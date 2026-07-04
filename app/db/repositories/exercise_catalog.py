@@ -97,14 +97,14 @@ def list_for_muscle(conn, user_id: int, muscle_id: int):
 
 
 def get_regions(conn, exercise_catalog_id: int) -> list[str]:
-    """Region slugs tagged on this catalog entry, primary first."""
+    """Region slugs tagged on this catalog entry, in rank order (primary first)."""
     result = conn.execute(
         text(
             """
             SELECT region_slug
             FROM exercise_catalog_region
             WHERE exercise_catalog_id = :id
-            ORDER BY (role = 'primary') DESC, region_slug
+            ORDER BY rank ASC
             """
         ),
         {"id": exercise_catalog_id},
@@ -562,22 +562,28 @@ def link_suggested_match(conn, exercise_catalog_id: int, name: str, *, commit: b
 
 def tag_regions(conn, exercise_catalog_id: int, region_slugs: list[str], *, commit: bool = True) -> None:
     """
-    Tag a catalog entry with the body regions it was reached through.
-    region_slugs[0] is treated as the primary target, the rest secondary.
-    Additive/idempotent -- re-tapping the same regions is a no-op, tapping
-    new ones adds to (doesn't replace) the existing tag set.
+    Set this catalog entry's body-region tags to exactly the given list,
+    in order -- region_slugs[0] becomes rank 1 (primary), region_slugs[1]
+    rank 2, and so on, with no cap on how many regions one exercise can
+    hit. This fully replaces the previous tag set rather than merging with
+    it: the picker widget always prefills from whatever's currently
+    tagged and resubmits the complete selection, so whatever's selected
+    at save time -- including a region getting untapped -- is meant to be
+    the authoritative set.
     """
+    conn.execute(
+        text("DELETE FROM exercise_catalog_region WHERE exercise_catalog_id = :id"),
+        {"id": exercise_catalog_id},
+    )
     for index, slug in enumerate(dict.fromkeys(region_slugs)):  # dedupe, keep order
-        role = "primary" if index == 0 else "secondary"
         conn.execute(
             text(
                 """
-                INSERT INTO exercise_catalog_region (exercise_catalog_id, region_slug, role)
-                VALUES (:id, :slug, :role)
-                ON CONFLICT (exercise_catalog_id, region_slug) DO UPDATE SET role = :role
+                INSERT INTO exercise_catalog_region (exercise_catalog_id, region_slug, rank)
+                VALUES (:id, :slug, :rank)
                 """
             ),
-            {"id": exercise_catalog_id, "slug": slug, "role": role},
+            {"id": exercise_catalog_id, "slug": slug, "rank": index + 1},
         )
     if commit:
         conn.commit()

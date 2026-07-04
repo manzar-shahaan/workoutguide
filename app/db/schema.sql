@@ -116,12 +116,14 @@ CREATE TABLE IF NOT EXISTS body_region (
     view TEXT NOT NULL
 );
 
--- Which tapped regions surface a given exercise_catalog entry. One
--- exercise can have several regions (bench = chest + triceps + delts).
+-- Which tapped regions surface a given exercise_catalog entry, and in
+-- what priority order (rank 1 = primary target, rank 2 = secondary, and
+-- so on -- an exercise can hit as many regions as it actually trains,
+-- e.g. bench = chest(1) + triceps(2) + front-deltoids(3)).
 CREATE TABLE IF NOT EXISTS exercise_catalog_region (
     exercise_catalog_id INTEGER NOT NULL,
     region_slug TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'primary',
+    rank INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY (exercise_catalog_id, region_slug),
     FOREIGN KEY (exercise_catalog_id) REFERENCES exercise_catalog (id) ON DELETE CASCADE,
     FOREIGN KEY (region_slug) REFERENCES body_region (slug)

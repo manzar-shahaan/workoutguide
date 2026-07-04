@@ -15,36 +15,38 @@ OVERDUE_FLOOR_DAYS = 4
 
 def compute_effective_days(last_trained: dict, today) -> dict[str, float | None]:
     """
-    last_trained: {region_slug: {"primary": date|None, "secondary": date|None}}
-    (missing slugs are treated as never trained on either role).
+    last_trained: {region_slug: {rank: date|None}} -- rank 1 is an
+    exercise's primary target for that region, rank 2 secondary, and so
+    on (missing slugs/ranks are treated as never trained there).
 
     Returns {region_slug: effective_days_since | None}. None means never
     trained at all -- callers treat that as maximally overdue.
 
-    A more recent SECONDARY hit pulls freshness halfway back toward
-    "trained" rather than fully resetting it, so benching all week doesn't
-    make triceps/front-delts read as neglected just because they were
-    never the primary target.
+    Rank 1 anchors the estimate. Each weaker rank only pulls freshness
+    back toward "trained" if it was hit *more recently* than the current
+    estimate, and by a diminishing fraction (1/rank) -- so a rank-2 hit
+    pulls halfway, a rank-3 hit a third of the way, and so on. This way
+    benching all week doesn't make triceps/front-delts read as neglected
+    just because they were never anyone's primary target.
     """
     effective: dict[str, float | None] = {}
     for slug in REGION_SLUGS:
-        roles = last_trained.get(slug, {})
-        primary_date = roles.get("primary")
-        secondary_date = roles.get("secondary")
+        ranks = last_trained.get(slug, {})
+        days_by_rank = {
+            rank: (today - date).days for rank, date in ranks.items() if date is not None
+        }
 
-        days_primary = (today - primary_date).days if primary_date else None
-        days_secondary = (today - secondary_date).days if secondary_date else None
-
-        if days_primary is None and days_secondary is None:
+        if not days_by_rank:
             effective[slug] = None
-        elif days_primary is None:
-            effective[slug] = days_secondary
-        elif days_secondary is None:
-            effective[slug] = days_primary
-        elif days_secondary < days_primary:
-            effective[slug] = days_primary - (days_primary - days_secondary) / 2
-        else:
-            effective[slug] = days_primary
+            continue
+
+        sorted_ranks = sorted(days_by_rank)
+        value = days_by_rank[sorted_ranks[0]]
+        for rank in sorted_ranks[1:]:
+            days = days_by_rank[rank]
+            if days < value:
+                value = value - (value - days) / rank
+        effective[slug] = value
     return effective
 
 

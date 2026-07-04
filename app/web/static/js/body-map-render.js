@@ -76,6 +76,7 @@ export function createBodyMap({
         polygon.setAttribute("points", piece.map(([x, y]) => `${x},${y}`).join(" "));
         if (region.slug) {
           polygon.style.cursor = "pointer";
+          polygon.dataset.regionSlug = region.slug;
           polygon.addEventListener("click", () => onClick && onClick({ muscle: region.slug }));
           polygonEls.push({ el: polygon, slug: region.slug });
           applyFill(polygon, region.slug);

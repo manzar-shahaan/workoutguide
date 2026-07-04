@@ -1,9 +1,11 @@
 // app/web/static/js/region-picker.js
 //
 // Small inline tap-to-select body figure used on the manual "add/edit
-// exercise" forms, so a typed-in exercise can still be tagged with up to
-// 2 body regions (same exercise_catalog_region data the muscle-map home
-// page writes) instead of only ever getting tags via the map flow.
+// exercise" forms, so a typed-in exercise can still be tagged with body
+// regions (same exercise_catalog_region data the muscle-map home page
+// writes) instead of only ever getting tags via the map flow. No cap on
+// how many regions -- tap order sets priority (1st tapped = primary
+// target, 2nd = secondary, and so on), shown in the hint text.
 
 import { createBodyMap } from "./body-map-render.js";
 
@@ -17,7 +19,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const toggleButtons = container.querySelectorAll("[data-view-toggle]");
   if (!mapEl || !hint || !hiddenInput) return;
 
-  const MAX_SELECTED = 2;
   let selected = hiddenInput.value ? hiddenInput.value.split(",").filter(Boolean) : [];
 
   const highlighter = createBodyMap({
@@ -33,8 +34,8 @@ document.addEventListener("DOMContentLoaded", () => {
     highlighter.setSelected(selected);
     hiddenInput.value = selected.join(",");
     hint.textContent = selected.length
-      ? selected.map((s) => s.replace(/-/g, " ")).join(" + ")
-      : "Optional: tap to tag muscles";
+      ? selected.map((s, i) => `${i + 1}. ${s.replace(/-/g, " ")}`).join(", ")
+      : "Optional: tap to tag muscles, in priority order";
   };
 
   const toggleRegion = (slug) => {
@@ -43,7 +44,6 @@ document.addEventListener("DOMContentLoaded", () => {
       selected.splice(index, 1);
     } else {
       selected.push(slug);
-      if (selected.length > MAX_SELECTED) selected.shift();
     }
     sync();
   };
