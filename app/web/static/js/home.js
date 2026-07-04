@@ -20,6 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const newExerciseUrl = mapContainer.dataset.newExerciseUrl;
   const shortlistEndpoint = mapContainer.dataset.shortlistEndpoint;
   const viewToggleButtons = document.querySelectorAll("[data-view-toggle]");
+  const overdueRegions = (mapContainer.dataset.overdueRegions || "").split(",").filter(Boolean);
 
   const MAX_SELECTED = 2;
   let selectedRegions = []; // slugs, order = tap order (first = primary)
@@ -29,6 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
     view: "anterior",
     bodyColor: "#f5f5f5", // near-white: flat fill, thin dark stroke does the definition
     highlightColor: "#22c55e", // the one accent color, only on what's selected
+    pulsingSlugs: overdueRegions, // "needs training soon" -- white/grey/black cycle, see base.html
     style: { width: "100%", maxWidth: "280px", margin: "0 auto" },
     onClick: ({ muscle }) => toggleRegion(muscle),
   });
@@ -87,12 +89,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const url = new URL(newExerciseUrl, window.location.origin);
     if (item.name) url.searchParams.set("exercise_name", item.name);
     if (item.muscle_id) url.searchParams.set("muscle_id", item.muscle_id);
-    if (item.last_weight_used !== undefined && item.last_weight_used !== null) {
-      url.searchParams.set("weight_used", item.last_weight_used);
-    }
     if (item.last_weight_unit) url.searchParams.set("weight_unit", item.last_weight_unit);
-    if (item.last_num_of_sets !== undefined && item.last_num_of_sets !== null) {
-      url.searchParams.set("num_of_sets", item.last_num_of_sets);
+    if (Array.isArray(item.last_sets) && item.last_sets.length) {
+      url.searchParams.set("sets_json", JSON.stringify(item.last_sets));
     }
     if (selectedRegions.length) url.searchParams.set("region_slugs", selectedRegions.join(","));
     window.location.href = url.toString();

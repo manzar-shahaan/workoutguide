@@ -63,6 +63,23 @@ CREATE TABLE IF NOT EXISTS exercise (
     FOREIGN KEY (exercise_catalog_id) REFERENCES exercise_catalog (id)
 );
 
+-- Per-set weight/reps. exercise.weight_used/num_of_sets/avg_reps/max_reps
+-- stay as derived rollups (top-set weight, count, avg/max reps) computed
+-- from these rows -- kept for quick-list display, no longer the source of
+-- truth for stats/volume.
+CREATE TABLE IF NOT EXISTS exercise_set (
+    id SERIAL PRIMARY KEY,
+    exercise_id INTEGER NOT NULL,
+    set_index INTEGER NOT NULL,
+    weight_used DOUBLE PRECISION,
+    weight_unit TEXT,
+    weight_used_kg DOUBLE PRECISION,
+    reps INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (exercise_id) REFERENCES exercise (id) ON DELETE CASCADE,
+    UNIQUE (exercise_id, set_index)
+);
+
 CREATE TABLE IF NOT EXISTS exercise_muscle (
     muscle_id INTEGER,
     exercise_id INTEGER,

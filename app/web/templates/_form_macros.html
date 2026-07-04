@@ -60,6 +60,26 @@
 {% endmacro %}
 
 
+{# Per-set weight/reps list. sets_json is the initial rows (JSON string,
+   e.g. '[{"weight_used":75,"reps":8},{"weight_used":65,"reps":8}]');
+   JS is app/web/static/js/set-list.js #}
+{% macro set_list_field(sets_json='[]') %}
+  <div class="form-row" data-set-list>
+    <label>Sets</label>
+    <input type="hidden" name="sets_json" id="sets_json" value='{{ sets_json }}'>
+    <div id="setRows" class="space-y-2 mb-2"></div>
+    <button
+      type="button"
+      id="addSetBtn"
+      class="surface-raised inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-neutral-200"
+    >
+      <i data-lucide="plus" class="h-3.5 w-3.5"></i>
+      Add set
+    </button>
+  </div>
+{% endmacro %}
+
+
 {# Select dropdown (options = list of objects or dicts with .id and .name) #}
 {% macro select_field(name, label, options, selected=None,
                       include_blank=True, blank_label="-- Select --",

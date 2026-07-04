@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_form_macros.html" import input_field, textarea_field, select_field, region_picker_field %}
+{% from "_form_macros.html" import input_field, textarea_field, select_field, region_picker_field, set_list_field %}
 
 {% block title %}Add exercise{% endblock %}
 
@@ -78,7 +78,6 @@
 
       {{ region_picker_field() }}
 
-      {{ input_field("weight_used", "Weight used", type="number", step="0.01") }}
       {{ select_field(
           "weight_unit",
           "Weight unit",
@@ -88,9 +87,7 @@
           blank_label="-- Select unit --",
           required=True
       ) }}
-      {{ input_field("num_of_sets", "Number of sets", type="number") }}
-      {{ input_field("avg_reps", "Avg reps (working sets)", type="number", step="0.1") }}
-      {{ input_field("max_reps", "Max reps (optional)", type="number") }}
+      {{ set_list_field(sets_json=sets_json or '[]') }}
 
       {{ textarea_field("notes", "Notes") }}
 
@@ -127,4 +124,5 @@
 
 {% block scripts %}
   <script type="module" src="{{ url_for('web.static', filename='js/region-picker.js') }}"></script>
+  <script src="{{ url_for('web.static', filename='js/set-list.js') }}"></script>
 {% endblock %}

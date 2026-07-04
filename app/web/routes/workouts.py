@@ -12,9 +12,11 @@ from ...db.repositories import exercises as exercises_repo
 from ...db.repositories import muscles as muscles_repo
 from ...db.repositories import stats as stats_repo
 from ...db.repositories import exercise_catalog as exercise_catalog_repo
+from ...db.repositories import freshness as freshness_repo
 from .. import web_bp
 from ..auth_utils import login_required
 from utils.date_utils import format_date
+from utils.freshness import compute_effective_days, most_overdue_regions
 
 DEFAULT_MUSCLE_COLOR = "#64748b"
 COLOR_REGEX = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -188,10 +190,15 @@ def workouts_index():
         )
         daily_lookup = _build_daily_lookup(daily_rows)
         month_calendar = _build_month_calendar(month_anchor, daily_lookup, week_start_pref)
+
+        last_trained = freshness_repo.last_trained_by_region(conn, user_id=user_id)
     finally:
         conn.close()
 
     today = _date.today()
+    effective_days = compute_effective_days(last_trained, today)
+    overdue_regions = most_overdue_regions(effective_days)
+
     current_week_start = today - timedelta(days=today.weekday())  # Monday
     recent_cutoff = current_week_start - timedelta(weeks=4)       # 4 weeks before this week
 
@@ -319,6 +326,7 @@ def workouts_index():
         search_results=search_results,
         today=today,
         last_workout=last_workout,
+        overdue_regions=overdue_regions,
     )
 
 
@@ -335,6 +343,9 @@ def workout_detail(workout_id):
             abort(404)
 
         exercises = exercises_repo.list_for_workout(conn, workout_id)
+        exercise_sets = {
+            ex["id"]: exercises_repo.get_sets_for_exercise(conn, ex["id"]) for ex in exercises
+        }
     finally:
         conn.close()
 
@@ -349,6 +360,21 @@ def workout_detail(workout_id):
         )
         formatted = dict(ex)
         formatted["muscles_list"] = muscle_list
+        sets = exercise_sets.get(ex["id"], [])
+        formatted["sets"] = sets
+        formatted["volume_kg"] = sum(
+            s["weight_used_kg"] * s["reps"]
+            for s in sets
+            if s["weight_used_kg"] is not None and s["reps"] is not None
+        )
+        formatted["volume_stored"] = sum(
+            s["weight_used"] * s["reps"]
+            for s in sets
+            if s["weight_used"] is not None and s["reps"] is not None
+        )
+        formatted["has_volume"] = any(
+            s["weight_used_kg"] is not None and s["reps"] is not None for s in sets
+        )
         formatted_exercises.append(formatted)
 
     editable = request.args.get("edit") == "1"
@@ -370,11 +396,8 @@ def workout_detail(workout_id):
     session_volume_kg = 0.0
     has_volume = False
     for ex in formatted_exercises:
-        kg = ex.get("weight_used_kg")
-        sets = ex.get("num_of_sets")
-        reps = ex.get("avg_reps")
-        if kg is not None and sets is not None and reps is not None:
-            session_volume_kg += kg * sets * reps
+        if ex["has_volume"]:
+            session_volume_kg += ex["volume_kg"]
             has_volume = True
 
     session_volume_unit = g.user.get("weight_unit") or "lb"

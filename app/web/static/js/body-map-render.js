@@ -26,7 +26,15 @@ function computeBounds(viewData, pad) {
   return { minX: minX - pad, minY: minY - pad, width: maxX - minX + pad * 2, height: maxY - minY + pad * 2 };
 }
 
-export function createBodyMap({ container, view = "anterior", bodyColor = "#404040", highlightColor = "#22c55e", style = {}, onClick }) {
+export function createBodyMap({
+  container,
+  view = "anterior",
+  bodyColor = "#404040",
+  highlightColor = "#22c55e",
+  pulsingSlugs = [],
+  style = {},
+  onClick,
+}) {
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.style.display = "block";
   for (const [prop, value] of Object.entries(style)) {
@@ -35,7 +43,24 @@ export function createBodyMap({ container, view = "anterior", bodyColor = "#4040
 
   let currentView = view;
   let selected = new Set();
+  const pulsing = new Set(pulsingSlugs);
   let polygonEls = []; // [{ el, slug }] for the clickable regions in the current view
+
+  // Selected always wins (explicit user action); pulsing (needs-training,
+  // driven by CSS keyframes) only shows while a region is idle; otherwise
+  // it's the flat idle fill.
+  const applyFill = (el, slug) => {
+    if (selected.has(slug)) {
+      el.classList.remove("needs-training");
+      el.setAttribute("fill", highlightColor);
+    } else if (pulsing.has(slug)) {
+      el.classList.add("needs-training");
+      el.removeAttribute("fill"); // let the CSS animation drive it
+    } else {
+      el.classList.remove("needs-training");
+      el.setAttribute("fill", bodyColor);
+    }
+  };
 
   const render = () => {
     while (svg.firstChild) svg.removeChild(svg.firstChild);
@@ -49,12 +74,13 @@ export function createBodyMap({ container, view = "anterior", bodyColor = "#4040
       for (const piece of region.pieces) {
         const polygon = document.createElementNS(SVG_NS, "polygon");
         polygon.setAttribute("points", piece.map(([x, y]) => `${x},${y}`).join(" "));
-        const isSelected = region.slug && selected.has(region.slug);
-        polygon.setAttribute("fill", isSelected ? highlightColor : bodyColor);
         if (region.slug) {
           polygon.style.cursor = "pointer";
           polygon.addEventListener("click", () => onClick && onClick({ muscle: region.slug }));
           polygonEls.push({ el: polygon, slug: region.slug });
+          applyFill(polygon, region.slug);
+        } else {
+          polygon.setAttribute("fill", bodyColor);
         }
         svg.appendChild(polygon);
       }
@@ -73,7 +99,7 @@ export function createBodyMap({ container, view = "anterior", bodyColor = "#4040
     setSelected(slugs) {
       selected = new Set(slugs);
       for (const { el, slug } of polygonEls) {
-        el.setAttribute("fill", selected.has(slug) ? highlightColor : bodyColor);
+        applyFill(el, slug);
       }
     },
   };

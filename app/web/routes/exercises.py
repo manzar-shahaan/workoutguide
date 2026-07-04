@@ -1,5 +1,6 @@
 # app/web/routes/exercises.py
 
+import json
 from datetime import date, datetime, timedelta  # ⬅️ updated import
 
 from flask import (
@@ -39,6 +40,71 @@ def _normalize_weight_to_kg(weight_used: float | None, weight_unit: str | None) 
     if weight_unit == "lb":
         return float(weight_used) * LB_TO_KG
     return None
+
+
+def _parse_sets_json(raw_json: str, weight_unit: str) -> list[dict]:
+    """
+    Parses the set-list.js hidden field into normalized set dicts, dropping
+    empty rows (no weight and no reps -- an unused row left over from
+    "Add set"). Raises ValueError with a user-facing message on bad input.
+    """
+    try:
+        raw_sets = json.loads(raw_json) if raw_json else []
+    except (ValueError, TypeError):
+        raise ValueError("Could not read the sets you entered. Please try again.")
+
+    if not isinstance(raw_sets, list):
+        raise ValueError("Could not read the sets you entered. Please try again.")
+
+    sets = []
+    for raw_set in raw_sets:
+        if not isinstance(raw_set, dict):
+            continue
+        weight_used = raw_set.get("weight_used")
+        reps = raw_set.get("reps")
+        if weight_used is None and reps is None:
+            continue  # unused row
+
+        try:
+            weight_used = float(weight_used) if weight_used is not None else None
+            reps = int(reps) if reps is not None else None
+        except (TypeError, ValueError):
+            raise ValueError("Please enter valid numbers for each set's weight and reps.")
+
+        if reps is not None and reps <= 0:
+            raise ValueError("Reps must be greater than 0.")
+
+        sets.append(
+            {
+                "weight_used": weight_used,
+                "weight_unit": weight_unit if weight_used is not None else None,
+                "weight_used_kg": _normalize_weight_to_kg(weight_used, weight_unit),
+                "reps": reps,
+            }
+        )
+
+    if not sets:
+        raise ValueError("Please log at least one set.")
+    return sets
+
+
+def _rollup_from_sets(sets: list[dict]) -> dict:
+    """
+    Derives the exercise-level summary columns (top-set weight, count,
+    avg/max reps) from real set rows, for quick-list display. Volume and
+    progression stats read the set rows directly, not these.
+    """
+    reps_list = [s["reps"] for s in sets if s["reps"] is not None]
+    weighted = [s for s in sets if s["weight_used"] is not None]
+    top_set = max(weighted, key=lambda s: s["weight_used"]) if weighted else None
+
+    return {
+        "num_of_sets": len(sets),
+        "avg_reps": (sum(reps_list) / len(reps_list)) if reps_list else None,
+        "max_reps": max(reps_list) if reps_list else None,
+        "weight_used": top_set["weight_used"] if top_set else None,
+        "weight_used_kg": top_set["weight_used_kg"] if top_set else None,
+    }
 
 
 def _normalize_exercise_name(value: str | None) -> str | None:
@@ -92,56 +158,9 @@ def new_exercise():
         if request.method == "POST":
             notes = request.form.get("notes", "").strip() or None
             exercise_name = _normalize_exercise_name(request.form.get("exercise_name", ""))
-            weight_str = request.form.get("weight_used", "").strip()
             weight_unit = request.form.get("weight_unit", "").strip() or default_unit
-            sets_str = request.form.get("num_of_sets", "").strip()
-            avg_reps_str = request.form.get("avg_reps", "").strip()
-            max_reps_str = request.form.get("max_reps", "").strip()
+            sets_json_raw = request.form.get("sets_json", "[]")
             muscle_str = request.form.get("muscle_id", "").strip()
-
-            try:
-                weight_used = float(weight_str) if weight_str else None
-                num_of_sets = int(sets_str) if sets_str else None
-                avg_reps = float(avg_reps_str) if avg_reps_str else None
-                max_reps = int(max_reps_str) if max_reps_str else None
-            except ValueError:
-                error = "Please enter valid numbers for sets and reps."
-                return render_template(
-                    "exercises/new.html",
-                    workout=workout,
-                    muscles=muscles,
-                    error=error,
-                    today=today_str,
-                    max_date=max_date_str,
-                    weight_units=WEIGHT_UNITS,
-                    weight_unit_selected=weight_unit,
-                )
-
-            if avg_reps is not None and avg_reps <= 0:
-                error = "Average reps must be greater than 0."
-                return render_template(
-                    "exercises/new.html",
-                    workout=workout,
-                    muscles=muscles,
-                    error=error,
-                    today=today_str,
-                    max_date=max_date_str,
-                    weight_units=WEIGHT_UNITS,
-                    weight_unit_selected=weight_unit,
-                )
-
-            if max_reps is not None and max_reps <= 0:
-                error = "Max reps must be greater than 0."
-                return render_template(
-                    "exercises/new.html",
-                    workout=workout,
-                    muscles=muscles,
-                    error=error,
-                    today=today_str,
-                    max_date=max_date_str,
-                    weight_units=WEIGHT_UNITS,
-                    weight_unit_selected=weight_unit,
-                )
 
             if weight_unit not in VALID_WEIGHT_UNITS:
                 error = "Please select a valid weight unit."
@@ -154,7 +173,24 @@ def new_exercise():
                     max_date=max_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
+                    sets_json=sets_json_raw,
                 )
+
+            try:
+                sets = _parse_sets_json(sets_json_raw, weight_unit)
+            except ValueError as exc:
+                return render_template(
+                    "exercises/new.html",
+                    workout=workout,
+                    muscles=muscles,
+                    error=str(exc),
+                    today=today_str,
+                    max_date=max_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
+                    sets_json=sets_json_raw,
+                )
+            rollup = _rollup_from_sets(sets)
 
             # --- Muscle REQUIRED validation ---
             if not muscle_str:
@@ -168,6 +204,7 @@ def new_exercise():
                     max_date=max_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
+                    sets_json=sets_json_raw,
                 )
 
             try:
@@ -182,6 +219,7 @@ def new_exercise():
                     today=today_str,
                     max_date=max_date_str,
                     weight_units=WEIGHT_UNITS,
+                    sets_json=sets_json_raw,
                     weight_unit_selected=weight_unit,
                 )
 
@@ -197,6 +235,7 @@ def new_exercise():
                     max_date=max_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
+                    sets_json=sets_json_raw,
                 )
 
             if workout is None:
@@ -214,6 +253,7 @@ def new_exercise():
                         max_date=max_date_str,
                         weight_units=WEIGHT_UNITS,
                         weight_unit_selected=weight_unit,
+                        sets_json=sets_json_raw,
                     )
 
                 # Validate date format
@@ -230,6 +270,7 @@ def new_exercise():
                         max_date=max_date_str,
                         weight_units=WEIGHT_UNITS,
                         weight_unit_selected=weight_unit,
+                        sets_json=sets_json_raw,
                     )
 
                 # Enforce future date ≤ 7 days
@@ -244,6 +285,7 @@ def new_exercise():
                         max_date=max_date_str,
                         weight_units=WEIGHT_UNITS,
                         weight_unit_selected=weight_unit,
+                        sets_json=sets_json_raw,
                     )
 
                 # Past dates are allowed (for backfilling), so no lower bound.
@@ -262,7 +304,6 @@ def new_exercise():
                 # Adding exercise into an existing workout
                 workout_id_to_use = workout["id"]
 
-            weight_used_kg = _normalize_weight_to_kg(weight_used, weight_unit)
             exercise_catalog_id = None
             if exercise_name:
                 exercise_catalog_id = exercise_catalog_repo.get_or_create(
@@ -285,19 +326,21 @@ def new_exercise():
                 notes=notes,
                 exercise_catalog_id=exercise_catalog_id,
                 exercise_name=exercise_name,
-                weight_used=weight_used,
+                weight_used=rollup["weight_used"],
                 weight_unit=weight_unit,
-                weight_used_kg=weight_used_kg,
-                num_of_sets=num_of_sets,
-                avg_reps=avg_reps,
-                max_reps=max_reps,
+                weight_used_kg=rollup["weight_used_kg"],
+                num_of_sets=rollup["num_of_sets"],
+                avg_reps=rollup["avg_reps"],
+                max_reps=rollup["max_reps"],
                 muscle_id=muscle_id,
+                sets=sets,
             )
 
             # After creating, go back to that workout's detail page
             return redirect(url_for("web.workout_detail", workout_id=workout_id_to_use))
 
-        # GET
+        # GET -- blank form; if arriving from the map/shortlist, main.js
+        # fills in exercise_name/muscle_id/sets_json from query params.
         return render_template(
             "exercises/new.html",
             workout=workout,
@@ -307,6 +350,7 @@ def new_exercise():
             max_date=max_date_str,
             weight_units=WEIGHT_UNITS,
             weight_unit_selected=default_unit,
+            sets_json="[]",
         )
     finally:
         conn.close()
@@ -365,11 +409,8 @@ def edit_exercise(exercise_id):
             date_str = request.form.get("date", "").strip()
             notes = request.form.get("notes", "").strip() or None
             exercise_name = _normalize_exercise_name(request.form.get("exercise_name", ""))
-            weight_str = request.form.get("weight_used", "").strip()
             weight_unit = request.form.get("weight_unit", "").strip() or exercise_unit
-            sets_str = request.form.get("num_of_sets", "").strip()
-            avg_reps_str = request.form.get("avg_reps", "").strip()
-            max_reps_str = request.form.get("max_reps", "").strip()
+            sets_json_raw = request.form.get("sets_json", "[]")
             muscle_str = request.form.get("muscle_id", "").strip()
 
             if weight_unit not in VALID_WEIGHT_UNITS:
@@ -384,6 +425,7 @@ def edit_exercise(exercise_id):
                     exercise_date=workout_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
+                    sets_json=sets_json_raw,
                 )
 
             # Validate date
@@ -399,6 +441,7 @@ def edit_exercise(exercise_id):
                     exercise_date=workout_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
+                    sets_json=sets_json_raw,
                 )
 
             try:
@@ -415,6 +458,7 @@ def edit_exercise(exercise_id):
                     exercise_date=workout_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
+                    sets_json=sets_json_raw,
                 )
 
             if selected_date > max_future_date:
@@ -429,54 +473,26 @@ def edit_exercise(exercise_id):
                     exercise_date=workout_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
+                    sets_json=sets_json_raw,
                 )
 
             try:
-                weight_used = float(weight_str) if weight_str else None
-                num_of_sets = int(sets_str) if sets_str else None
-                avg_reps = float(avg_reps_str) if avg_reps_str else None
-                max_reps = int(max_reps_str) if max_reps_str else None
-            except ValueError:
-                error = "Please enter valid numbers for sets and reps."
+                sets = _parse_sets_json(sets_json_raw, weight_unit)
+            except ValueError as exc:
                 return render_template(
                     "exercises/edit.html",
                     exercise=exercise,
                     workout=workout,
                     muscles=muscles,
-                    error=error,
+                    error=str(exc),
                     max_date=max_date_str,
                     exercise_date=workout_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
+                    sets_json=sets_json_raw,
                 )
+            rollup = _rollup_from_sets(sets)
 
-            if avg_reps is not None and avg_reps <= 0:
-                error = "Average reps must be greater than 0."
-                return render_template(
-                    "exercises/edit.html",
-                    exercise=exercise,
-                    workout=workout,
-                    muscles=muscles,
-                    error=error,
-                    max_date=max_date_str,
-                    exercise_date=workout_date_str,
-                    weight_units=WEIGHT_UNITS,
-                    weight_unit_selected=weight_unit,
-                )
-
-            if max_reps is not None and max_reps <= 0:
-                error = "Max reps must be greater than 0."
-                return render_template(
-                    "exercises/edit.html",
-                    exercise=exercise,
-                    workout=workout,
-                    muscles=muscles,
-                    error=error,
-                    max_date=max_date_str,
-                    exercise_date=workout_date_str,
-                    weight_units=WEIGHT_UNITS,
-                    weight_unit_selected=weight_unit,
-                )
             muscle_id = int(muscle_str) if muscle_str else None
 
             if muscle_id is None:
@@ -491,6 +507,7 @@ def edit_exercise(exercise_id):
                     exercise_date=workout_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
+                    sets_json=sets_json_raw,
                 )
 
             selected_muscle = muscles_repo.get_muscle(conn, user_id, muscle_id)
@@ -506,6 +523,7 @@ def edit_exercise(exercise_id):
                     exercise_date=workout_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
+                    sets_json=sets_json_raw,
                 )
 
             if not selected_muscle["active"] and muscle_id != current_muscle_id:
@@ -520,6 +538,7 @@ def edit_exercise(exercise_id):
                     exercise_date=workout_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
+                    sets_json=sets_json_raw,
                 )
 
             # Decide which workout this exercise should belong to after the edit
@@ -540,7 +559,6 @@ def edit_exercise(exercise_id):
                         notes=None,
                     )
 
-            weight_used_kg = _normalize_weight_to_kg(weight_used, weight_unit)
             exercise_catalog_id = None
             if exercise_name:
                 exercise_catalog_id = exercise_catalog_repo.get_or_create(
@@ -563,14 +581,15 @@ def edit_exercise(exercise_id):
                 notes=notes,
                 exercise_catalog_id=exercise_catalog_id,
                 exercise_name=exercise_name,
-                weight_used=weight_used,
+                weight_used=rollup["weight_used"],
                 weight_unit=weight_unit,
-                weight_used_kg=weight_used_kg,
-                num_of_sets=num_of_sets,
-                avg_reps=avg_reps,
-                max_reps=max_reps,
+                weight_used_kg=rollup["weight_used_kg"],
+                num_of_sets=rollup["num_of_sets"],
+                avg_reps=rollup["avg_reps"],
+                max_reps=rollup["max_reps"],
                 muscle_id=muscle_id,
                 workout_id=target_workout_id,
+                sets=sets,
             )
 
             # If we moved the exercise to a different workout, clean up an empty original workout
@@ -589,6 +608,10 @@ def edit_exercise(exercise_id):
             if existing_catalog_id
             else ""
         )
+        existing_sets = exercises_repo.get_sets_for_exercise(conn, exercise_id)
+        sets_json_value = json.dumps(
+            [{"weight_used": s["weight_used"], "reps": s["reps"]} for s in existing_sets]
+        )
         return render_template(
             "exercises/edit.html",
             exercise=exercise,
@@ -600,6 +623,7 @@ def edit_exercise(exercise_id):
             weight_units=WEIGHT_UNITS,
             weight_unit_selected=exercise_unit,
             region_slugs=region_slugs_value,
+            sets_json=sets_json_value,
         )
     finally:
         conn.close()
@@ -700,6 +724,7 @@ def exercise_suggestions():
             "last_weight_unit": row.get("last_weight_unit"),
             "last_num_of_sets": row.get("last_num_of_sets"),
             "last_logged": _format_last_logged(row.get("last_workout_date")),
+            "last_sets": row.get("last_sets_json") or [],
         }
         for row in items
     ]
@@ -747,6 +772,7 @@ def region_shortlist():
             "last_weight_unit": row.get("last_weight_unit"),
             "last_num_of_sets": row.get("last_num_of_sets"),
             "last_logged": _format_last_logged(row.get("last_workout_date")),
+            "last_sets": row.get("last_sets_json") or [],
         }
         for row in your_rows
     ]

@@ -136,59 +136,61 @@
                   </span>
                   {% set show_sep = true %}
                 {% endif %}
-                {% if ex["weight_used"] is not none %}
-                  {% set stored_unit = ex["weight_unit"] if ex["weight_unit"] else "" %}
-                  {% set weight_used_kg = ex["weight_used_kg"] %}
-                  {% if unit_pref == "converted" and weight_used_kg is not none and stored_unit in ["lb", "kg"] %}
-                    {% if stored_unit == "kg" %}
-                      {% set display_weight = weight_used_kg / 0.45359237 %}
-                      {% set display_unit = "lb" %}
-                    {% else %}
-                      {% set display_weight = weight_used_kg %}
-                      {% set display_unit = "kg" %}
-                    {% endif %}
-                  {% else %}
-                    {% set display_weight = ex["weight_used"] %}
-                    {% set display_unit = stored_unit %}
-                  {% endif %}
+                {% set stored_unit = ex["weight_unit"] if ex["weight_unit"] else "" %}
+                {% if ex["sets"] %}
                   {% if show_sep %} | {% endif %}
-                  <span
-                    class="js-weight"
-                    data-weight-used="{{ ex['weight_used'] }}"
-                    data-weight-unit="{{ stored_unit }}"
-                    data-weight-kg="{% if weight_used_kg is not none %}{{ weight_used_kg }}{% endif %}"
-                  >
-                    {{ "%.2f"|format(display_weight) }}{% if display_unit %} {{ display_unit }}{% endif %}
+                  <span class="inline-flex flex-wrap items-center gap-x-1">
+                    {% for s in ex["sets"] %}
+                      <span class="whitespace-nowrap">
+                        {% if s["weight_used"] is not none %}
+                          {% set weight_kg = s["weight_used_kg"] %}
+                          {% if unit_pref == "converted" and weight_kg is not none and stored_unit in ["lb", "kg"] %}
+                            {% if stored_unit == "kg" %}
+                              {% set set_display_weight = weight_kg / 0.45359237 %}
+                              {% set set_display_unit = "lb" %}
+                            {% else %}
+                              {% set set_display_weight = weight_kg %}
+                              {% set set_display_unit = "kg" %}
+                            {% endif %}
+                          {% else %}
+                            {% set set_display_weight = s["weight_used"] %}
+                            {% set set_display_unit = stored_unit %}
+                          {% endif %}
+                          <span
+                            class="js-weight"
+                            data-weight-used="{{ s['weight_used'] }}"
+                            data-weight-unit="{{ stored_unit }}"
+                            data-weight-kg="{% if weight_kg is not none %}{{ weight_kg }}{% endif %}"
+                          >{{ "%.2f"|format(set_display_weight) }}{% if set_display_unit %} {{ set_display_unit }}{% endif %}</span>
+                        {% endif %}
+                        {% if s["weight_used"] is not none and s["reps"] is not none %}×{% endif %}
+                        {% if s["reps"] is not none %}{{ s["reps"] }}{% endif %}
+                      </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
+                    {% endfor %}
                   </span>
                   {% set show_sep = true %}
                 {% endif %}
-                {% if ex["num_of_sets"] is not none %}
-                  {% if show_sep %} | {% endif %}
-                  {{ ex["num_of_sets"] }} sets
-                  {% set show_sep = true %}
-                {% endif %}
-                {% if ex["avg_reps"] is not none %}
-                  {% if show_sep %} | {% endif %}
-                  Avg {{ ex["avg_reps"] }} reps
-                  {% set show_sep = true %}
-                {% endif %}
-                {% if ex["max_reps"] is not none %}
-                  {% if show_sep %} | {% endif %}
-                  Max {{ ex["max_reps"] }} reps
-                  {% set show_sep = true %}
-                {% endif %}
-                {% if ex["weight_used"] is not none and ex["num_of_sets"] is not none and ex["avg_reps"] is not none %}
-                  {% set volume = display_weight * ex["num_of_sets"] * ex["avg_reps"] %}
+                {% if ex["has_volume"] %}
+                  {% if unit_pref == "converted" and stored_unit in ["lb", "kg"] %}
+                    {% if stored_unit == "kg" %}
+                      {% set display_volume = ex["volume_kg"] / 0.45359237 %}
+                      {% set display_unit = "lb" %}
+                    {% else %}
+                      {% set display_volume = ex["volume_kg"] %}
+                      {% set display_unit = "kg" %}
+                    {% endif %}
+                  {% else %}
+                    {% set display_volume = ex["volume_stored"] %}
+                    {% set display_unit = stored_unit %}
+                  {% endif %}
                   {% if show_sep %} | {% endif %}
                   Volume
                   <span
                     class="js-volume tabular text-neutral-200 font-medium"
-                    data-weight-used="{{ ex['weight_used'] }}"
+                    data-volume-stored="{{ ex['volume_stored'] }}"
+                    data-volume-kg="{{ ex['volume_kg'] }}"
                     data-weight-unit="{{ stored_unit }}"
-                    data-weight-kg="{% if weight_used_kg is not none %}{{ weight_used_kg }}{% endif %}"
-                    data-sets="{{ ex['num_of_sets'] }}"
-                    data-reps="{{ ex['avg_reps'] }}"
-                  >{{ "{:,.0f}".format(volume) }}{% if display_unit %} {{ display_unit }}{% endif %}</span>
+                  >{{ "{:,.0f}".format(display_volume) }}{% if display_unit %} {{ display_unit }}{% endif %}</span>
                   {% set show_sep = true %}
                 {% endif %}
               </p>
@@ -270,29 +272,26 @@
         });
 
         volumes.forEach((el) => {
-          const rawWeight = parseFloat(el.dataset.weightUsed || "");
-          const sets = parseFloat(el.dataset.sets || "");
-          const reps = parseFloat(el.dataset.reps || "");
-          if (Number.isNaN(rawWeight) || Number.isNaN(sets) || Number.isNaN(reps)) return;
+          const rawVolume = parseFloat(el.dataset.volumeStored || "");
+          if (Number.isNaN(rawVolume)) return;
           const unit = (el.dataset.weightUnit || "").toLowerCase();
-          const rawKg = parseFloat(el.dataset.weightKg || "");
-          const hasKg = !Number.isNaN(rawKg);
+          const rawKgVolume = parseFloat(el.dataset.volumeKg || "");
+          const hasKg = !Number.isNaN(rawKgVolume);
 
-          let displayWeight = rawWeight;
+          let displayVolume = rawVolume;
           let displayUnit = unit;
 
           if (active === "converted" && hasKg && (unit === "lb" || unit === "kg")) {
             if (unit === "kg") {
-              displayWeight = rawKg / 0.45359237;
+              displayVolume = rawKgVolume / 0.45359237;
               displayUnit = "lb";
             } else {
-              displayWeight = rawKg;
+              displayVolume = rawKgVolume;
               displayUnit = "kg";
             }
           }
 
-          const volume = displayWeight * sets * reps;
-          const formatted = Math.round(volume).toLocaleString("en-US");
+          const formatted = Math.round(displayVolume).toLocaleString("en-US");
           el.textContent = displayUnit ? `${formatted} ${displayUnit}` : formatted;
         });
       };

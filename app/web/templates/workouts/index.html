@@ -32,8 +32,15 @@
         id="bodyMap"
         data-new-exercise-url="{{ url_for('web.new_exercise') }}"
         data-shortlist-endpoint="{{ url_for('web.region_shortlist') }}"
+        data-overdue-regions="{{ overdue_regions|join(',') }}"
       ></div>
-      <p id="mapHint" class="mt-2 text-center text-xs text-neutral-500">Tap a muscle to see exercises</p>
+      <p id="mapHint" class="mt-2 text-center text-xs text-neutral-500">
+        {% if overdue_regions %}
+          Due: {{ overdue_regions|map('replace', '-', ' ')|join(' + ') }}
+        {% else %}
+          Tap a muscle to see exercises
+        {% endif %}
+      </p>
     </div>
   </div>
 

@@ -2,6 +2,50 @@
 
 from sqlalchemy import text
 
+
+def get_sets_for_exercise(conn, exercise_id: int):
+    sql = """
+        SELECT set_index, weight_used, weight_unit, weight_used_kg, reps
+        FROM exercise_set
+        WHERE exercise_id = :exercise_id
+        ORDER BY set_index
+    """
+    result = conn.execute(text(sql), {"exercise_id": exercise_id})
+    return result.mappings().all()
+
+
+def _replace_sets(conn, exercise_id: int, sets: list[dict] | None) -> None:
+    """
+    sets: [{"weight_used": float|None, "weight_unit": str|None,
+             "weight_used_kg": float|None, "reps": int|None}, ...]
+    Full replace -- simpler and safer than diffing for a handful of rows
+    per exercise, and this always runs inside the caller's transaction.
+    """
+    if sets is None:
+        return
+    conn.execute(
+        text("DELETE FROM exercise_set WHERE exercise_id = :exercise_id"),
+        {"exercise_id": exercise_id},
+    )
+    for index, set_row in enumerate(sets, start=1):
+        conn.execute(
+            text(
+                """
+                INSERT INTO exercise_set
+                    (exercise_id, set_index, weight_used, weight_unit, weight_used_kg, reps)
+                VALUES (:exercise_id, :set_index, :weight_used, :weight_unit, :weight_used_kg, :reps)
+                """
+            ),
+            {
+                "exercise_id": exercise_id,
+                "set_index": index,
+                "weight_used": set_row.get("weight_used"),
+                "weight_unit": set_row.get("weight_unit"),
+                "weight_used_kg": set_row.get("weight_used_kg"),
+                "reps": set_row.get("reps"),
+            },
+        )
+
 def list_for_workout(conn, workout_id: int):
     sql = """
         SELECT
@@ -144,6 +188,7 @@ def create_exercise(
     muscle_id=None,
     exercise_catalog_id=None,
     exercise_name=None,
+    sets=None,
 ):
     """
     Create an exercise row and optionally link it to a muscle
@@ -200,6 +245,8 @@ def create_exercise(
             {"muscle_id": muscle_id, "exercise_id": exercise_id},
         )
 
+    _replace_sets(conn, exercise_id, sets)
+
     conn.commit()
     return exercise_id
 
@@ -219,6 +266,7 @@ def update_exercise(
     workout_id=None,
     exercise_catalog_id=None,
     exercise_name=None,
+    sets=None,
 ):
     """
     Update exercise fields, its (single) muscle mapping, and optionally
@@ -298,6 +346,8 @@ def update_exercise(
             text("INSERT INTO exercise_muscle (muscle_id, exercise_id) VALUES (:muscle_id, :exercise_id)"),
             {"muscle_id": muscle_id, "exercise_id": exercise_id},
         )
+
+    _replace_sets(conn, exercise_id, sets)
 
     conn.commit()
 

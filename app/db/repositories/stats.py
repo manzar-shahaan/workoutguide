@@ -2,12 +2,16 @@
 
 from sqlalchemy import text
 
-WEIGHT_EXPR = """
+# Per-set weight, in kg, falling back to a unit conversion for any set
+# missing weight_used_kg. Every progression/volume metric reads from
+# exercise_set now (joined in as `s` by each query below), not the
+# exercise-level rollup columns -- those are display-only now.
+SET_WEIGHT_EXPR = """
     COALESCE(
-        e.weight_used_kg,
+        s.weight_used_kg,
         CASE
-            WHEN e.weight_unit = 'lb' THEN e.weight_used * 0.45359237
-            WHEN e.weight_unit = 'kg' THEN e.weight_used
+            WHEN s.weight_unit = 'lb' THEN s.weight_used * 0.45359237
+            WHEN s.weight_unit = 'kg' THEN s.weight_used
             ELSE NULL
         END
     )
@@ -16,15 +20,15 @@ WEIGHT_EXPR = """
 
 def _metric_select(metric: str) -> tuple[str, str]:
     if metric == "avg_reps":
-        return "AVG(e.avg_reps) AS value", "e.avg_reps IS NOT NULL"
+        return "AVG(s.reps) AS value", "s.reps IS NOT NULL"
     if metric == "max_reps":
-        return "MAX(e.max_reps) AS value", "e.max_reps IS NOT NULL"
+        return "MAX(s.reps) AS value", "s.reps IS NOT NULL"
     if metric == "volume":
         return (
-            f"SUM({WEIGHT_EXPR} * e.avg_reps * e.num_of_sets) AS value",
-            f"{WEIGHT_EXPR} IS NOT NULL AND e.avg_reps IS NOT NULL AND e.num_of_sets IS NOT NULL",
+            f"SUM({SET_WEIGHT_EXPR} * s.reps) AS value",
+            f"{SET_WEIGHT_EXPR} IS NOT NULL AND s.reps IS NOT NULL",
         )
-    return f"MAX({WEIGHT_EXPR}) AS value", f"{WEIGHT_EXPR} IS NOT NULL"
+    return f"MAX({SET_WEIGHT_EXPR}) AS value", f"{SET_WEIGHT_EXPR} IS NOT NULL"
 
 
 def exercise_activity_by_day(conn, user_id: int, start_date, end_date):
@@ -106,6 +110,7 @@ def muscle_progression(conn, user_id: int, muscle_id: int, start_date, end_date,
         FROM workout w
         JOIN exercise e ON e.workout_id = w.id
         JOIN exercise_muscle em ON em.exercise_id = e.id
+        JOIN exercise_set s ON s.exercise_id = e.id
         WHERE w.user_id = :user_id
           AND em.muscle_id = :muscle_id
           AND {where_expr}
@@ -135,6 +140,7 @@ def exercise_progression(conn, user_id: int, exercise_id: int, start_date, end_d
             {select_expr}
         FROM workout w
         JOIN exercise e ON e.workout_id = w.id
+        JOIN exercise_set s ON s.exercise_id = e.id
         WHERE w.user_id = :user_id
           AND e.exercise_catalog_id = :exercise_id
           AND {where_expr}
@@ -175,6 +181,7 @@ def exercise_progression_multi(
         FROM workout w
         JOIN exercise e ON e.workout_id = w.id
         JOIN exercise_catalog ec ON ec.id = e.exercise_catalog_id
+        JOIN exercise_set s ON s.exercise_id = e.id
         WHERE w.user_id = :user_id
           AND ec.user_id = :user_id
           AND ec.muscle_id = :muscle_id
