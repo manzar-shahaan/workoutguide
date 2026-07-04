@@ -37,7 +37,7 @@
           <div class="flex flex-wrap items-center gap-2">
             <select
               id="muscleSelect"
-              class="h-9 rounded-md border border-neutral-700 bg-neutral-900 px-3 text-xs text-neutral-100"
+              class="h-9 rounded-md border border-neutral-800 bg-black px-3 text-xs text-neutral-100"
             >
               {% for m in muscles %}
                 <option
@@ -59,7 +59,7 @@
                 value="{{ chart_exercise_ids | join(',') }}"
               >
               <summary
-                class="list-none inline-flex h-9 min-w-[140px] items-center justify-between rounded-md border border-neutral-700 bg-neutral-900 px-3 text-xs text-neutral-100 hover:bg-neutral-800 cursor-pointer"
+                class="list-none inline-flex h-9 min-w-[140px] items-center justify-between rounded-md border border-neutral-800 bg-black px-3 text-xs text-neutral-100 hover:bg-black cursor-pointer"
               >
                 <span data-exercise-label>All exercises</span>
                 <span class="text-neutral-400">▾</span>
@@ -70,14 +70,14 @@
                 <div class="mb-2 flex items-center gap-2">
                   <button
                     type="button"
-                    class="rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-[11px] text-neutral-200 hover:bg-neutral-800"
+                    class="rounded-md border border-neutral-800 bg-black px-2 py-1 text-[11px] text-neutral-200 hover:bg-neutral-800"
                     data-exercise-select-all
                   >
                     Select all
                   </button>
                   <button
                     type="button"
-                    class="rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-[11px] text-neutral-200 hover:bg-neutral-800"
+                    class="rounded-md border border-neutral-800 bg-black px-2 py-1 text-[11px] text-neutral-200 hover:bg-neutral-800"
                     data-exercise-clear
                   >
                     Clear
@@ -103,7 +103,7 @@
             </details>
             <select
               id="metricSelect"
-              class="h-9 rounded-md border border-neutral-700 bg-neutral-900 px-3 text-xs text-neutral-100"
+              class="h-9 rounded-md border border-neutral-800 bg-black px-3 text-xs text-neutral-100"
             >
               <option value="weight" {% if chart_metric == 'weight' %}selected{% endif %}>Weight</option>
               <option value="avg_reps" {% if chart_metric == 'avg_reps' %}selected{% endif %}>Avg reps</option>
@@ -112,7 +112,7 @@
             </select>
             <select
               id="rangeSelect"
-              class="h-9 rounded-md border border-neutral-700 bg-neutral-900 px-3 text-xs text-neutral-100"
+              class="h-9 rounded-md border border-neutral-800 bg-black px-3 text-xs text-neutral-100"
             >
               <option value="last_week" {% if chart_range == 'last_week' %}selected{% endif %}>Last week</option>
               <option value="last_month" {% if chart_range == 'last_month' %}selected{% endif %}>Last month</option>
@@ -125,7 +125,7 @@
             <button
               type="button"
               id="resetZoom"
-              class="inline-flex h-9 items-center rounded-md border border-neutral-700 bg-neutral-900 px-3 text-xs text-neutral-100 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
+              class="inline-flex h-9 items-center rounded-md border border-neutral-800 bg-black px-3 text-xs text-neutral-100 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Reset zoom
             </button>
@@ -139,18 +139,18 @@
             type="date"
             id="customStart"
             value="{{ custom_start_default.strftime('%Y-%m-%d') }}"
-            class="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs text-neutral-100"
+            class="rounded-md border border-neutral-800 bg-black px-3 py-2 text-xs text-neutral-100"
           >
           <input
             type="date"
             id="customEnd"
             value="{{ custom_end_default.strftime('%Y-%m-%d') }}"
-            class="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs text-neutral-100"
+            class="rounded-md border border-neutral-800 bg-black px-3 py-2 text-xs text-neutral-100"
           >
           <button
             type="button"
             id="applyRange"
-            class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs font-medium text-neutral-200 hover:bg-neutral-700"
+            class="inline-flex items-center rounded-md border border-neutral-800 bg-black px-3 py-2 text-xs font-medium text-neutral-200 hover:bg-neutral-900"
           >
             Apply
           </button>
@@ -188,19 +188,19 @@
           <div class="flex items-center gap-2" data-view-block="month">
             <a
               href="{{ url_for('web.stats_index', view='month', date=month_prev_date.strftime('%Y-%m-%d')) }}"
-              class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-700"
+              class="inline-flex items-center rounded-md border border-neutral-800 bg-black px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-900"
             >
               Prev
             </a>
             <a
               href="{{ url_for('web.stats_index', view='month', date=today.strftime('%Y-%m-%d')) }}"
-              class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-700"
+              class="inline-flex items-center rounded-md border border-neutral-800 bg-black px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-900"
             >
               Today
             </a>
             <a
               href="{{ url_for('web.stats_index', view='month', date=month_next_date.strftime('%Y-%m-%d')) }}"
-              class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-700"
+              class="inline-flex items-center rounded-md border border-neutral-800 bg-black px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-900"
             >
               Next
             </a>
@@ -209,19 +209,19 @@
           <div class="flex items-center gap-2 hidden" data-view-block="week">
             <a
               href="{{ url_for('web.stats_index', view='week', date=week_prev_date.strftime('%Y-%m-%d')) }}"
-              class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-700"
+              class="inline-flex items-center rounded-md border border-neutral-800 bg-black px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-900"
             >
               Prev
             </a>
             <a
               href="{{ url_for('web.stats_index', view='week', date=today.strftime('%Y-%m-%d')) }}"
-              class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-700"
+              class="inline-flex items-center rounded-md border border-neutral-800 bg-black px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-900"
             >
               Today
             </a>
             <a
               href="{{ url_for('web.stats_index', view='week', date=week_next_date.strftime('%Y-%m-%d')) }}"
-              class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-700"
+              class="inline-flex items-center rounded-md border border-neutral-800 bg-black px-2.5 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-900"
             >
               Next
             </a>
@@ -232,14 +232,14 @@
           <button
             type="button"
             data-view-button="month"
-            class="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium border border-neutral-700 bg-neutral-900 text-neutral-200 hover:bg-neutral-800"
+            class="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium border border-neutral-800 bg-black text-neutral-200 hover:bg-neutral-800"
           >
             Month
           </button>
           <button
             type="button"
             data-view-button="week"
-            class="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium border border-neutral-700 bg-neutral-900 text-neutral-200 hover:bg-neutral-800"
+            class="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium border border-neutral-800 bg-black text-neutral-200 hover:bg-neutral-800"
           >
             Week
           </button>

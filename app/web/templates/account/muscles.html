@@ -29,14 +29,14 @@
           name="name"
           type="text"
           placeholder="e.g., shoulders"
-          class="flex-1 rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100"
+          class="flex-1 rounded-md border border-neutral-800 bg-black px-3 py-2 text-sm text-neutral-100"
           required
         >
         <input
           name="color"
           type="color"
           value="#64748b"
-          class="h-9 w-14 rounded-md border border-neutral-700 bg-neutral-900 px-1"
+          class="h-9 w-14 rounded-md border border-neutral-800 bg-black px-1"
           aria-label="Pick a color for this muscle"
         >
         <button
@@ -97,14 +97,14 @@
                     name="new_name"
                     type="text"
                     value="{{ m['name'] }}"
-                    class="flex-1 h-9 rounded-md border border-neutral-700 bg-neutral-900 px-3 text-sm text-neutral-100"
+                    class="flex-1 h-9 rounded-md border border-neutral-800 bg-black px-3 text-sm text-neutral-100"
                     required
                   >
                   <input
                     name="color"
                     type="color"
                     value="{{ m['color'] or '#64748b' }}"
-                    class="h-9 w-12 rounded-md border border-neutral-700 bg-neutral-900 px-1"
+                    class="h-9 w-12 rounded-md border border-neutral-800 bg-black px-1"
                     aria-label="Pick a color for this muscle"
                   >
                   <button
@@ -136,7 +136,7 @@
                   <input type="hidden" name="source_muscle_id" value="{{ m['id'] }}">
                   <select
                     name="target_muscle_id"
-                    class="h-9 flex-1 rounded-md border border-neutral-700 bg-neutral-900 px-3 text-xs text-neutral-100"
+                    class="h-9 flex-1 rounded-md border border-neutral-800 bg-black px-3 text-xs text-neutral-100"
                     required
                   >
                     <option value="" disabled selected>Merge into...</option>
@@ -184,7 +184,7 @@
                               name="new_name"
                               type="text"
                               value="{{ t['name'] }}"
-                              class="flex-1 h-8 rounded-md border border-neutral-700 bg-neutral-900 px-2 text-xs text-neutral-100"
+                              class="flex-1 h-8 rounded-md border border-neutral-800 bg-black px-2 text-xs text-neutral-100"
                               required
                             >
                             <button
@@ -202,7 +202,7 @@
                               <input type="hidden" name="source_template_id" value="{{ t['id'] }}">
                               <select
                                 name="target_template_id"
-                                class="flex-1 h-8 rounded-md border border-neutral-700 bg-neutral-900 px-2 text-xs text-neutral-100"
+                                class="flex-1 h-8 rounded-md border border-neutral-800 bg-black px-2 text-xs text-neutral-100"
                                 required
                               >
                                 <option value="" disabled selected>Merge into...</option>

@@ -26,7 +26,7 @@
       {% if not edit_mode %}
         <a
           href="{{ url_for('web.account_settings', edit=1) }}"
-          class="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-xs sm:text-sm font-medium text-neutral-200 hover:bg-neutral-700 transition-colors duration-200"
+          class="inline-flex items-center gap-1.5 rounded-md border border-neutral-800 bg-black px-3 py-1.5 text-xs sm:text-sm font-medium text-neutral-200 hover:bg-neutral-900 transition-colors duration-200"
         >
           <i data-lucide="pencil" class="h-4 w-4"></i>
           Edit profile
@@ -157,7 +157,7 @@
         </p>
         <a
             href="{{ url_for('web.account_2fa') }}"
-            class="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-xs sm:text-sm text-neutral-200 hover:bg-neutral-700 transition-colors duration-200"
+            class="inline-flex items-center rounded-md border border-neutral-800 bg-black px-3 py-1.5 text-xs sm:text-sm text-neutral-200 hover:bg-neutral-900 transition-colors duration-200"
         >
             Manage 2FA &amp; backup codes
         </a>
@@ -303,7 +303,7 @@
           <input
             id="passwordConfirmInput"
             type="password"
-            class="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100"
+            class="w-full rounded-md border border-neutral-800 bg-black px-3 py-2 text-sm text-neutral-100"
           >
         </div>
         <div class="flex justify-end gap-2">

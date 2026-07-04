@@ -16,9 +16,14 @@
       <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-neutral-100">
         {{ workout_date_display }}
       </h1>
-      <p class="mt-1 text-xs text-neutral-500">
-        ID: {{ workout["id"] }}
-      </p>
+      {% if session_volume is not none %}
+        <p class="mt-1 text-sm text-neutral-400">
+          Session volume:
+          <span class="tabular text-neutral-100 font-medium">
+            {{ "{:,.0f}".format(session_volume) }} {{ session_volume_unit }}
+          </span>
+        </p>
+      {% endif %}
 
       {% if workout_muscles %}
         <div class="mt-2 text-xs text-neutral-500">
@@ -44,7 +49,7 @@
           type="button"
           id="unitToggle"
           data-mode="{{ unit_pref }}"
-          class="inline-flex w-full items-center justify-center rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs font-medium text-neutral-200 hover:bg-neutral-700 transition-colors duration-200 sm:w-auto sm:text-sm"
+          class="inline-flex w-full items-center justify-center rounded-md border border-neutral-800 bg-black px-3 py-2 text-xs font-medium text-neutral-200 hover:bg-neutral-900 transition-colors duration-200 sm:w-auto sm:text-sm"
         >
           <span
             data-unit-label
@@ -62,7 +67,7 @@
         {% if editable %}
           <a
             href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=0, unit=unit_pref) }}"
-            class="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-700 transition-colors duration-200 sm:w-auto sm:text-sm"
+            class="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-800 bg-black px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-900 transition-colors duration-200 sm:w-auto sm:text-sm"
           >
             <i data-lucide="check" class="h-4 w-4"></i>
             Done editing
@@ -70,7 +75,7 @@
         {% else %}
           <a
             href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=1, unit=unit_pref) }}"
-            class="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-700 transition-colors duration-200 sm:w-auto sm:text-sm"
+            class="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-800 bg-black px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-900 transition-colors duration-200 sm:w-auto sm:text-sm"
           >
             <i data-lucide="pencil" class="h-4 w-4"></i>
             Edit workout
@@ -172,6 +177,20 @@
                   Max {{ ex["max_reps"] }} reps
                   {% set show_sep = true %}
                 {% endif %}
+                {% if ex["weight_used"] is not none and ex["num_of_sets"] is not none and ex["avg_reps"] is not none %}
+                  {% set volume = display_weight * ex["num_of_sets"] * ex["avg_reps"] %}
+                  {% if show_sep %} | {% endif %}
+                  Volume
+                  <span
+                    class="js-volume tabular text-neutral-200 font-medium"
+                    data-weight-used="{{ ex['weight_used'] }}"
+                    data-weight-unit="{{ stored_unit }}"
+                    data-weight-kg="{% if weight_used_kg is not none %}{{ weight_used_kg }}{% endif %}"
+                    data-sets="{{ ex['num_of_sets'] }}"
+                    data-reps="{{ ex['avg_reps'] }}"
+                  >{{ "{:,.0f}".format(volume) }}{% if display_unit %} {{ display_unit }}{% endif %}</span>
+                  {% set show_sep = true %}
+                {% endif %}
               </p>
             </div>
 
@@ -179,7 +198,7 @@
               <div class="flex items-center gap-2">
                 <a
                   href="{{ url_for('web.edit_exercise', exercise_id=ex['id']) }}"
-                  class="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-700 transition-colors duration-200"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-neutral-800 bg-black px-3 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-900 transition-colors duration-200"
                 >
                   <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
                   Edit
@@ -213,6 +232,7 @@
 
       const label = toggle.querySelector("[data-unit-label]");
       const weights = document.querySelectorAll(".js-weight");
+      const volumes = document.querySelectorAll(".js-volume");
 
       const setMode = (mode) => {
         const active = mode === "converted" ? "converted" : "stored";
@@ -246,6 +266,33 @@
           }
 
           const formatted = displayWeight.toFixed(2);
+          el.textContent = displayUnit ? `${formatted} ${displayUnit}` : formatted;
+        });
+
+        volumes.forEach((el) => {
+          const rawWeight = parseFloat(el.dataset.weightUsed || "");
+          const sets = parseFloat(el.dataset.sets || "");
+          const reps = parseFloat(el.dataset.reps || "");
+          if (Number.isNaN(rawWeight) || Number.isNaN(sets) || Number.isNaN(reps)) return;
+          const unit = (el.dataset.weightUnit || "").toLowerCase();
+          const rawKg = parseFloat(el.dataset.weightKg || "");
+          const hasKg = !Number.isNaN(rawKg);
+
+          let displayWeight = rawWeight;
+          let displayUnit = unit;
+
+          if (active === "converted" && hasKg && (unit === "lb" || unit === "kg")) {
+            if (unit === "kg") {
+              displayWeight = rawKg / 0.45359237;
+              displayUnit = "lb";
+            } else {
+              displayWeight = rawKg;
+              displayUnit = "kg";
+            }
+          }
+
+          const volume = displayWeight * sets * reps;
+          const formatted = Math.round(volume).toLocaleString("en-US");
           el.textContent = displayUnit ? `${formatted} ${displayUnit}` : formatted;
         });
       };

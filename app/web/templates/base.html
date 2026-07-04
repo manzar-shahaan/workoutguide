@@ -3,7 +3,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>{% block title %}Workout tracker{% endblock %}</title>
+    <title>{% block title %}Pace{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
     {# PWA: manifest + icons #}
@@ -16,7 +16,7 @@
     {# iOS home-screen app behavior (manifest 'display' is ignored by iOS Safari) #}
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Workout">
+    <meta name="apple-mobile-web-app-title" content="Pace">
 
     {# Tailwind CDN #}
     <script src="https://cdn.tailwindcss.com"></script>
@@ -58,27 +58,27 @@
          .surface for primary cards, .surface-raised for nested/list rows
          sitting a little further off the page. */
       .surface {
-        background-color: #141414;
+        background-color: #0a0a0a;
         border-radius: 16px;
         box-shadow:
-          0 0 0 1px rgba(255, 255, 255, 0.06),
-          0 1px 2px rgba(0, 0, 0, 0.3),
-          0 8px 24px rgba(0, 0, 0, 0.35);
+          0 0 0 1px rgba(255, 255, 255, 0.1),
+          0 1px 2px rgba(0, 0, 0, 0.4),
+          0 8px 24px rgba(0, 0, 0, 0.45);
       }
       .surface-raised {
-        background-color: #1c1c1c;
+        background-color: #0d0d0d;
         border-radius: 16px;
         box-shadow:
-          0 0 0 1px rgba(255, 255, 255, 0.05),
-          0 1px 2px rgba(0, 0, 0, 0.25);
+          0 0 0 1px rgba(255, 255, 255, 0.09),
+          0 1px 2px rgba(0, 0, 0, 0.35);
         transition: box-shadow 200ms ease, background-color 200ms ease, transform 200ms ease;
       }
       a:has(> .surface-raised):hover .surface-raised,
       .surface-raised:hover {
-        background-color: #212121;
+        background-color: #141414;
         box-shadow:
-          0 0 0 1px rgba(255, 255, 255, 0.1),
-          0 4px 16px rgba(0, 0, 0, 0.4);
+          0 0 0 1px rgba(255, 255, 255, 0.16),
+          0 4px 16px rgba(0, 0, 0, 0.5);
       }
 
       /* Forms: same elevation recipe as .surface-raised (soft shadow, no
@@ -200,7 +200,7 @@
       {# Full-width nav so it visually matches the popover width on desktop #}
       <nav class="flex items-center justify-between px-4 py-4">
         <a href="{{ url_for('web.workouts_index') }}" class="font-semibold tracking-tight text-neutral-100">
-          Workout tracker
+          Pace
         </a>
 
         <div class="flex items-center gap-4 text-xs sm:text-sm">

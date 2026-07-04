@@ -1,6 +1,6 @@
 {
-  "name": "Workout Tracker",
-  "short_name": "Workout",
+  "name": "Pace",
+  "short_name": "Pace",
   "description": "Log workouts fast.",
   "start_url": "/workouts",
   "scope": "/",

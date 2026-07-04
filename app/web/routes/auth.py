@@ -366,7 +366,7 @@ def account_2fa():
 
 
     totp = pyotp.TOTP(pending_secret)
-    otpauth_url = totp.provisioning_uri(name=db_user["email"], issuer_name="Workout tracker")
+    otpauth_url = totp.provisioning_uri(name=db_user["email"], issuer_name="Pace")
 
     if request.method == "POST":
         code = (request.form.get("code") or "").strip()

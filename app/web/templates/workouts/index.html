@@ -194,35 +194,30 @@
                     href="{{ url_for('web.workout_detail', workout_id=w['id']) }}"
                     class="block surface-raised rounded-xl px-5 py-4 transition-all duration-200"
                   >
-                    <div class="flex items-center justify-between">
-                      <div>
-                        {% if w["muscles_list"] %}
-                          <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-neutral-100">
-                            {% for m in w["muscles_list"] %}
-                              <span class="inline-flex items-center gap-1">
-                                <span
-                                  class="h-2 w-2 rounded-full"
-                                  style="background-color: {{ m['color'] }};"
-                                ></span>
-                                {{ m["name"] }}
-                              </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
-                            {% endfor %}
-                          </div>
-                          <p class="mt-1 text-sm text-neutral-500 tabular">
-                            {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
-                          </p>
-                        {% else %}
-                          <p class="text-sm font-semibold text-neutral-100">
-                            {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
-                          </p>
-                          <p class="mt-1 text-sm text-neutral-500 tabular">
-                            No muscle groups logged yet
-                          </p>
-                        {% endif %}
-                      </div>
-                      <span class="text-sm text-neutral-500 tabular">
-                        #{{ w["id"] }}
-                      </span>
+                    <div>
+                      {% if w["muscles_list"] %}
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-neutral-100">
+                          {% for m in w["muscles_list"] %}
+                            <span class="inline-flex items-center gap-1">
+                              <span
+                                class="h-2 w-2 rounded-full"
+                                style="background-color: {{ m['color'] }};"
+                              ></span>
+                              {{ m["name"] }}
+                            </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
+                          {% endfor %}
+                        </div>
+                        <p class="mt-1 text-sm text-neutral-500 tabular">
+                          {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
+                        </p>
+                      {% else %}
+                        <p class="text-sm font-semibold text-neutral-100">
+                          {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
+                        </p>
+                        <p class="mt-1 text-sm text-neutral-500 tabular">
+                          No muscle groups logged yet
+                        </p>
+                      {% endif %}
                     </div>
                   </a>
                 </li>
@@ -253,35 +248,30 @@
                             href="{{ url_for('web.workout_detail', workout_id=w['id']) }}"
                             class="block surface rounded-xl px-5 py-4 transition-all duration-200"
                           >
-                            <div class="flex items-center justify-between">
-                              <div>
-                                {% if w["muscles_list"] %}
-                                  <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-neutral-100">
-                                    {% for m in w["muscles_list"] %}
-                                      <span class="inline-flex items-center gap-1">
-                                        <span
-                                          class="h-2 w-2 rounded-full"
-                                          style="background-color: {{ m['color'] }};"
-                                        ></span>
-                                        {{ m["name"] }}
-                                      </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
-                                    {% endfor %}
-                                  </div>
-                                  <p class="mt-1 text-sm text-neutral-500 tabular">
-                                    {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
-                                  </p>
-                                {% else %}
-                                  <p class="text-sm font-semibold text-neutral-100">
-                                    {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
-                                  </p>
-                                  <p class="mt-1 text-sm text-neutral-500 tabular">
-                                    No muscle groups logged yet
-                                  </p>
-                                {% endif %}
-                              </div>
-                              <span class="text-sm text-neutral-500 tabular">
-                                #{{ w["id"] }}
-                              </span>
+                            <div>
+                              {% if w["muscles_list"] %}
+                                <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-neutral-100">
+                                  {% for m in w["muscles_list"] %}
+                                    <span class="inline-flex items-center gap-1">
+                                      <span
+                                        class="h-2 w-2 rounded-full"
+                                        style="background-color: {{ m['color'] }};"
+                                      ></span>
+                                      {{ m["name"] }}
+                                    </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
+                                  {% endfor %}
+                                </div>
+                                <p class="mt-1 text-sm text-neutral-500 tabular">
+                                  {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
+                                </p>
+                              {% else %}
+                                <p class="text-sm font-semibold text-neutral-100">
+                                  {{ w["date"].strftime('%a') }} | {{ w["date_display"] }}
+                                </p>
+                                <p class="mt-1 text-sm text-neutral-500 tabular">
+                                  No muscle groups logged yet
+                                </p>
+                              {% endif %}
                             </div>
                           </a>
                         </li>
@@ -352,7 +342,7 @@
           </span>
           <a
             href="{{ url_for('web.stats_index', view='month', date=stats_month_anchor.strftime('%Y-%m-%d')) }}"
-            class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-700 transition-colors duration-200"
+            class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-neutral-800 bg-black px-3 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-900 transition-colors duration-200"
           >
             View more stats
             <i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>

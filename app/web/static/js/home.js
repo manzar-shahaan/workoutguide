@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const highlighter = createBodyMap({
     container: mapContainer,
     view: "anterior",
-    bodyColor: "#404040", // neutral-700: visible silhouette against black, no color signal
+    bodyColor: "#f5f5f5", // near-white: flat fill, thin dark stroke does the definition
     highlightColor: "#22c55e", // the one accent color, only on what's selected
     style: { width: "100%", maxWidth: "280px", margin: "0 auto" },
     onClick: ({ muscle }) => toggleRegion(muscle),

@@ -362,6 +362,28 @@ def workout_detail(workout_id):
     )
     workout_date_display = format_date(workout_date_obj)
 
+    # Session volume total: always in the user's preferred unit, computed
+    # from weight_used_kg so mixed lb/kg entries sum correctly. Unlike the
+    # per-row weight display, this doesn't follow the stored/converted
+    # toggle -- "converted" flips each row to *its own* opposite unit, which
+    # has no single consistent meaning to sum across rows.
+    session_volume_kg = 0.0
+    has_volume = False
+    for ex in formatted_exercises:
+        kg = ex.get("weight_used_kg")
+        sets = ex.get("num_of_sets")
+        reps = ex.get("avg_reps")
+        if kg is not None and sets is not None and reps is not None:
+            session_volume_kg += kg * sets * reps
+            has_volume = True
+
+    session_volume_unit = g.user.get("weight_unit") or "lb"
+    session_volume = None
+    if has_volume:
+        session_volume = (
+            session_volume_kg / 0.45359237 if session_volume_unit == "lb" else session_volume_kg
+        )
+
     return render_template(
         "workouts/detail.html",
         workout=workout,
@@ -370,6 +392,8 @@ def workout_detail(workout_id):
         exercises=formatted_exercises,
         editable=editable,
         unit_pref=unit_pref,
+        session_volume=session_volume,
+        session_volume_unit=session_volume_unit,
     )
 
 

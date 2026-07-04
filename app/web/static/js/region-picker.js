@@ -23,7 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const highlighter = createBodyMap({
     container: mapEl,
     view: "anterior",
-    bodyColor: "#404040", // neutral-700
+    bodyColor: "#f5f5f5", // near-white
     highlightColor: "#22c55e",
     style: { width: "100%", maxWidth: "140px", margin: "0 auto" },
     onClick: ({ muscle }) => toggleRegion(muscle),
