@@ -5,7 +5,8 @@ from sqlalchemy import text
 
 def get_sets_for_exercise(conn, exercise_id: int):
     sql = """
-        SELECT set_index, weight_used, weight_unit, weight_used_kg, reps
+        SELECT set_index, weight_used, weight_unit, weight_used_kg, reps,
+               duration_seconds, distance, distance_unit
         FROM exercise_set
         WHERE exercise_id = :exercise_id
         ORDER BY set_index
@@ -17,9 +18,14 @@ def get_sets_for_exercise(conn, exercise_id: int):
 def _replace_sets(conn, exercise_id: int, sets: list[dict] | None) -> None:
     """
     sets: [{"weight_used": float|None, "weight_unit": str|None,
-             "weight_used_kg": float|None, "reps": int|None}, ...]
-    Full replace -- simpler and safer than diffing for a handful of rows
-    per exercise, and this always runs inside the caller's transaction.
+             "weight_used_kg": float|None, "reps": int|None,
+             "duration_seconds": int|None, "distance": float|None,
+             "distance_unit": str|None}, ...]
+    A given exercise only ever populates the weight/reps trio (strength/
+    mobility/plyometrics) or the duration/distance trio (cardio) -- the
+    other stays NULL. Full replace -- simpler and safer than diffing for a
+    handful of rows per exercise, and this always runs inside the caller's
+    transaction.
     """
     if sets is None:
         return
@@ -32,8 +38,10 @@ def _replace_sets(conn, exercise_id: int, sets: list[dict] | None) -> None:
             text(
                 """
                 INSERT INTO exercise_set
-                    (exercise_id, set_index, weight_used, weight_unit, weight_used_kg, reps)
-                VALUES (:exercise_id, :set_index, :weight_used, :weight_unit, :weight_used_kg, :reps)
+                    (exercise_id, set_index, weight_used, weight_unit, weight_used_kg, reps,
+                     duration_seconds, distance, distance_unit)
+                VALUES (:exercise_id, :set_index, :weight_used, :weight_unit, :weight_used_kg, :reps,
+                        :duration_seconds, :distance, :distance_unit)
                 """
             ),
             {
@@ -43,6 +51,9 @@ def _replace_sets(conn, exercise_id: int, sets: list[dict] | None) -> None:
                 "weight_unit": set_row.get("weight_unit"),
                 "weight_used_kg": set_row.get("weight_used_kg"),
                 "reps": set_row.get("reps"),
+                "duration_seconds": set_row.get("duration_seconds"),
+                "distance": set_row.get("distance"),
+                "distance_unit": set_row.get("distance_unit"),
             },
         )
 
@@ -59,16 +70,23 @@ def list_for_workout(conn, workout_id: int):
             e.num_of_sets,
             e.avg_reps,
             e.max_reps,
+            e.total_duration_seconds,
+            e.total_distance,
+            e.distance_unit,
+            COALESCE(ec.modality, 'strength') AS modality,
+            ec.cardio_target,
             COALESCE(string_agg(br.name, ',' ORDER BY ecr.rank), '') AS muscles,
             COALESCE(string_agg(br.name, '||' ORDER BY ecr.rank), '') AS muscle_data
         FROM exercise e
         JOIN workout w ON w.id = e.workout_id
+        LEFT JOIN exercise_catalog ec ON ec.id = e.exercise_catalog_id
         LEFT JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = e.exercise_catalog_id
         LEFT JOIN body_region br ON br.slug = ecr.region_slug
         WHERE e.workout_id = :workout_id
         GROUP BY e.id, e.notes, e.exercise_catalog_id, e.exercise_name,
                  e.weight_used, e.weight_unit, e.weight_used_kg, e.num_of_sets,
-                 e.avg_reps, e.max_reps
+                 e.avg_reps, e.max_reps, e.total_duration_seconds, e.total_distance,
+                 e.distance_unit, ec.modality, ec.cardio_target
         ORDER BY e.id
     """
     result = conn.execute(text(sql), {"workout_id": workout_id})
@@ -88,12 +106,18 @@ def search_exercises(conn, user_id: int, query: str):
             e.num_of_sets,
             e.avg_reps,
             e.max_reps,
+            e.total_duration_seconds,
+            e.total_distance,
+            e.distance_unit,
+            COALESCE(ec.modality, 'strength') AS modality,
+            ec.cardio_target,
             w.id AS workout_id,
             w.date AS workout_date,
             COALESCE(string_agg(DISTINCT br.name, ',' ORDER BY br.name), '') AS muscles,
             COALESCE(string_agg(DISTINCT br.name, '||' ORDER BY br.name), '') AS muscle_data
         FROM exercise e
         JOIN workout w ON w.id = e.workout_id
+        LEFT JOIN exercise_catalog ec ON ec.id = e.exercise_catalog_id
         LEFT JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = e.exercise_catalog_id
         LEFT JOIN body_region br ON br.slug = ecr.region_slug
         WHERE w.user_id = :user_id
@@ -109,7 +133,8 @@ def search_exercises(conn, user_id: int, query: str):
           )
         GROUP BY e.id, e.notes, e.exercise_catalog_id, e.exercise_name,
                  e.weight_used, e.weight_unit, e.weight_used_kg, e.num_of_sets,
-                 e.avg_reps, e.max_reps, w.id, w.date
+                 e.avg_reps, e.max_reps, e.total_duration_seconds, e.total_distance,
+                 e.distance_unit, ec.modality, ec.cardio_target, w.id, w.date
         ORDER BY w.date DESC, e.id DESC
     """
     result = conn.execute(
@@ -135,6 +160,9 @@ def get_exercise_with_workout(conn, exercise_id: int):
             e.num_of_sets,
             e.avg_reps,
             e.max_reps,
+            e.total_duration_seconds,
+            e.total_distance,
+            e.distance_unit,
             e.workout_id,
             w.user_id,
             w.date AS workout_date
@@ -166,6 +194,9 @@ def create_exercise(
     num_of_sets,
     avg_reps=None,
     max_reps=None,
+    total_duration_seconds=None,
+    total_distance=None,
+    distance_unit=None,
     exercise_catalog_id=None,
     exercise_name=None,
     sets=None,
@@ -183,7 +214,10 @@ def create_exercise(
             weight_used_kg,
             num_of_sets,
             avg_reps,
-            max_reps
+            max_reps,
+            total_duration_seconds,
+            total_distance,
+            distance_unit
         )
         VALUES (
             :workout_id,
@@ -195,7 +229,10 @@ def create_exercise(
             :weight_used_kg,
             :num_of_sets,
             :avg_reps,
-            :max_reps
+            :max_reps,
+            :total_duration_seconds,
+            :total_distance,
+            :distance_unit
         )
         RETURNING id
         """,
@@ -211,6 +248,9 @@ def create_exercise(
             "num_of_sets": num_of_sets,
             "avg_reps": avg_reps,
             "max_reps": max_reps,
+            "total_duration_seconds": total_duration_seconds,
+            "total_distance": total_distance,
+            "distance_unit": distance_unit,
         },
     )
     exercise_id = cur.scalar_one()
@@ -231,6 +271,9 @@ def update_exercise(
     num_of_sets,
     avg_reps=None,
     max_reps=None,
+    total_duration_seconds=None,
+    total_distance=None,
+    distance_unit=None,
     workout_id=None,
     exercise_catalog_id=None,
     exercise_name=None,
@@ -252,7 +295,10 @@ def update_exercise(
                 weight_used_kg = :weight_used_kg,
                 num_of_sets = :num_of_sets,
                 avg_reps = :avg_reps,
-                max_reps = :max_reps
+                max_reps = :max_reps,
+                total_duration_seconds = :total_duration_seconds,
+                total_distance = :total_distance,
+                distance_unit = :distance_unit
             WHERE id = :exercise_id
             """,
             ),
@@ -266,6 +312,9 @@ def update_exercise(
                 "num_of_sets": num_of_sets,
                 "avg_reps": avg_reps,
                 "max_reps": max_reps,
+                "total_duration_seconds": total_duration_seconds,
+                "total_distance": total_distance,
+                "distance_unit": distance_unit,
                 "exercise_id": exercise_id,
             },
         )
@@ -283,6 +332,9 @@ def update_exercise(
                 num_of_sets = :num_of_sets,
                 avg_reps = :avg_reps,
                 max_reps = :max_reps,
+                total_duration_seconds = :total_duration_seconds,
+                total_distance = :total_distance,
+                distance_unit = :distance_unit,
                 workout_id = :workout_id
             WHERE id = :exercise_id
             """,
@@ -297,6 +349,9 @@ def update_exercise(
                 "num_of_sets": num_of_sets,
                 "avg_reps": avg_reps,
                 "max_reps": max_reps,
+                "total_duration_seconds": total_duration_seconds,
+                "total_distance": total_distance,
+                "distance_unit": distance_unit,
                 "workout_id": workout_id,
                 "exercise_id": exercise_id,
             },

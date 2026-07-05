@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_form_macros.html" import input_field, textarea_field, select_field, region_picker_field, set_list_field, modality_picker_field %}
+{% from "_form_macros.html" import input_field, textarea_field, select_field, region_picker_field, set_list_field, modality_picker_field, cardio_set_list_field, distance_unit_field %}
 
 {% block title %}Add exercise{% endblock %}
 
@@ -66,16 +66,20 @@
         {{ region_picker_field() }}
       </div>
 
-      {{ select_field(
-          "weight_unit",
-          "Weight unit",
-          weight_units,
-          selected=weight_unit_selected,
-          include_blank=False,
-          blank_label="-- Select unit --",
-          required=True
-      ) }}
+      <div data-weight-unit-wrapper>
+        {{ select_field(
+            "weight_unit",
+            "Weight unit",
+            weight_units,
+            selected=weight_unit_selected,
+            include_blank=False,
+            blank_label="-- Select unit --",
+            required=True
+        ) }}
+      </div>
+      {{ distance_unit_field(distance_units, selected=distance_unit_selected) }}
       {{ set_list_field(sets_json=sets_json or '[]') }}
+      {{ cardio_set_list_field(cardio_sets_json=cardio_sets_json or '[]') }}
 
       {{ textarea_field("notes", "Notes") }}
 
@@ -114,4 +118,5 @@
   <script src="{{ url_for('web.static', filename='js/modality-picker.js') }}"></script>
   <script type="module" src="{{ url_for('web.static', filename='js/region-picker.js') }}"></script>
   <script src="{{ url_for('web.static', filename='js/set-list.js') }}"></script>
+  <script src="{{ url_for('web.static', filename='js/cardio-set-list.js') }}"></script>
 {% endblock %}

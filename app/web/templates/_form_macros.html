@@ -116,6 +116,44 @@
 {% endmacro %}
 
 
+{# Per-interval duration/distance list for cardio -- steady-state is one
+   row, HIIT/intervals/sprints can have several. Hidden by default (only
+   shown when modality-picker.js switches to cardio). cardio_sets_json is
+   the initial rows (JSON string, e.g.
+   '[{"duration_seconds":1800,"distance":5}]'); JS is
+   app/web/static/js/cardio-set-list.js #}
+{% macro cardio_set_list_field(cardio_sets_json='[]') %}
+  <div class="form-row hidden" data-cardio-set-list>
+    <label>Intervals</label>
+    <input type="hidden" name="cardio_sets_json" id="cardio_sets_json" value='{{ cardio_sets_json }}'>
+    <div id="cardioSetRows" class="space-y-2 mb-2"></div>
+    <button
+      type="button"
+      id="addCardioSetBtn"
+      class="surface-raised inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-neutral-200"
+    >
+      <i data-lucide="plus" class="h-3.5 w-3.5"></i>
+      Add interval
+    </button>
+  </div>
+{% endmacro %}
+
+
+{# Distance-unit select, shown only for cardio (sibling
+   [data-weight-unit-wrapper] shows for everything else). Drives which
+   unit cardio-set-list.js labels/parses distances in. #}
+{% macro distance_unit_field(distance_units, selected=None) %}
+  <div class="form-row hidden" data-distance-unit-wrapper>
+    <label for="distance_unit">Distance unit</label>
+    <select id="distance_unit" name="distance_unit" data-distance-unit-select>
+      {% for opt in distance_units %}
+        <option value="{{ opt.id }}" {% if selected == opt.id %}selected{% endif %}>{{ opt.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+{% endmacro %}
+
+
 {# Select dropdown (options = list of objects or dicts with .id and .name) #}
 {% macro select_field(name, label, options, selected=None,
                       include_blank=True, blank_label="-- Select --",

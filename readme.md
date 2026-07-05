@@ -59,6 +59,7 @@ python run.py
 - `scripts/migrate_region_rank.py`: converts `exercise_catalog_region.role` (text, capped at primary/secondary) to `rank` (integer, unlimited regions per exercise). Re-runnable.
 - `scripts/migrate_modality.py`: adds `exercise_catalog.modality`/`cardio_target`, backfills modality from the old muscle category, makes `muscle_id` nullable, and tightens the catalog's unique constraint to `(user_id, name)`. Refuses to tighten the constraint if it finds the same exercise name under two different muscles — resolve those first. Re-runnable.
 - `scripts/migrate_drop_muscle.py`: drops `exercise_catalog.muscle_id`, `exercise_muscle`, and `muscle` entirely. Run any time after `migrate_modality.py` has been applied and the app has been running on the region/modality model — nothing reads these anymore. Re-runnable.
+- `scripts/report_tagging_status.py`: read-only report of how many `exercise_catalog` entries are tagged vs. untagged (cardio = has `cardio_target`, everything else = has at least one region), plus a list of untagged entries by name. Useful before/after a manual tagging pass.
 - `scripts/seed_sample_data.py`: optional seed data (also tags regions/modality on the seeded exercises).
 - `scripts/smoke_db.py`: quick DB connectivity check.
 

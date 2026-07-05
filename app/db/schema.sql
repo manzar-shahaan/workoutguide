@@ -41,11 +41,14 @@ CREATE TABLE IF NOT EXISTS exercise (
     exercise_catalog_id INTEGER,
     exercise_name TEXT,
     weight_used DOUBLE PRECISION,
-    weight_unit TEXT NOT NULL DEFAULT 'lb',
+    weight_unit TEXT DEFAULT 'lb',
     weight_used_kg DOUBLE PRECISION,
     num_of_sets INTEGER,
     avg_reps DOUBLE PRECISION,
     max_reps INTEGER,
+    total_duration_seconds INTEGER,
+    total_distance DOUBLE PRECISION,
+    distance_unit TEXT,
     workout_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notes TEXT,
@@ -53,10 +56,12 @@ CREATE TABLE IF NOT EXISTS exercise (
     FOREIGN KEY (exercise_catalog_id) REFERENCES exercise_catalog (id)
 );
 
--- Per-set weight/reps. exercise.weight_used/num_of_sets/avg_reps/max_reps
--- stay as derived rollups (top-set weight, count, avg/max reps) computed
--- from these rows -- kept for quick-list display, no longer the source of
--- truth for stats/volume.
+-- Per-set weight/reps (strength/mobility/plyometrics) or per-interval
+-- duration/distance (cardio) -- a given exercise only ever populates one
+-- pair, depending on its catalog modality. exercise.weight_used/
+-- num_of_sets/avg_reps/max_reps/total_duration_seconds/total_distance
+-- stay as derived rollups computed from these rows -- kept for quick-list
+-- display, no longer the source of truth for stats/volume.
 CREATE TABLE IF NOT EXISTS exercise_set (
     id SERIAL PRIMARY KEY,
     exercise_id INTEGER NOT NULL,
@@ -65,6 +70,9 @@ CREATE TABLE IF NOT EXISTS exercise_set (
     weight_unit TEXT,
     weight_used_kg DOUBLE PRECISION,
     reps INTEGER,
+    duration_seconds INTEGER,
+    distance DOUBLE PRECISION,
+    distance_unit TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (exercise_id) REFERENCES exercise (id) ON DELETE CASCADE,
     UNIQUE (exercise_id, set_index)

@@ -20,16 +20,23 @@ def list_for_regions(conn, user_id: int, region_slugs: list[str]):
         SELECT
             ec.id,
             ec.name,
+            ec.modality,
+            ec.cardio_target,
             se.image_path,
             last.weight_used AS last_weight_used,
             last.weight_unit AS last_weight_unit,
             last.num_of_sets AS last_num_of_sets,
+            last.total_duration_seconds AS last_total_duration_seconds,
+            last.total_distance AS last_total_distance,
+            last.distance_unit AS last_distance_unit,
             last.workout_date AS last_workout_date,
             last_sets.sets AS last_sets_json
         FROM exercise_catalog ec
         LEFT JOIN suggested_exercise se ON se.id = ec.suggested_exercise_id
         LEFT JOIN LATERAL (
-            SELECT e2.id, e2.weight_used, e2.weight_unit, e2.num_of_sets, w2.date AS workout_date
+            SELECT e2.id, e2.weight_used, e2.weight_unit, e2.num_of_sets,
+                   e2.total_duration_seconds, e2.total_distance, e2.distance_unit,
+                   w2.date AS workout_date
             FROM exercise e2
             JOIN workout w2 ON w2.id = e2.workout_id
             WHERE e2.exercise_catalog_id = ec.id
@@ -38,7 +45,10 @@ def list_for_regions(conn, user_id: int, region_slugs: list[str]):
         ) AS last ON TRUE
         LEFT JOIN LATERAL (
             SELECT jsonb_agg(
-                     jsonb_build_object('weight_used', s.weight_used, 'reps', s.reps)
+                     jsonb_build_object(
+                       'weight_used', s.weight_used, 'reps', s.reps,
+                       'duration_seconds', s.duration_seconds, 'distance', s.distance
+                     )
                      ORDER BY s.set_index
                    ) AS sets
             FROM exercise_set s
@@ -103,16 +113,23 @@ def list_all_with_counts_and_last(conn, user_id: int):
         SELECT
             ec.id,
             ec.name,
+            ec.modality,
+            ec.cardio_target,
             COUNT(e.id) AS exercise_count,
             last.weight_used AS last_weight_used,
             last.weight_unit AS last_weight_unit,
             last.num_of_sets AS last_num_of_sets,
+            last.total_duration_seconds AS last_total_duration_seconds,
+            last.total_distance AS last_total_distance,
+            last.distance_unit AS last_distance_unit,
             last.workout_date AS last_workout_date,
             last_sets.sets AS last_sets_json
         FROM exercise_catalog ec
         LEFT JOIN exercise e ON e.exercise_catalog_id = ec.id
         LEFT JOIN LATERAL (
-            SELECT e2.id, e2.weight_used, e2.weight_unit, e2.num_of_sets, w2.date AS workout_date
+            SELECT e2.id, e2.weight_used, e2.weight_unit, e2.num_of_sets,
+                   e2.total_duration_seconds, e2.total_distance, e2.distance_unit,
+                   w2.date AS workout_date
             FROM exercise e2
             JOIN workout w2 ON w2.id = e2.workout_id
             WHERE e2.exercise_catalog_id = ec.id
@@ -121,16 +138,62 @@ def list_all_with_counts_and_last(conn, user_id: int):
         ) AS last ON TRUE
         LEFT JOIN LATERAL (
             SELECT jsonb_agg(
-                     jsonb_build_object('weight_used', s.weight_used, 'reps', s.reps)
+                     jsonb_build_object(
+                       'weight_used', s.weight_used, 'reps', s.reps,
+                       'duration_seconds', s.duration_seconds, 'distance', s.distance
+                     )
                      ORDER BY s.set_index
                    ) AS sets
             FROM exercise_set s
             WHERE s.exercise_id = last.id
         ) AS last_sets ON TRUE
         WHERE ec.user_id = :user_id
-        GROUP BY ec.id, ec.name,
-                 last.weight_used, last.weight_unit, last.num_of_sets, last.workout_date,
-                 last_sets.sets
+        GROUP BY ec.id, ec.name, ec.modality, ec.cardio_target,
+                 last.weight_used, last.weight_unit, last.num_of_sets,
+                 last.total_duration_seconds, last.total_distance, last.distance_unit,
+                 last.workout_date, last_sets.sets
+        ORDER BY last.workout_date DESC NULLS LAST, ec.name
+    """
+    result = conn.execute(text(sql), {"user_id": user_id})
+    return result.mappings().all()
+
+
+def list_cardio_with_last(conn, user_id: int):
+    """
+    Cardio catalog entries with their last session summary, for the home
+    page's cardio quick-add list (the muscle map has nothing to tap for
+    cardio, so this is the equivalent "what have you logged before"
+    surface).
+    """
+    sql = """
+        SELECT
+            ec.id,
+            ec.name,
+            ec.cardio_target,
+            last.total_duration_seconds AS last_total_duration_seconds,
+            last.total_distance AS last_total_distance,
+            last.distance_unit AS last_distance_unit,
+            last.workout_date AS last_workout_date,
+            last_sets.sets AS last_sets_json
+        FROM exercise_catalog ec
+        LEFT JOIN LATERAL (
+            SELECT e2.id, e2.total_duration_seconds, e2.total_distance, e2.distance_unit,
+                   w2.date AS workout_date
+            FROM exercise e2
+            JOIN workout w2 ON w2.id = e2.workout_id
+            WHERE e2.exercise_catalog_id = ec.id
+            ORDER BY w2.date DESC NULLS LAST, e2.created_at DESC
+            LIMIT 1
+        ) AS last ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT jsonb_agg(
+                     jsonb_build_object('duration_seconds', s.duration_seconds, 'distance', s.distance)
+                     ORDER BY s.set_index
+                   ) AS sets
+            FROM exercise_set s
+            WHERE s.exercise_id = last.id
+        ) AS last_sets ON TRUE
+        WHERE ec.user_id = :user_id AND ec.modality = 'cardio'
         ORDER BY last.workout_date DESC NULLS LAST, ec.name
     """
     result = conn.execute(text(sql), {"user_id": user_id})
@@ -194,16 +257,23 @@ def search_all_with_counts(conn, user_id: int, query: str):
         SELECT
             ec.id,
             ec.name,
+            ec.modality,
+            ec.cardio_target,
             COUNT(e.id) AS exercise_count,
             last.weight_used AS last_weight_used,
             last.weight_unit AS last_weight_unit,
             last.num_of_sets AS last_num_of_sets,
+            last.total_duration_seconds AS last_total_duration_seconds,
+            last.total_distance AS last_total_distance,
+            last.distance_unit AS last_distance_unit,
             last.workout_date AS last_workout_date,
             last_sets.sets AS last_sets_json
         FROM exercise_catalog ec
         LEFT JOIN exercise e ON e.exercise_catalog_id = ec.id
         LEFT JOIN LATERAL (
-            SELECT e2.id, e2.weight_used, e2.weight_unit, e2.num_of_sets, w2.date AS workout_date
+            SELECT e2.id, e2.weight_used, e2.weight_unit, e2.num_of_sets,
+                   e2.total_duration_seconds, e2.total_distance, e2.distance_unit,
+                   w2.date AS workout_date
             FROM exercise e2
             JOIN workout w2 ON w2.id = e2.workout_id
             WHERE e2.exercise_catalog_id = ec.id
@@ -212,7 +282,10 @@ def search_all_with_counts(conn, user_id: int, query: str):
         ) AS last ON TRUE
         LEFT JOIN LATERAL (
             SELECT jsonb_agg(
-                     jsonb_build_object('weight_used', s.weight_used, 'reps', s.reps)
+                     jsonb_build_object(
+                       'weight_used', s.weight_used, 'reps', s.reps,
+                       'duration_seconds', s.duration_seconds, 'distance', s.distance
+                     )
                      ORDER BY s.set_index
                    ) AS sets
             FROM exercise_set s
@@ -220,9 +293,10 @@ def search_all_with_counts(conn, user_id: int, query: str):
         ) AS last_sets ON TRUE
         WHERE ec.user_id = :user_id
           AND ec.name ILIKE :q
-        GROUP BY ec.id, ec.name,
-                 last.weight_used, last.weight_unit, last.num_of_sets, last.workout_date,
-                 last_sets.sets
+        GROUP BY ec.id, ec.name, ec.modality, ec.cardio_target,
+                 last.weight_used, last.weight_unit, last.num_of_sets,
+                 last.total_duration_seconds, last.total_distance, last.distance_unit,
+                 last.workout_date, last_sets.sets
         ORDER BY ec.name
         LIMIT 25
     """

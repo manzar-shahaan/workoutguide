@@ -1,8 +1,10 @@
 // app/web/static/js/main.js
 
 // Applies a suggestion/shortlist item's fields onto the exercise form.
-// Shared by the typeahead suggestion list and the muscle-map shortlist
-// (home.js) so both paths prefill identically.
+// Shared by the typeahead suggestion list, the muscle-map shortlist, and
+// the home page's cardio quick-list (home.js) so all three paths prefill
+// identically. Branches on item.modality: cardio hands off duration/
+// distance intervals + distance unit instead of weight/reps + regions.
 function applyExercisePrefill(form, item) {
   if (!form || !item) return;
   const nameInput = form.querySelector("input[name='exercise_name']");
@@ -10,6 +12,18 @@ function applyExercisePrefill(form, item) {
   const regionSlugsInput = form.querySelector("input[name='region_slugs']");
 
   if (nameInput && item.name) nameInput.value = item.name;
+
+  if (item.modality && window.setExerciseModality) {
+    window.setExerciseModality(item.modality, item.cardio_target);
+  }
+
+  if (item.modality === "cardio") {
+    if (Array.isArray(item.last_sets) && item.last_sets.length && window.setCardioSets) {
+      window.setCardioSets(item.last_sets, item.last_distance_unit);
+    }
+    return;
+  }
+
   if (unitSelect && item.last_weight_unit) unitSelect.value = item.last_weight_unit;
   if (regionSlugsInput && item.region_slugs) {
     regionSlugsInput.value = item.region_slugs.join(",");
@@ -20,24 +34,29 @@ function applyExercisePrefill(form, item) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Muscle-map handoff: home.js sends the tapped item's fields via query
-  // params instead of an in-page click, since the map lives on a
-  // different page than the form.
+  // Muscle-map / cardio-quick-list handoff: home.js sends the tapped
+  // item's fields via query params instead of an in-page click, since the
+  // map/quick-list lives on a different page than the form.
   const newExerciseForm = document.querySelector("[data-exercise-suggestions]")?.closest("form");
   if (newExerciseForm) {
     const params = new URLSearchParams(window.location.search);
-    if (params.has("exercise_name")) {
+    if (params.has("exercise_name") || params.has("modality")) {
+      const modality = params.get("modality");
       let lastSets = null;
-      if (params.has("sets_json")) {
+      const setsParam = modality === "cardio" ? "cardio_sets_json" : "sets_json";
+      if (params.has(setsParam)) {
         try {
-          lastSets = JSON.parse(params.get("sets_json"));
+          lastSets = JSON.parse(params.get(setsParam));
         } catch (e) {
           lastSets = null;
         }
       }
       applyExercisePrefill(newExerciseForm, {
         name: params.get("exercise_name"),
+        modality: modality,
+        cardio_target: params.get("cardio_target"),
         last_weight_unit: params.get("weight_unit"),
+        last_distance_unit: params.get("distance_unit"),
         last_sets: lastSets,
         region_slugs: params.get("region_slugs") ? params.get("region_slugs").split(",") : null,
       });

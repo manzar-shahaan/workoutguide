@@ -116,6 +116,29 @@
                 </p>
               {% endif %}
 
+              {% if ex["modality"] == "cardio" %}
+                <p class="mt-1 text-sm text-neutral-500">
+                  <span class="capitalize">{{ ex["cardio_target"] or "cardio" }}</span>
+                  {% if ex["total_duration_display"] or ex["total_distance_display"] %} | {% endif %}
+                  {% if ex["total_duration_display"] %}{{ ex["total_duration_display"] }}{% endif %}
+                  {% if ex["total_distance_display"] %}
+                    {% if ex["total_duration_display"] %} · {% endif %}{{ ex["total_distance_display"] }}
+                  {% endif %}
+                  {% if ex["total_pace_display"] %} · {{ ex["total_pace_display"] }}{% endif %}
+                </p>
+                {% if ex["cardio_sets_display"]|length > 1 %}
+                  <p class="mt-1 text-xs text-neutral-500">
+                    <span class="inline-flex flex-wrap items-center gap-x-1">
+                      {% for s in ex["cardio_sets_display"] %}
+                        <span class="whitespace-nowrap">
+                          {% if s["duration"] %}{{ s["duration"] }}{% endif %}
+                          {% if s["distance"] %}{% if s["duration"] %} · {% endif %}{{ s["distance"] }}{% endif %}
+                        </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
+                      {% endfor %}
+                    </span>
+                  </p>
+                {% endif %}
+              {% else %}
               <p class="mt-1 text-sm text-neutral-500">
                 {% set show_sep = false %}
                 {% if ex["muscles_list"] %}
@@ -186,6 +209,7 @@
                   {% set show_sep = true %}
                 {% endif %}
               </p>
+              {% endif %}
             </div>
 
             {% if editable %}

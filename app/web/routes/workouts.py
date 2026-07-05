@@ -16,6 +16,7 @@ from ..auth_utils import login_required
 from utils.date_utils import format_date
 from utils.freshness import compute_effective_days, most_overdue_regions
 from utils.body_regions import REGIONS, REGION_SLUGS
+from utils.cardio_format import format_duration, format_distance, format_pace
 
 WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
@@ -217,17 +218,25 @@ def workouts_index():
             muscle_data = row["muscle_data"] if "muscle_data" in row.keys() else ""
             muscles_list = _parse_muscle_data(muscle_data)
 
+            modality = row.get("modality") or "strength"
             search_results.append(
                 {
                     "id": row["id"],
                     "workout_id": row["workout_id"],
                     "notes": row["notes"],
                     "exercise_name": row.get("exercise_name"),
+                    "modality": modality,
                     "weight_used": row["weight_used"],
                     "weight_unit": row["weight_unit"],
                     "num_of_sets": row["num_of_sets"],
                     "avg_reps": row.get("avg_reps"),
                     "max_reps": row.get("max_reps"),
+                    "total_duration_display": format_duration(row.get("total_duration_seconds"))
+                    if modality == "cardio"
+                    else None,
+                    "total_distance_display": format_distance(row.get("total_distance"), row.get("distance_unit"))
+                    if modality == "cardio"
+                    else None,
                     "date": d,
                     "date_display": format_date(d),
                     "weekday": d.strftime("%a"),
@@ -363,6 +372,23 @@ def workout_detail(workout_id):
         formatted["has_volume"] = any(
             s["weight_used_kg"] is not None and s["reps"] is not None for s in sets
         )
+
+        if ex["modality"] == "cardio":
+            unit = ex.get("distance_unit")
+            formatted["cardio_sets_display"] = [
+                {
+                    "duration": format_duration(s["duration_seconds"]),
+                    "distance": format_distance(s["distance"], unit),
+                    "pace": format_pace(s["duration_seconds"], s["distance"], unit),
+                }
+                for s in sets
+            ]
+            formatted["total_duration_display"] = format_duration(ex.get("total_duration_seconds"))
+            formatted["total_distance_display"] = format_distance(ex.get("total_distance"), unit)
+            formatted["total_pace_display"] = format_pace(
+                ex.get("total_duration_seconds"), ex.get("total_distance"), unit
+            )
+
         formatted_exercises.append(formatted)
 
     editable = request.args.get("edit") == "1"
