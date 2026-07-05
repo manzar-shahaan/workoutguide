@@ -23,27 +23,17 @@ CREATE TABLE IF NOT EXISTS workout (
     FOREIGN KEY (user_id) REFERENCES app_user (id)
 );
 
-CREATE TABLE IF NOT EXISTS muscle (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    color TEXT DEFAULT '#64748b',
-    is_default BOOLEAN DEFAULT FALSE,
-    active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES app_user (id),
-    UNIQUE (user_id, name)
-);
-
+-- An entry's classification is modality + (for strength/mobility/
+-- plyometrics) exercise_catalog_region tags, or (for cardio) cardio_target.
 CREATE TABLE IF NOT EXISTS exercise_catalog (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
-    muscle_id INTEGER NOT NULL,
     name TEXT NOT NULL,
+    modality TEXT NOT NULL DEFAULT 'strength',
+    cardio_target TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES app_user (id),
-    FOREIGN KEY (muscle_id) REFERENCES muscle (id),
-    UNIQUE (user_id, muscle_id, name)
+    UNIQUE (user_id, name)
 );
 
 CREATE TABLE IF NOT EXISTS exercise (
@@ -78,14 +68,6 @@ CREATE TABLE IF NOT EXISTS exercise_set (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (exercise_id) REFERENCES exercise (id) ON DELETE CASCADE,
     UNIQUE (exercise_id, set_index)
-);
-
-CREATE TABLE IF NOT EXISTS exercise_muscle (
-    muscle_id INTEGER,
-    exercise_id INTEGER,
-    PRIMARY KEY (muscle_id, exercise_id),
-    FOREIGN KEY (muscle_id) REFERENCES muscle (id),
-    FOREIGN KEY (exercise_id) REFERENCES exercise (id)
 );
 
 CREATE TABLE IF NOT EXISTS totp_backup_code (

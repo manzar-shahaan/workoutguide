@@ -19,10 +19,9 @@ from ...db.repositories import exercises as exercises_repo
 from ...db.repositories import exercise_catalog as exercise_catalog_repo
 from .. import web_bp
 from ..auth_utils import login_required
-from ...db.repositories import muscles as muscles_repo
 from ...db.repositories import suggested_exercises as suggested_exercises_repo
 from utils.date_utils import format_date
-from utils.body_regions import REGION_SLUGS, REGION_TO_MUSCLE_CATEGORY
+from utils.body_regions import REGION_SLUGS
 
 WEIGHT_UNITS = [
     {"id": "lb", "name": "lb"},
@@ -30,6 +29,30 @@ WEIGHT_UNITS = [
 ]
 VALID_WEIGHT_UNITS = {"lb", "kg"}
 LB_TO_KG = 0.45359237
+
+VALID_MODALITIES = {"strength", "cardio", "mobility", "plyometrics"}
+VALID_CARDIO_TARGETS = {"steady", "hiit", "intervals", "sprints"}
+
+
+def _parse_modality(form) -> tuple[str, str | None, str | None]:
+    """
+    Returns (modality, cardio_target, error). Cardio requires picking one
+    of the 4 targets; every other modality is tagged via the region map
+    instead, so cardio_target is forced to None for those regardless of
+    what's in the submitted form (stale hidden-field state from switching
+    the picker shouldn't leak through).
+    """
+    modality = form.get("modality", "").strip() or "strength"
+    if modality not in VALID_MODALITIES:
+        return modality, None, "Please select a valid exercise type."
+
+    if modality != "cardio":
+        return modality, None, None
+
+    cardio_target = form.get("cardio_target", "").strip()
+    if cardio_target not in VALID_CARDIO_TARGETS:
+        return modality, None, "Please select a cardio type."
+    return modality, cardio_target, None
 
 
 def _normalize_weight_to_kg(weight_used: float | None, weight_unit: str | None) -> float | None:
@@ -144,9 +167,6 @@ def new_exercise():
         max_future_date = today + timedelta(days=7)
         max_date_str = max_future_date.isoformat()
 
-        # Fetch all muscles for the dropdown
-        muscles_repo.ensure_default_muscles(conn, user_id)
-        muscles = muscles_repo.list_muscles(conn, user_id=user_id, active_only=True)
         default_unit = g.user.get("weight_unit") or "lb"
 
         if workout_id is not None:
@@ -160,20 +180,35 @@ def new_exercise():
             exercise_name = _normalize_exercise_name(request.form.get("exercise_name", ""))
             weight_unit = request.form.get("weight_unit", "").strip() or default_unit
             sets_json_raw = request.form.get("sets_json", "[]")
-            muscle_str = request.form.get("muscle_id", "").strip()
+            modality, cardio_target, modality_error = _parse_modality(request.form)
 
             if weight_unit not in VALID_WEIGHT_UNITS:
                 error = "Please select a valid weight unit."
                 return render_template(
                     "exercises/new.html",
                     workout=workout,
-                    muscles=muscles,
                     error=error,
                     today=today_str,
                     max_date=max_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
                     sets_json=sets_json_raw,
+                    modality=modality,
+                    cardio_target=cardio_target,
+                )
+
+            if modality_error:
+                return render_template(
+                    "exercises/new.html",
+                    workout=workout,
+                    error=modality_error,
+                    today=today_str,
+                    max_date=max_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
+                    sets_json=sets_json_raw,
+                    modality=modality,
+                    cardio_target=cardio_target,
                 )
 
             try:
@@ -182,61 +217,16 @@ def new_exercise():
                 return render_template(
                     "exercises/new.html",
                     workout=workout,
-                    muscles=muscles,
                     error=str(exc),
                     today=today_str,
                     max_date=max_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
                     sets_json=sets_json_raw,
+                    modality=modality,
+                    cardio_target=cardio_target,
                 )
             rollup = _rollup_from_sets(sets)
-
-            # --- Muscle REQUIRED validation ---
-            if not muscle_str:
-                error = "Please select a muscle group."
-                return render_template(
-                    "exercises/new.html",
-                    workout=workout,
-                    muscles=muscles,
-                    error=error,
-                    today=today_str,
-                    max_date=max_date_str,
-                    weight_units=WEIGHT_UNITS,
-                    weight_unit_selected=weight_unit,
-                    sets_json=sets_json_raw,
-                )
-
-            try:
-                muscle_id = int(muscle_str)
-            except ValueError:
-                error = "Invalid muscle selection."
-                return render_template(
-                    "exercises/new.html",
-                    workout=workout,
-                    muscles=muscles,
-                    error=error,
-                    today=today_str,
-                    max_date=max_date_str,
-                    weight_units=WEIGHT_UNITS,
-                    sets_json=sets_json_raw,
-                    weight_unit_selected=weight_unit,
-                )
-
-            selected_muscle = muscles_repo.get_muscle(conn, user_id, muscle_id)
-            if selected_muscle is None or not selected_muscle["active"]:
-                error = "Please select a valid muscle group."
-                return render_template(
-                    "exercises/new.html",
-                    workout=workout,
-                    muscles=muscles,
-                    error=error,
-                    today=today_str,
-                    max_date=max_date_str,
-                    weight_units=WEIGHT_UNITS,
-                    weight_unit_selected=weight_unit,
-                    sets_json=sets_json_raw,
-                )
 
             if workout is None:
                 # No workout_id passed → "new workout + exercise" flow.
@@ -247,13 +237,14 @@ def new_exercise():
                     return render_template(
                         "exercises/new.html",
                         workout=None,
-                        muscles=muscles,
                         error=error,
                         today=today_str,
                         max_date=max_date_str,
                         weight_units=WEIGHT_UNITS,
                         weight_unit_selected=weight_unit,
                         sets_json=sets_json_raw,
+                        modality=modality,
+                        cardio_target=cardio_target,
                     )
 
                 # Validate date format
@@ -264,13 +255,14 @@ def new_exercise():
                     return render_template(
                         "exercises/new.html",
                         workout=None,
-                        muscles=muscles,
                         error=error,
                         today=today_str,
                         max_date=max_date_str,
                         weight_units=WEIGHT_UNITS,
                         weight_unit_selected=weight_unit,
                         sets_json=sets_json_raw,
+                        modality=modality,
+                        cardio_target=cardio_target,
                     )
 
                 # Enforce future date ≤ 7 days
@@ -279,13 +271,14 @@ def new_exercise():
                     return render_template(
                         "exercises/new.html",
                         workout=None,
-                        muscles=muscles,
                         error=error,
                         today=today_str,
                         max_date=max_date_str,
                         weight_units=WEIGHT_UNITS,
                         weight_unit_selected=weight_unit,
                         sets_json=sets_json_raw,
+                        modality=modality,
+                        cardio_target=cardio_target,
                     )
 
                 # Past dates are allowed (for backfilling), so no lower bound.
@@ -309,16 +302,29 @@ def new_exercise():
                 exercise_catalog_id = exercise_catalog_repo.get_or_create(
                     conn,
                     user_id=user_id,
-                    muscle_id=muscle_id,
                     name=exercise_name,
+                    modality=modality,
+                    cardio_target=cardio_target,
                 )
-                region_slugs = [
-                    slug.strip()
-                    for slug in request.form.get("region_slugs", "").split(",")
-                    if slug.strip() in REGION_SLUGS
-                ]
-                if exercise_catalog_id and region_slugs:
-                    exercise_catalog_repo.tag_regions(conn, exercise_catalog_id, region_slugs)
+                # Re-logging with a different modality than it was created
+                # with (e.g. "running" first tagged steady, later intervals)
+                # should update the catalog entry, not just the new log.
+                exercise_catalog_repo.set_modality(conn, exercise_catalog_id, modality, cardio_target)
+
+                # Cardio is classified by cardio_target, not body regions --
+                # clear any stale region tags rather than let them linger.
+                # Always write, even when empty: tag_regions is a full
+                # replace, so submitting no regions means "untag this."
+                region_slugs = (
+                    []
+                    if modality == "cardio"
+                    else [
+                        slug.strip()
+                        for slug in request.form.get("region_slugs", "").split(",")
+                        if slug.strip() in REGION_SLUGS
+                    ]
+                )
+                exercise_catalog_repo.tag_regions(conn, exercise_catalog_id, region_slugs)
 
             exercises_repo.create_exercise(
                 conn,
@@ -332,7 +338,6 @@ def new_exercise():
                 num_of_sets=rollup["num_of_sets"],
                 avg_reps=rollup["avg_reps"],
                 max_reps=rollup["max_reps"],
-                muscle_id=muscle_id,
                 sets=sets,
             )
 
@@ -340,17 +345,18 @@ def new_exercise():
             return redirect(url_for("web.workout_detail", workout_id=workout_id_to_use))
 
         # GET -- blank form; if arriving from the map/shortlist, main.js
-        # fills in exercise_name/muscle_id/sets_json from query params.
+        # fills in exercise_name/sets_json from query params.
         return render_template(
             "exercises/new.html",
             workout=workout,
-            muscles=muscles,
             error=None,
             today=today_str,
             max_date=max_date_str,
             weight_units=WEIGHT_UNITS,
             weight_unit_selected=default_unit,
             sets_json="[]",
+            modality="strength",
+            cardio_target=None,
         )
     finally:
         conn.close()
@@ -369,8 +375,7 @@ def edit_exercise(exercise_id):
         max_future_date = today + timedelta(days=7)
         max_date_str = max_future_date.isoformat()
 
-        # Load exercise with muscle_id
-        exercise = exercises_repo.get_exercise_with_muscle(conn, exercise_id)
+        exercise = exercises_repo.get_exercise_with_workout(conn, exercise_id)
         if exercise is None:
             abort(404)
 
@@ -380,24 +385,15 @@ def edit_exercise(exercise_id):
             abort(404)
         workout_date_str = _date_to_str(workout["date"])
 
-        # For the dropdown
-        muscles_repo.ensure_default_muscles(conn, user_id)
-        muscles = muscles_repo.list_muscles(conn, user_id=user_id, active_only=True)
-        current_muscle_id = (
-            exercise["muscle_id"] if "muscle_id" in exercise.keys() else None
+        existing_catalog_id = exercise["exercise_catalog_id"] if "exercise_catalog_id" in exercise.keys() else None
+        existing_template = (
+            exercise_catalog_repo.get_template(conn, user_id, existing_catalog_id)
+            if existing_catalog_id
+            else None
         )
-        if current_muscle_id is not None and all(
-            m["id"] != current_muscle_id for m in muscles
-        ):
-            current_muscle = muscles_repo.get_muscle(conn, user_id, current_muscle_id)
-            if current_muscle is not None:
-                display_name = current_muscle["name"]
-                if not current_muscle["active"]:
-                    display_name = f"{display_name} (inactive)"
-                muscles = [
-                    *muscles,
-                    {"id": current_muscle["id"], "name": display_name},
-                ]
+        current_modality = existing_template["modality"] if existing_template else "strength"
+        current_cardio_target = existing_template["cardio_target"] if existing_template else None
+
         default_unit = g.user.get("weight_unit") or "lb"
         exercise_unit = (
             exercise["weight_unit"]
@@ -411,7 +407,7 @@ def edit_exercise(exercise_id):
             exercise_name = _normalize_exercise_name(request.form.get("exercise_name", ""))
             weight_unit = request.form.get("weight_unit", "").strip() or exercise_unit
             sets_json_raw = request.form.get("sets_json", "[]")
-            muscle_str = request.form.get("muscle_id", "").strip()
+            modality, cardio_target, modality_error = _parse_modality(request.form)
 
             if weight_unit not in VALID_WEIGHT_UNITS:
                 error = "Please select a valid weight unit."
@@ -419,13 +415,29 @@ def edit_exercise(exercise_id):
                     "exercises/edit.html",
                     exercise=exercise,
                     workout=workout,
-                    muscles=muscles,
                     error=error,
                     max_date=max_date_str,
                     exercise_date=workout_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
                     sets_json=sets_json_raw,
+                    modality=modality,
+                    cardio_target=cardio_target,
+                )
+
+            if modality_error:
+                return render_template(
+                    "exercises/edit.html",
+                    exercise=exercise,
+                    workout=workout,
+                    error=modality_error,
+                    max_date=max_date_str,
+                    exercise_date=workout_date_str,
+                    weight_units=WEIGHT_UNITS,
+                    weight_unit_selected=weight_unit,
+                    sets_json=sets_json_raw,
+                    modality=modality,
+                    cardio_target=cardio_target,
                 )
 
             # Validate date
@@ -435,13 +447,14 @@ def edit_exercise(exercise_id):
                     "exercises/edit.html",
                     exercise=exercise,
                     workout=workout,
-                    muscles=muscles,
                     error=error,
                     max_date=max_date_str,
                     exercise_date=workout_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
                     sets_json=sets_json_raw,
+                    modality=modality,
+                    cardio_target=cardio_target,
                 )
 
             try:
@@ -452,13 +465,14 @@ def edit_exercise(exercise_id):
                     "exercises/edit.html",
                     exercise=exercise,
                     workout=workout,
-                    muscles=muscles,
                     error=error,
                     max_date=max_date_str,
                     exercise_date=workout_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
                     sets_json=sets_json_raw,
+                    modality=modality,
+                    cardio_target=cardio_target,
                 )
 
             if selected_date > max_future_date:
@@ -467,13 +481,14 @@ def edit_exercise(exercise_id):
                     "exercises/edit.html",
                     exercise=exercise,
                     workout=workout,
-                    muscles=muscles,
                     error=error,
                     max_date=max_date_str,
                     exercise_date=workout_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
                     sets_json=sets_json_raw,
+                    modality=modality,
+                    cardio_target=cardio_target,
                 )
 
             try:
@@ -483,63 +498,16 @@ def edit_exercise(exercise_id):
                     "exercises/edit.html",
                     exercise=exercise,
                     workout=workout,
-                    muscles=muscles,
                     error=str(exc),
                     max_date=max_date_str,
                     exercise_date=workout_date_str,
                     weight_units=WEIGHT_UNITS,
                     weight_unit_selected=weight_unit,
                     sets_json=sets_json_raw,
+                    modality=modality,
+                    cardio_target=cardio_target,
                 )
             rollup = _rollup_from_sets(sets)
-
-            muscle_id = int(muscle_str) if muscle_str else None
-
-            if muscle_id is None:
-                error = "Please select a muscle group."
-                return render_template(
-                    "exercises/edit.html",
-                    exercise=exercise,
-                    workout=workout,
-                    muscles=muscles,
-                    error=error,
-                    max_date=max_date_str,
-                    exercise_date=workout_date_str,
-                    weight_units=WEIGHT_UNITS,
-                    weight_unit_selected=weight_unit,
-                    sets_json=sets_json_raw,
-                )
-
-            selected_muscle = muscles_repo.get_muscle(conn, user_id, muscle_id)
-            if selected_muscle is None:
-                error = "Please select a valid muscle group."
-                return render_template(
-                    "exercises/edit.html",
-                    exercise=exercise,
-                    workout=workout,
-                    muscles=muscles,
-                    error=error,
-                    max_date=max_date_str,
-                    exercise_date=workout_date_str,
-                    weight_units=WEIGHT_UNITS,
-                    weight_unit_selected=weight_unit,
-                    sets_json=sets_json_raw,
-                )
-
-            if not selected_muscle["active"] and muscle_id != current_muscle_id:
-                error = "Please select an active muscle group."
-                return render_template(
-                    "exercises/edit.html",
-                    exercise=exercise,
-                    workout=workout,
-                    muscles=muscles,
-                    error=error,
-                    max_date=max_date_str,
-                    exercise_date=workout_date_str,
-                    weight_units=WEIGHT_UNITS,
-                    weight_unit_selected=weight_unit,
-                    sets_json=sets_json_raw,
-                )
 
             # Decide which workout this exercise should belong to after the edit
             current_workout_id = workout["id"]
@@ -564,16 +532,26 @@ def edit_exercise(exercise_id):
                 exercise_catalog_id = exercise_catalog_repo.get_or_create(
                     conn,
                     user_id=user_id,
-                    muscle_id=muscle_id,
                     name=exercise_name,
+                    modality=modality,
+                    cardio_target=cardio_target,
                 )
-                region_slugs = [
-                    slug.strip()
-                    for slug in request.form.get("region_slugs", "").split(",")
-                    if slug.strip() in REGION_SLUGS
-                ]
-                if exercise_catalog_id and region_slugs:
-                    exercise_catalog_repo.tag_regions(conn, exercise_catalog_id, region_slugs)
+                exercise_catalog_repo.set_modality(conn, exercise_catalog_id, modality, cardio_target)
+
+                # Cardio is classified by cardio_target, not body regions --
+                # clear any stale region tags rather than let them linger.
+                # Always write, even when empty: tag_regions is a full
+                # replace, so submitting no regions means "untag this."
+                region_slugs = (
+                    []
+                    if modality == "cardio"
+                    else [
+                        slug.strip()
+                        for slug in request.form.get("region_slugs", "").split(",")
+                        if slug.strip() in REGION_SLUGS
+                    ]
+                )
+                exercise_catalog_repo.tag_regions(conn, exercise_catalog_id, region_slugs)
 
             exercises_repo.update_exercise(
                 conn,
@@ -587,7 +565,6 @@ def edit_exercise(exercise_id):
                 num_of_sets=rollup["num_of_sets"],
                 avg_reps=rollup["avg_reps"],
                 max_reps=rollup["max_reps"],
-                muscle_id=muscle_id,
                 workout_id=target_workout_id,
                 sets=sets,
             )
@@ -602,7 +579,6 @@ def edit_exercise(exercise_id):
             return redirect(url_for("web.workout_detail", workout_id=target_workout_id))
 
         # GET → show form with current values
-        existing_catalog_id = exercise["exercise_catalog_id"] if "exercise_catalog_id" in exercise.keys() else None
         region_slugs_value = (
             ",".join(exercise_catalog_repo.get_regions(conn, existing_catalog_id))
             if existing_catalog_id
@@ -616,7 +592,6 @@ def edit_exercise(exercise_id):
             "exercises/edit.html",
             exercise=exercise,
             workout=workout,
-            muscles=muscles,
             error=None,
             max_date=max_date_str,
             exercise_date=workout_date_str,
@@ -624,6 +599,8 @@ def edit_exercise(exercise_id):
             weight_unit_selected=exercise_unit,
             region_slugs=region_slugs_value,
             sets_json=sets_json_value,
+            modality=current_modality,
+            cardio_target=current_cardio_target,
         )
     finally:
         conn.close()
@@ -638,7 +615,7 @@ def delete_exercise(exercise_id):
         user_id = g.user["id"]
 
         # Get the exercise and its workout
-        exercise = exercises_repo.get_exercise_with_muscle(conn, exercise_id)
+        exercise = exercises_repo.get_exercise_with_workout(conn, exercise_id)
         if exercise is None:
             abort(404)
 
@@ -672,42 +649,15 @@ def delete_exercise(exercise_id):
 @login_required
 def exercise_suggestions():
     user_id = g.user["id"]
-    muscle_id = request.args.get("muscle_id", type=int)
     query = request.args.get("q", "").strip()
 
     conn = get_conn()
     try:
-        if muscle_id is not None:
-            muscle = muscles_repo.get_muscle(conn, user_id, muscle_id)
-            if muscle is None:
-                return jsonify({"count": 0, "items": []})
-            total = exercise_catalog_repo.count_for_muscle(conn, user_id, muscle_id)
-            if query:
-                items = exercise_catalog_repo.search_for_muscle_with_counts(
-                    conn,
-                    user_id,
-                    muscle_id,
-                    query,
-                )
-            else:
-                items = exercise_catalog_repo.list_for_muscle_with_counts(
-                    conn,
-                    user_id,
-                    muscle_id,
-                )
+        total = exercise_catalog_repo.count_for_user(conn, user_id)
+        if query:
+            items = exercise_catalog_repo.search_all_with_counts(conn, user_id, query)
         else:
-            total = exercise_catalog_repo.count_for_user(conn, user_id)
-            if query:
-                items = exercise_catalog_repo.search_all_with_counts(
-                    conn,
-                    user_id,
-                    query,
-                )
-            else:
-                items = exercise_catalog_repo.list_all_with_counts_and_last(
-                    conn,
-                    user_id,
-                )
+            items = exercise_catalog_repo.list_all_with_counts_and_last(conn, user_id)
     finally:
         conn.close()
 
@@ -716,10 +666,6 @@ def exercise_suggestions():
             "id": row["id"],
             "name": row["name"],
             "exercise_count": row.get("exercise_count", 0),
-            "muscle_id": row.get("muscle_id"),
-            "muscle_name": row.get("muscle_name"),
-            "muscle_color": row.get("muscle_color"),
-            "muscle_last_logged": _format_last_logged(row.get("muscle_last_logged")),
             "last_weight_used": row.get("last_weight_used"),
             "last_weight_unit": row.get("last_weight_unit"),
             "last_num_of_sets": row.get("last_num_of_sets"),
@@ -740,33 +686,17 @@ def region_shortlist():
     if not slugs:
         return jsonify({"regions": [], "your_exercises": [], "suggestions": []})
 
-    single_region_category = REGION_TO_MUSCLE_CATEGORY.get(slugs[0]) if len(slugs) == 1 else None
-
     conn = get_conn()
     try:
-        your_rows = exercise_catalog_repo.list_for_regions(
-            conn,
-            user_id,
-            slugs,
-            single_region_category=single_region_category,
-        )
+        your_rows = exercise_catalog_repo.list_for_regions(conn, user_id, slugs)
         suggestion_rows = suggested_exercises_repo.list_for_regions(conn, user_id, slugs)
-
-        # Suggestions prefill the muscle dropdown too -- resolve each
-        # suggestion's primary region to this user's category row id.
-        muscles = muscles_repo.list_muscles(conn, user_id=user_id, active_only=True)
     finally:
         conn.close()
-
-    category_to_muscle_id = {m["name"]: m["id"] for m in muscles}
 
     your_exercises = [
         {
             "id": row["id"],
             "name": row["name"],
-            "muscle_id": row["muscle_id"],
-            "muscle_name": row["muscle_name"],
-            "muscle_color": row["muscle_color"],
             "image_url": url_for("web.static", filename=row["image_path"]) if row.get("image_path") else None,
             "last_weight_used": row.get("last_weight_used"),
             "last_weight_unit": row.get("last_weight_unit"),
@@ -780,9 +710,6 @@ def region_shortlist():
     suggestions = [
         {
             "name": row["name"],
-            "muscle_id": category_to_muscle_id.get(
-                REGION_TO_MUSCLE_CATEGORY.get(row["primary_region"])
-            ),
             "image_url": url_for("web.static", filename=row["image_path"]) if row.get("image_path") else None,
             "license_author": row.get("license_author"),
             "license_name": row.get("license_name"),

@@ -42,7 +42,6 @@
               {% for m in muscles %}
                 <option
                   value="{{ m['id'] }}"
-                  data-color="{{ m['color'] or '' }}"
                   {% if m['id'] == chart_muscle %}selected{% endif %}
                 >
                   {{ m["name"] }}
@@ -267,8 +266,7 @@
                   <div class="mt-1 flex flex-wrap items-center justify-center gap-1">
                     {% for m in day.muscles %}
                       <span
-                        class="{{ 'h-1 w-2' if compact_dots else 'h-1.5 w-1.5' }} shrink-0 rounded-full"
-                        style="background-color: {{ m['color'] }};"
+                        class="{{ 'h-1 w-2' if compact_dots else 'h-1.5 w-1.5' }} shrink-0 rounded-full bg-neutral-300"
                         title="{{ m['name'] }}"
                       ></span>
                     {% endfor %}
@@ -293,8 +291,7 @@
                 <div class="mt-1 flex flex-wrap items-center justify-center gap-1">
                   {% for m in day.muscles %}
                     <span
-                      class="{{ 'h-1 w-2' if compact_dots else 'h-1.5 w-1.5' }} shrink-0 rounded-full"
-                      style="background-color: {{ m['color'] }};"
+                      class="{{ 'h-1 w-2' if compact_dots else 'h-1.5 w-1.5' }} shrink-0 rounded-full bg-neutral-300"
                       title="{{ m['name'] }}"
                     ></span>
                   {% endfor %}
@@ -322,8 +319,8 @@
             <dd class="text-neutral-100">{{ totals.exercises }}</dd>
           </div>
           <div class="flex items-center justify-between">
-            <dt class="text-neutral-400">Active muscles</dt>
-            <dd class="text-neutral-100">{{ totals.muscles }}</dd>
+            <dt class="text-neutral-400">Regions trained</dt>
+            <dd class="text-neutral-100">{{ totals.regions }}</dd>
           </div>
           <div class="flex items-center justify-between">
             <dt class="text-neutral-400">Last workout</dt>
@@ -350,13 +347,7 @@
             <dd class="text-neutral-100 text-right">
               {% if totals.most_targeted %}
                 {% for row in totals.most_targeted %}
-                  <span class="inline-flex items-center gap-1">
-                    <span
-                      class="h-2 w-2 rounded-full"
-                      style="background-color: {{ row['color'] or '#64748b' }};"
-                    ></span>
-                    {{ row["name"] }} ({{ row["exercise_count"] }})
-                  </span>{% if not loop.last %}, {% endif %}
+                  {{ row["name"] }} ({{ row["exercise_count"] }}){% if not loop.last %}, {% endif %}
                 {% endfor %}
               {% else %}
                 -
@@ -368,13 +359,7 @@
             <dd class="text-neutral-100 text-right">
               {% if totals.least_targeted %}
                 {% for row in totals.least_targeted %}
-                  <span class="inline-flex items-center gap-1">
-                    <span
-                      class="h-2 w-2 rounded-full"
-                      style="background-color: {{ row['color'] or '#64748b' }};"
-                    ></span>
-                    {{ row["name"] }} ({{ row["exercise_count"] }})
-                  </span>{% if not loop.last %}, {% endif %}
+                  {{ row["name"] }} ({{ row["exercise_count"] }}){% if not loop.last %}, {% endif %}
                 {% endfor %}
               {% else %}
                 -
@@ -423,7 +408,7 @@
       preferredUnit: "{{ preferred_unit }}",
       initial: {{ chart_data | tojson }},
       chartRange: "{{ chart_range }}",
-      chartMuscle: {{ chart_muscle if chart_muscle is not none else "null" }},
+      chartMuscle: {{ chart_muscle | tojson }},
       chartExercise: {{ chart_exercise if chart_exercise is not none else "null" }},
       chartExerciseIds: {{ chart_exercise_ids | tojson }},
       chartMetric: "{{ chart_metric }}",

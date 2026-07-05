@@ -21,7 +21,6 @@ import pyotp
 
 from ...db.connection import get_conn
 from ...db.repositories import users as users_repo
-from ...db.repositories import muscles as muscles_repo
 from ...db.repositories import exercise_catalog as exercise_catalog_repo
 from ...db.repositories import backup_codes as backup_codes_repo
 from ...db.repositories import access_codes as access_codes_repo
@@ -130,7 +129,6 @@ def signup():
                     users_repo.delete_user(conn, user_id)
                     error = "Access code has already been used."
                 else:
-                    muscles_repo.ensure_default_muscles(conn, user_id)
                     user_row = users_repo.get_user(conn, user_id)
             finally:
                 conn.close()
@@ -433,66 +431,25 @@ def preferences():
     return render_template("account/preferences.html", user=user)
 
 
-@web_bp.route("/account/muscles", methods=["GET", "POST"])
+@web_bp.route("/account/exercises", methods=["GET", "POST"])
 @login_required
-def manage_muscles():
+def manage_exercises():
     user_id = g.user["id"]
 
     conn = get_conn()
     try:
-        muscles_repo.ensure_default_muscles(conn, user_id)
-
         if request.method == "POST":
             action = request.form.get("action", "")
 
             try:
-                if action == "add":
-                    name = request.form.get("name", "").strip()
-                    color = request.form.get("color", "").strip()
-                    muscles_repo.add_muscle(conn, user_id, name, color=color)
-                    flash("Muscle group added.", "success")
-                elif action == "rename":
-                    muscle_id = request.form.get("muscle_id", type=int)
-                    new_name = request.form.get("new_name", "").strip()
-                    color = request.form.get("color", "").strip()
-                    if muscle_id is None:
-                        raise ValueError("Invalid muscle selection.")
-                    updated_id = muscles_repo.rename_muscle(
-                        conn,
-                        user_id,
-                        muscle_id,
-                        new_name,
-                        color=color,
-                    )
-                    if updated_id is None:
-                        raise ValueError("Muscle group not found.")
-                    flash("Muscle group updated.", "success")
-                elif action == "remove":
-                    muscle_id = request.form.get("muscle_id", type=int)
-                    if muscle_id is None:
-                        raise ValueError("Invalid muscle selection.")
-                    muscles_repo.deactivate_muscle(conn, user_id, muscle_id)
-                    flash("Muscle group removed from your list.", "success")
-                elif action == "reset":
-                    muscles_repo.reset_to_default(conn, user_id)
-                    flash("Muscle groups reset to defaults.", "success")
-                elif action == "merge":
-                    source_id = request.form.get("source_muscle_id", type=int)
-                    target_id = request.form.get("target_muscle_id", type=int)
-                    if source_id is None or target_id is None:
-                        raise ValueError("Invalid muscle selection.")
-                    muscles_repo.merge_muscles(conn, user_id, source_id, target_id)
-                    flash("Muscle groups merged.", "success")
-                elif action == "template_rename":
-                    muscle_id = request.form.get("muscle_id", type=int)
+                if action == "template_rename":
                     template_id = request.form.get("template_id", type=int)
                     new_name = request.form.get("new_name", "").strip()
-                    if muscle_id is None or template_id is None:
+                    if template_id is None:
                         raise ValueError("Invalid template selection.")
                     updated_id = exercise_catalog_repo.rename_template(
                         conn,
                         user_id,
-                        muscle_id,
                         template_id,
                         new_name,
                     )
@@ -500,15 +457,13 @@ def manage_muscles():
                         raise ValueError("Template not found.")
                     flash("Exercise template renamed.", "success")
                 elif action == "template_merge":
-                    muscle_id = request.form.get("muscle_id", type=int)
                     source_id = request.form.get("source_template_id", type=int)
                     target_id = request.form.get("target_template_id", type=int)
-                    if muscle_id is None or source_id is None or target_id is None:
+                    if source_id is None or target_id is None:
                         raise ValueError("Invalid template selection.")
                     exercise_catalog_repo.merge_templates(
                         conn,
                         user_id,
-                        muscle_id,
                         source_id,
                         target_id,
                     )
@@ -518,22 +473,15 @@ def manage_muscles():
             except ValueError as exc:
                 flash(str(exc), "error")
 
-            return redirect(url_for("web.manage_muscles"))
+            return redirect(url_for("web.manage_exercises"))
 
-        muscles = muscles_repo.list_muscles(conn, user_id=user_id, active_only=True)
-        template_rows = exercise_catalog_repo.list_all_with_counts(conn, user_id)
-        template_lookup = {m["id"]: [] for m in muscles}
-        for row in template_rows:
-            muscle_id = row["muscle_id"]
-            if muscle_id in template_lookup:
-                template_lookup[muscle_id].append(row)
+        exercise_templates = exercise_catalog_repo.list_all_with_details(conn, user_id)
     finally:
         conn.close()
 
     return render_template(
-        "account/muscles.html",
-        muscles=muscles,
-        exercise_templates=template_lookup,
+        "account/exercises.html",
+        exercise_templates=exercise_templates,
     )
 
 
@@ -711,12 +659,7 @@ def export_workouts():
 
         muscle_name = row["muscle_name"]
         if include_muscles and muscle_name:
-            exercise["muscles"].append(
-                {
-                    "name": muscle_name,
-                    "color": row["muscle_color"],
-                }
-            )
+            exercise["muscles"].append({"name": muscle_name})
 
     for workout in workouts:
         workout.pop("_exercise_lookup", None)

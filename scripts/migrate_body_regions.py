@@ -114,7 +114,7 @@ def migrate_body_regions():
                 text("ALTER TABLE app_user ADD COLUMN body_model TEXT DEFAULT 'male'")
             )
 
-        for slug, name, view, _category in REGIONS:
+        for slug, name, view in REGIONS:
             conn.execute(
                 text(
                     """

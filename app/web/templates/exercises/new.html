@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_form_macros.html" import input_field, textarea_field, select_field, region_picker_field, set_list_field %}
+{% from "_form_macros.html" import input_field, textarea_field, select_field, region_picker_field, set_list_field, modality_picker_field %}
 
 {% block title %}Add exercise{% endblock %}
 
@@ -55,28 +55,16 @@
           data-exercise-input
         >
         <div
-          class="absolute left-0 right-0 z-10 mt-2 hidden surface rounded-xl p-2 text-xs text-neutral-100"
+          class="relative z-10 mt-2 hidden surface rounded-xl p-2 text-xs text-neutral-100 max-h-64 overflow-y-auto"
           data-exercise-list
         ></div>
       </div>
 
-      {{ select_field(
-          "muscle_id",
-          "Muscle group",
-          muscles,
-          selected=None,
-          include_blank=True,
-          blank_label="-- Select muscle --",
-          required=True
-  ) }}
-      {% if not muscles %}
-        <p class="mt-2 text-xs text-neutral-500">
-          No active muscles yet. Add some in
-          <a href="{{ url_for('web.manage_muscles') }}" class="text-neutral-100 hover:text-white">Muscle groups</a>.
-        </p>
-      {% endif %}
+      {{ modality_picker_field(modality=modality or 'strength', cardio_target=cardio_target) }}
 
-      {{ region_picker_field() }}
+      <div data-region-picker-wrapper>
+        {{ region_picker_field() }}
+      </div>
 
       {{ select_field(
           "weight_unit",
@@ -123,6 +111,7 @@
 {% endblock %}
 
 {% block scripts %}
+  <script src="{{ url_for('web.static', filename='js/modality-picker.js') }}"></script>
   <script type="module" src="{{ url_for('web.static', filename='js/region-picker.js') }}"></script>
   <script src="{{ url_for('web.static', filename='js/set-list.js') }}"></script>
 {% endblock %}

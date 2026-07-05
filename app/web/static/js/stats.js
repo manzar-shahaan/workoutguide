@@ -142,11 +142,9 @@ document.addEventListener("DOMContentLoaded", () => {
     return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
   };
 
-  const accentForSelection = () => {
-    if (!muscleSelect) return DEFAULT_ACCENT;
-    const selected = muscleSelect.options[muscleSelect.selectedIndex];
-    return normalizeColor(selected ? selected.dataset.color : null);
-  };
+  // Regions have no per-item color (that was a muscle-group thing); the
+  // chart line is always the one fixed accent now.
+  const accentForSelection = () => DEFAULT_ACCENT;
 
   const fillGradient = (chartRef, accentColor) => {
     if (!chartRef) return rgbaFromHex(accentColor, 0.2);
@@ -377,7 +375,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const metric = metricSelect ? metricSelect.value : config.chartMetric || "weight";
 
     const url = new URL(config.endpoint, window.location.origin);
-    url.searchParams.set("muscle_id", muscleId);
+    url.searchParams.set("region", muscleId);
     url.searchParams.set("range", range);
     if (exerciseIds.length) {
       url.searchParams.set("exercise_ids", exerciseIds.join(","));
@@ -441,7 +439,7 @@ document.addEventListener("DOMContentLoaded", () => {
     muscleSelect.addEventListener("change", () => {
       if (exerciseDropdown && config.exerciseEndpoint) {
         const url = new URL(config.exerciseEndpoint, window.location.origin);
-        url.searchParams.set("muscle_id", muscleSelect.value);
+        url.searchParams.set("region", muscleSelect.value);
         setSelectedExerciseIds([]);
         const selected = new Set();
         fetch(url.toString())
@@ -516,7 +514,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (config.exerciseEndpoint && muscleSelect) {
       const url = new URL(config.exerciseEndpoint, window.location.origin);
-      url.searchParams.set("muscle_id", muscleSelect.value);
+      url.searchParams.set("region", muscleSelect.value);
       fetch(url.toString())
         .then((response) => response.json())
         .then((data) => {

@@ -1,7 +1,6 @@
 # app/web/routes/workouts.py
 
 import calendar
-import re
 from datetime import date as _date, datetime, timedelta
 
 from flask import render_template, abort, g, request, jsonify, url_for
@@ -9,7 +8,6 @@ from flask import render_template, abort, g, request, jsonify, url_for
 from ...db.connection import get_conn
 from ...db.repositories import workouts as workouts_repo
 from ...db.repositories import exercises as exercises_repo
-from ...db.repositories import muscles as muscles_repo
 from ...db.repositories import stats as stats_repo
 from ...db.repositories import exercise_catalog as exercise_catalog_repo
 from ...db.repositories import freshness as freshness_repo
@@ -17,9 +15,8 @@ from .. import web_bp
 from ..auth_utils import login_required
 from utils.date_utils import format_date
 from utils.freshness import compute_effective_days, most_overdue_regions
+from utils.body_regions import REGIONS, REGION_SLUGS
 
-DEFAULT_MUSCLE_COLOR = "#64748b"
-COLOR_REGEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
@@ -28,24 +25,15 @@ def _format_range(start: _date, end: _date) -> str:
 
 
 def _parse_muscle_data(raw_data: str) -> list[dict]:
+    """Body-region names tagged on an exercise/workout, in the order the SQL provided."""
     if not raw_data:
         return []
     items = []
     for part in raw_data.split("||"):
-        if not part:
-            continue
-        if "::" in part:
-            name, color = part.split("::", 1)
-        else:
-            name, color = part, ""
-        name = name.strip()
+        name = part.strip()
         if not name:
             continue
-        color = (color or DEFAULT_MUSCLE_COLOR).strip()
-        if not COLOR_REGEX.match(color):
-            color = DEFAULT_MUSCLE_COLOR
-        items.append({"name": name, "color": color})
-    items.sort(key=lambda item: item["name"])
+        items.append({"name": name})
     return items
 
 
@@ -460,10 +448,10 @@ def stats_index():
         week_calendar = _build_week_calendar(anchor_date, daily_lookup, week_start_pref)
 
         totals = stats_repo.totals(conn, user_id=user_id)
-
-        muscles = muscles_repo.list_muscles(conn, user_id=user_id, active_only=True)
     finally:
         conn.close()
+
+    muscles = [{"id": slug, "name": name} for slug, name, _view in REGIONS]
 
     week_anchor = _start_of_week(anchor_date, week_start_pref)
     week_prev_date = week_anchor - timedelta(days=7)
@@ -471,13 +459,9 @@ def stats_index():
     month_prev_date = _shift_months(anchor_date, -1)
     month_next_date = _shift_months(anchor_date, 1)
 
-    chart_muscle = request.args.get("muscle_id", type=int)
-    if muscles:
-        muscle_ids = {m["id"] for m in muscles}
-        if chart_muscle not in muscle_ids:
-            chart_muscle = muscles[0]["id"]
-    else:
-        chart_muscle = None
+    chart_muscle = request.args.get("region")
+    if chart_muscle not in REGION_SLUGS:
+        chart_muscle = muscles[0]["id"] if muscles else None
     chart_exercise_ids_raw = request.args.get("exercise_ids")
     chart_exercise_ids: list[int] = []
     if chart_exercise_ids_raw:
@@ -512,10 +496,10 @@ def stats_index():
     if chart_muscle:
         conn = get_conn()
         try:
-            rows = exercise_catalog_repo.list_for_muscle(
+            rows = exercise_catalog_repo.list_for_region(
                 conn,
                 user_id=user_id,
-                muscle_id=chart_muscle,
+                region_slug=chart_muscle,
             )
             exercise_options = [{"id": row["id"], "name": row["name"]} for row in rows]
         finally:
@@ -534,7 +518,6 @@ def stats_index():
                 rows = stats_repo.exercise_progression_multi(
                     conn,
                     user_id=user_id,
-                    muscle_id=chart_muscle,
                     exercise_ids=chart_exercise_ids,
                     start_date=chart_start,
                     end_date=chart_end,
@@ -550,10 +533,10 @@ def stats_index():
                     metric=chart_metric,
                 )
             else:
-                rows = stats_repo.muscle_progression(
+                rows = stats_repo.region_progression(
                     conn,
                     user_id=user_id,
-                    muscle_id=chart_muscle,
+                    region_slug=chart_muscle,
                     start_date=chart_start,
                     end_date=chart_end,
                     metric=chart_metric,
@@ -596,7 +579,7 @@ def stats_index():
 @login_required
 def stats_muscle_data():
     user_id = g.user["id"]
-    muscle_id = request.args.get("muscle_id", type=int)
+    region_slug = request.args.get("region")
     exercise_ids_raw = request.args.get("exercise_ids")
     exercise_id = request.args.get("exercise_id", type=int)
     range_key = request.args.get("range", "last_3_months")
@@ -604,7 +587,7 @@ def stats_muscle_data():
     start_raw = request.args.get("start")
     end_raw = request.args.get("end")
 
-    if muscle_id is None:
+    if region_slug not in REGION_SLUGS:
         return jsonify({"labels": [], "values": []})
     if metric not in {"weight", "avg_reps", "max_reps", "volume"}:
         metric = "weight"
@@ -636,17 +619,16 @@ def stats_muscle_data():
             rows = stats_repo.exercise_progression_multi(
                 conn,
                 user_id=user_id,
-                muscle_id=muscle_id,
                 exercise_ids=exercise_ids,
                 start_date=range_start,
                 end_date=range_end,
                 metric=metric,
             )
         else:
-            rows = stats_repo.muscle_progression(
+            rows = stats_repo.region_progression(
                 conn,
                 user_id=user_id,
-                muscle_id=muscle_id,
+                region_slug=region_slug,
                 start_date=range_start,
                 end_date=range_end,
                 metric=metric,
@@ -666,19 +648,16 @@ def stats_muscle_data():
 @login_required
 def stats_exercise_options():
     user_id = g.user["id"]
-    muscle_id = request.args.get("muscle_id", type=int)
-    if muscle_id is None:
+    region_slug = request.args.get("region")
+    if region_slug not in REGION_SLUGS:
         return jsonify({"items": []})
 
     conn = get_conn()
     try:
-        muscle = muscles_repo.get_muscle(conn, user_id, muscle_id)
-        if muscle is None:
-            return jsonify({"items": []})
-        rows = exercise_catalog_repo.list_for_muscle(
+        rows = exercise_catalog_repo.list_for_region(
             conn,
             user_id=user_id,
-            muscle_id=muscle_id,
+            region_slug=region_slug,
         )
     finally:
         conn.close()

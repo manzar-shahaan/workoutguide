@@ -59,18 +59,12 @@ def list_for_workout(conn, workout_id: int):
             e.num_of_sets,
             e.avg_reps,
             e.max_reps,
-            COALESCE(string_agg(DISTINCT m.name, ','), '') AS muscles,
-            COALESCE(
-                string_agg(
-                    DISTINCT (m.name || '::' || COALESCE(m.color, '')),
-                    '||'
-                ),
-                ''
-            ) AS muscle_data
+            COALESCE(string_agg(br.name, ',' ORDER BY ecr.rank), '') AS muscles,
+            COALESCE(string_agg(br.name, '||' ORDER BY ecr.rank), '') AS muscle_data
         FROM exercise e
         JOIN workout w ON w.id = e.workout_id
-        LEFT JOIN exercise_muscle em ON em.exercise_id = e.id
-        LEFT JOIN muscle m ON m.id = em.muscle_id AND m.user_id = w.user_id
+        LEFT JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = e.exercise_catalog_id
+        LEFT JOIN body_region br ON br.slug = ecr.region_slug
         WHERE e.workout_id = :workout_id
         GROUP BY e.id, e.notes, e.exercise_catalog_id, e.exercise_name,
                  e.weight_used, e.weight_unit, e.weight_used_kg, e.num_of_sets,
@@ -96,23 +90,17 @@ def search_exercises(conn, user_id: int, query: str):
             e.max_reps,
             w.id AS workout_id,
             w.date AS workout_date,
-            COALESCE(string_agg(DISTINCT m.name, ','), '') AS muscles,
-            COALESCE(
-                string_agg(
-                    DISTINCT (m.name || '::' || COALESCE(m.color, '')),
-                    '||'
-                ),
-                ''
-            ) AS muscle_data
+            COALESCE(string_agg(DISTINCT br.name, ',' ORDER BY br.name), '') AS muscles,
+            COALESCE(string_agg(DISTINCT br.name, '||' ORDER BY br.name), '') AS muscle_data
         FROM exercise e
         JOIN workout w ON w.id = e.workout_id
-        LEFT JOIN exercise_muscle em ON em.exercise_id = e.id
-        LEFT JOIN muscle m ON m.id = em.muscle_id AND m.user_id = w.user_id
+        LEFT JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = e.exercise_catalog_id
+        LEFT JOIN body_region br ON br.slug = ecr.region_slug
         WHERE w.user_id = :user_id
           AND (
             COALESCE(e.notes, '') ILIKE :q
             OR COALESCE(e.exercise_name, '') ILIKE :q
-            OR COALESCE(m.name, '') ILIKE :q
+            OR COALESCE(br.name, '') ILIKE :q
             OR COALESCE(e.weight_used::text, '') ILIKE :q
             OR COALESCE(e.num_of_sets::text, '') ILIKE :q
             OR COALESCE(e.avg_reps::text, '') ILIKE :q
@@ -160,13 +148,6 @@ def get_exercise_with_workout(conn, exercise_id: int):
 
 
 def delete_exercise(conn, exercise_id: int) -> None:
-    # Delete all muscle links for this exercise (child table)
-    conn.execute(
-        text("DELETE FROM exercise_muscle WHERE exercise_id = :exercise_id"),
-        {"exercise_id": exercise_id},
-    )
-
-    # Now delete the exercise itself (parent row)
     conn.execute(
         text("DELETE FROM exercise WHERE id = :exercise_id"),
         {"exercise_id": exercise_id},
@@ -185,15 +166,10 @@ def create_exercise(
     num_of_sets,
     avg_reps=None,
     max_reps=None,
-    muscle_id=None,
     exercise_catalog_id=None,
     exercise_name=None,
     sets=None,
 ):
-    """
-    Create an exercise row and optionally link it to a muscle
-    via exercise_muscle.
-    """
     cur = conn.execute(
         text(
         """
@@ -239,17 +215,10 @@ def create_exercise(
     )
     exercise_id = cur.scalar_one()
 
-    if muscle_id is not None:
-        conn.execute(
-            text("INSERT INTO exercise_muscle (muscle_id, exercise_id) VALUES (:muscle_id, :exercise_id)"),
-            {"muscle_id": muscle_id, "exercise_id": exercise_id},
-        )
-
     _replace_sets(conn, exercise_id, sets)
 
     conn.commit()
     return exercise_id
-
 
 
 def update_exercise(
@@ -262,15 +231,13 @@ def update_exercise(
     num_of_sets,
     avg_reps=None,
     max_reps=None,
-    muscle_id=None,
     workout_id=None,
     exercise_catalog_id=None,
     exercise_name=None,
     sets=None,
 ):
     """
-    Update exercise fields, its (single) muscle mapping, and optionally
-    move it to a different workout.
+    Update exercise fields and optionally move it to a different workout.
     """
     if workout_id is None:
         conn.execute(
@@ -335,43 +302,10 @@ def update_exercise(
             },
         )
 
-    # reset muscle mapping
-    conn.execute(
-        text("DELETE FROM exercise_muscle WHERE exercise_id = :exercise_id"),
-        {"exercise_id": exercise_id},
-    )
-
-    if muscle_id is not None:
-        conn.execute(
-            text("INSERT INTO exercise_muscle (muscle_id, exercise_id) VALUES (:muscle_id, :exercise_id)"),
-            {"muscle_id": muscle_id, "exercise_id": exercise_id},
-        )
-
     _replace_sets(conn, exercise_id, sets)
 
     conn.commit()
 
-
-
-def get_exercise_with_muscle(conn, exercise_id):
-    """
-    Return one exercise row plus its muscle_id (if any).
-    """
-    result = conn.execute(
-        text(
-        """
-        SELECT
-            e.*,
-            em.muscle_id
-        FROM exercise e
-        LEFT JOIN exercise_muscle em
-          ON e.id = em.exercise_id
-        WHERE e.id = :exercise_id
-        """,
-        ),
-        {"exercise_id": exercise_id},
-    )
-    return result.mappings().fetchone()
 
 
 def count_exercises_for_workout(conn, workout_id: int) -> int:

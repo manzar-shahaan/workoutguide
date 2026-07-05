@@ -8,18 +8,12 @@ def list_workouts(conn, user_id: int):
         SELECT
             w.id,
             w.date,
-            COALESCE(string_agg(DISTINCT m.name, ','), '') AS muscles,
-            COALESCE(
-                string_agg(
-                    DISTINCT (m.name || '::' || COALESCE(m.color, '')),
-                    '||'
-                ),
-                ''
-            ) AS muscle_data
+            COALESCE(string_agg(DISTINCT br.name, ',' ORDER BY br.name), '') AS muscles,
+            COALESCE(string_agg(DISTINCT br.name, '||' ORDER BY br.name), '') AS muscle_data
         FROM workout w
         LEFT JOIN exercise e ON e.workout_id = w.id
-        LEFT JOIN exercise_muscle em ON em.exercise_id = e.id
-        LEFT JOIN muscle m ON m.id = em.muscle_id AND m.user_id = w.user_id
+        LEFT JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = e.exercise_catalog_id
+        LEFT JOIN body_region br ON br.slug = ecr.region_slug
         WHERE w.user_id = :user_id
         GROUP BY w.id, w.date
         ORDER BY w.date DESC, w.id DESC
@@ -33,18 +27,12 @@ def get_workout(conn, workout_id: int, user_id: int):
         SELECT
             w.id,
             w.date,
-            COALESCE(string_agg(DISTINCT m.name, ','), '') AS muscles,
-            COALESCE(
-                string_agg(
-                    DISTINCT (m.name || '::' || COALESCE(m.color, '')),
-                    '||'
-                ),
-                ''
-            ) AS muscle_data
+            COALESCE(string_agg(DISTINCT br.name, ',' ORDER BY br.name), '') AS muscles,
+            COALESCE(string_agg(DISTINCT br.name, '||' ORDER BY br.name), '') AS muscle_data
         FROM workout w
         LEFT JOIN exercise e ON e.workout_id = w.id
-        LEFT JOIN exercise_muscle em ON em.exercise_id = e.id
-        LEFT JOIN muscle m ON m.id = em.muscle_id AND m.user_id = w.user_id
+        LEFT JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = e.exercise_catalog_id
+        LEFT JOIN body_region br ON br.slug = ecr.region_slug
         WHERE w.id = :workout_id AND w.user_id = :user_id
         GROUP BY w.id, w.date
     """
@@ -57,11 +45,11 @@ def get_most_recent(conn, user_id: int):
         SELECT
             w.id,
             w.date,
-            COALESCE(string_agg(DISTINCT m.name, ', ' ORDER BY m.name), '') AS muscles
+            COALESCE(string_agg(DISTINCT br.name, ', ' ORDER BY br.name), '') AS muscles
         FROM workout w
         LEFT JOIN exercise e ON e.workout_id = w.id
-        LEFT JOIN exercise_muscle em ON em.exercise_id = e.id
-        LEFT JOIN muscle m ON m.id = em.muscle_id AND m.user_id = w.user_id
+        LEFT JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = e.exercise_catalog_id
+        LEFT JOIN body_region br ON br.slug = ecr.region_slug
         WHERE w.user_id = :user_id
         GROUP BY w.id, w.date
         ORDER BY w.date DESC, w.id DESC
@@ -133,14 +121,13 @@ def export_workouts_with_exercises(conn, user_id: int):
             e.avg_reps,
             e.max_reps,
             e.created_at AS exercise_created_at,
-            m.name AS muscle_name,
-            m.color AS muscle_color
+            br.name AS muscle_name
         FROM workout w
         LEFT JOIN exercise e ON e.workout_id = w.id
-        LEFT JOIN exercise_muscle em ON em.exercise_id = e.id
-        LEFT JOIN muscle m ON m.id = em.muscle_id AND m.user_id = w.user_id
+        LEFT JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = e.exercise_catalog_id
+        LEFT JOIN body_region br ON br.slug = ecr.region_slug
         WHERE w.user_id = :user_id
-        ORDER BY w.date DESC, w.id DESC, e.id, m.name
+        ORDER BY w.date DESC, w.id DESC, e.id, ecr.rank
     """
     result = conn.execute(text(sql), {"user_id": user_id})
     return result.mappings().all()

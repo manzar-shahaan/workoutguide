@@ -490,38 +490,19 @@ def append_workout_notes(conn: Connection, workout_id: int, notes: str | None) -
     )
 
 
-def get_or_create_muscle(conn: Connection, user_id: int, name: str) -> int:
+def infer_modality(muscles: list[str]) -> tuple[str, str | None]:
     """
-    Normalize muscle name to lowercase and either fetch or create it.
+    Legacy free-text muscle names ("chest", "legs", "back"...) can't be
+    reliably auto-mapped onto the fixed 17-region taxonomy -- "arms" alone
+    doesn't say biceps vs. triceps vs. forearm. Region tagging for
+    imported strength exercises is left for the user to do via the
+    add/edit form's body-map picker, same as any other untagged entry.
+    Cardio is the one signal legacy data reliably carries (the old app's
+    "cardio" muscle bucket), so that still gets classified automatically.
     """
-    name_norm = (name or "").strip().lower()
-    if not name_norm:
-        name_norm = "unknown"
-
-    row = conn.execute(
-        text(
-            """
-            SELECT id
-            FROM muscle
-            WHERE user_id = :user_id AND name = :name
-            """
-        ),
-        {"user_id": user_id, "name": name_norm},
-    ).mappings().fetchone()
-    if row:
-        return row["id"]
-
-    result = conn.execute(
-        text(
-            """
-            INSERT INTO muscle (user_id, name, is_default, active)
-            VALUES (:user_id, :name, FALSE, TRUE)
-            RETURNING id
-            """
-        ),
-        {"user_id": user_id, "name": name_norm},
-    )
-    return result.scalar_one()
+    if "cardio" in muscles:
+        return "cardio", "steady"
+    return "strength", None
 
 
 def weight_to_kg(weight_used: float | None, weight_unit: str) -> float | None:
@@ -590,29 +571,6 @@ def insert_exercise(
 
 
 
-def link_muscle_exercise(conn: Connection, muscle_id: int, exercise_id: int) -> None:
-    """
-    Link a muscle to an exercise via the join table.
-    Uses ON CONFLICT DO NOTHING in case the pair already exists.
-    """
-    conn.execute(
-        text(
-            """
-            INSERT INTO exercise_muscle (muscle_id, exercise_id)
-            VALUES (:muscle_id, :exercise_id)
-            ON CONFLICT DO NOTHING
-            """
-        ),
-        {"muscle_id": muscle_id, "exercise_id": exercise_id},
-    )
-
-
-def link_muscles_exercise(conn: Connection, muscle_ids: list[int], exercise_id: int) -> None:
-    for muscle_id in muscle_ids:
-        link_muscle_exercise(conn, muscle_id, exercise_id)
-
-
-
 def load_json_any(path: Path) -> Any:
     """
     Load a JSON payload.
@@ -659,37 +617,24 @@ def get_default_unit(conn: Connection, user_id: int, override_unit: str | None) 
 
 
 def exercise_signature(exercise: dict) -> tuple:
-    muscles = tuple(sorted(set(exercise.get("muscles") or [])))
     return (
         exercise.get("notes") or "",
         exercise.get("exercise_name") or "",
         exercise.get("weight_used"),
         exercise.get("weight_unit"),
         exercise.get("num_of_sets"),
-        muscles,
     )
 
 
 def load_existing_signatures(conn: Connection, workout_id: int) -> set[tuple]:
     sql = """
-        SELECT
-            e.id,
-            e.notes,
-            e.exercise_name,
-            e.weight_used,
-            e.weight_unit,
-            e.num_of_sets,
-            COALESCE(string_agg(DISTINCT m.name, ','), '') AS muscles
-        FROM exercise e
-        LEFT JOIN exercise_muscle em ON em.exercise_id = e.id
-        LEFT JOIN muscle m ON m.id = em.muscle_id
-        WHERE e.workout_id = :workout_id
-        GROUP BY e.id, e.notes, e.exercise_name, e.weight_used, e.weight_unit, e.num_of_sets
+        SELECT id, notes, exercise_name, weight_used, weight_unit, num_of_sets
+        FROM exercise
+        WHERE workout_id = :workout_id
     """
     rows = conn.execute(text(sql), {"workout_id": workout_id}).mappings().all()
     signatures: set[tuple] = set()
     for row in rows:
-        muscles = [m.strip() for m in (row["muscles"] or "").split(",") if m.strip()]
         signatures.add(
             (
                 row["notes"] or "",
@@ -697,7 +642,6 @@ def load_existing_signatures(conn: Connection, workout_id: int) -> set[tuple]:
                 row["weight_used"],
                 row["weight_unit"],
                 row["num_of_sets"],
-                tuple(sorted(set(muscles))),
             )
         )
     return signatures
@@ -742,7 +686,10 @@ def import_legacy(
         count_exercise_names_created = 0
         seen_workouts: set[str] = set()
         workout_cache: dict[str, tuple[int, set[tuple]]] = {}
-        catalog_cache: dict[int, dict[str, int]] = {}
+        catalog_cache: dict[str, int] = {
+            row["name"]: row["id"]
+            for row in exercise_catalog_repo.list_all_with_details(conn, user_id)
+        }
 
         for idx, workout in enumerate(normalized, start=1):
             date_str = workout.get("date")
@@ -792,42 +739,32 @@ def import_legacy(
                     if exercise_name:
                         count_exercise_names_inferred += 1
 
-                muscle_ids: list[int] = []
-                for muscle_name in exercise.get("muscles") or []:
-                    if not muscle_name:
-                        continue
-                    muscle_ids.append(get_or_create_muscle(conn, user_id, muscle_name))
+                modality, cardio_target = infer_modality(exercise.get("muscles") or [])
 
                 exercise_catalog_id = None
-                if muscle_ids and exercise_name:
-                    primary_muscle_id = muscle_ids[0]
-                    if primary_muscle_id not in catalog_cache:
-                        existing_catalog = exercise_catalog_repo.list_for_muscle(
-                            conn,
-                            user_id=user_id,
-                            muscle_id=primary_muscle_id,
-                        )
-                        catalog_cache[primary_muscle_id] = {
-                            row["name"]: row["id"] for row in existing_catalog
-                        }
-                    existing_names = list(catalog_cache[primary_muscle_id].keys())
+                if exercise_name:
+                    existing_names = list(catalog_cache.keys())
                     match_name, match_score = _best_catalog_match(existing_names, exercise_name)
                     if match_name and match_score >= FUZZY_MATCH_THRESHOLD:
-                        exercise_catalog_id = catalog_cache[primary_muscle_id][match_name]
+                        exercise_catalog_id = catalog_cache[match_name]
+                        exercise_catalog_repo.set_modality(
+                            conn, exercise_catalog_id, modality, cardio_target, commit=False
+                        )
                         count_exercise_names_matched += 1
                     else:
                         exercise_catalog_id = exercise_catalog_repo.get_or_create(
                             conn,
                             user_id=user_id,
-                            muscle_id=primary_muscle_id,
                             name=exercise_name,
+                            modality=modality,
+                            cardio_target=cardio_target,
                             commit=False,
                         )
                         if exercise_catalog_id:
-                            catalog_cache[primary_muscle_id][exercise_name] = exercise_catalog_id
+                            catalog_cache[exercise_name] = exercise_catalog_id
                             count_exercise_names_created += 1
 
-                ex_id = insert_exercise(
+                insert_exercise(
                     conn,
                     workout_id=workout_id,
                     exercise_catalog_id=exercise_catalog_id,
@@ -838,7 +775,6 @@ def import_legacy(
                     num_sets=exercise.get("num_of_sets"),
                     notes=exercise.get("notes"),
                 )
-                link_muscles_exercise(conn, muscle_ids, ex_id)
                 count_exercises_created += 1
 
                 if dedupe:

@@ -36,17 +36,11 @@ def exercise_activity_by_day(conn, user_id: int, start_date, end_date):
         SELECT
             w.date,
             COUNT(DISTINCT e.id) AS exercise_count,
-            COALESCE(
-                string_agg(
-                    DISTINCT (m.name || '::' || COALESCE(m.color, '')),
-                    '||'
-                ),
-                ''
-            ) AS muscle_data
+            COALESCE(string_agg(DISTINCT br.name, '||' ORDER BY br.name), '') AS muscle_data
         FROM workout w
         LEFT JOIN exercise e ON e.workout_id = w.id
-        LEFT JOIN exercise_muscle em ON em.exercise_id = e.id
-        LEFT JOIN muscle m ON m.id = em.muscle_id AND m.user_id = w.user_id
+        LEFT JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = e.exercise_catalog_id
+        LEFT JOIN body_region br ON br.slug = ecr.region_slug
         WHERE w.user_id = :user_id
           AND w.date BETWEEN :start_date AND :end_date
           AND w.date IS NOT NULL
@@ -101,7 +95,7 @@ def exercise_counts_by_month(conn, user_id: int):
     return result.mappings().all()
 
 
-def muscle_progression(conn, user_id: int, muscle_id: int, start_date, end_date, metric: str = "weight"):
+def region_progression(conn, user_id: int, region_slug: str, start_date, end_date, metric: str = "weight"):
     select_expr, where_expr = _metric_select(metric)
     sql = """
         SELECT
@@ -109,10 +103,10 @@ def muscle_progression(conn, user_id: int, muscle_id: int, start_date, end_date,
             {select_expr}
         FROM workout w
         JOIN exercise e ON e.workout_id = w.id
-        JOIN exercise_muscle em ON em.exercise_id = e.id
+        JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = e.exercise_catalog_id
         JOIN exercise_set s ON s.exercise_id = e.id
         WHERE w.user_id = :user_id
-          AND em.muscle_id = :muscle_id
+          AND ecr.region_slug = :region_slug
           AND {where_expr}
           AND w.date BETWEEN :start_date AND :end_date
           AND w.date IS NOT NULL
@@ -124,7 +118,7 @@ def muscle_progression(conn, user_id: int, muscle_id: int, start_date, end_date,
         text(sql),
         {
             "user_id": user_id,
-            "muscle_id": muscle_id,
+            "region_slug": region_slug,
             "start_date": start_date,
             "end_date": end_date,
         },
@@ -165,7 +159,6 @@ def exercise_progression(conn, user_id: int, exercise_id: int, start_date, end_d
 def exercise_progression_multi(
     conn,
     user_id: int,
-    muscle_id: int,
     exercise_ids: list[int],
     start_date,
     end_date,
@@ -184,7 +177,6 @@ def exercise_progression_multi(
         JOIN exercise_set s ON s.exercise_id = e.id
         WHERE w.user_id = :user_id
           AND ec.user_id = :user_id
-          AND ec.muscle_id = :muscle_id
           AND e.exercise_catalog_id = ANY(:exercise_ids)
           AND {where_expr}
           AND w.date BETWEEN :start_date AND :end_date
@@ -197,7 +189,6 @@ def exercise_progression_multi(
         text(sql),
         {
             "user_id": user_id,
-            "muscle_id": muscle_id,
             "exercise_ids": exercise_ids,
             "start_date": start_date,
             "end_date": end_date,
@@ -222,9 +213,14 @@ def totals(conn, user_id: int):
         ),
         {"user_id": user_id},
     ).mappings().fetchone()
-    muscle_count = conn.execute(
+    region_count = conn.execute(
         text(
-            "SELECT COUNT(*) AS count FROM muscle WHERE user_id = :user_id AND active = TRUE"
+            """
+            SELECT COUNT(DISTINCT ecr.region_slug) AS count
+            FROM exercise_catalog_region ecr
+            JOIN exercise_catalog ec ON ec.id = ecr.exercise_catalog_id
+            WHERE ec.user_id = :user_id
+            """
         ),
         {"user_id": user_id},
     ).mappings().fetchone()
@@ -237,20 +233,20 @@ def totals(conn, user_id: int):
         {"user_id": user_id},
     ).mappings().fetchone()
 
-    muscle_counts = conn.execute(
+    region_counts = conn.execute(
         text(
             """
             SELECT
-                m.name,
-                m.color,
+                br.name,
                 COUNT(e.id) AS exercise_count
-            FROM muscle m
-            JOIN exercise_muscle em ON em.muscle_id = m.id
-            JOIN exercise e ON e.id = em.exercise_id
+            FROM body_region br
+            JOIN exercise_catalog_region ecr ON ecr.region_slug = br.slug
+            JOIN exercise_catalog ec ON ec.id = ecr.exercise_catalog_id
+            JOIN exercise e ON e.exercise_catalog_id = ec.id
             JOIN workout w ON w.id = e.workout_id
             WHERE w.user_id = :user_id
-            GROUP BY m.name, m.color
-            ORDER BY exercise_count DESC, m.name
+            GROUP BY br.name
+            ORDER BY exercise_count DESC, br.name
             """
         ),
         {"user_id": user_id},
@@ -288,11 +284,11 @@ def totals(conn, user_id: int):
 
     most_targeted = []
     least_targeted = []
-    if muscle_counts:
-        max_count = muscle_counts[0]["exercise_count"]
-        min_count = min(row["exercise_count"] for row in muscle_counts)
-        most_targeted = [row for row in muscle_counts if row["exercise_count"] == max_count]
-        least_targeted = [row for row in muscle_counts if row["exercise_count"] == min_count]
+    if region_counts:
+        max_count = region_counts[0]["exercise_count"]
+        min_count = min(row["exercise_count"] for row in region_counts)
+        most_targeted = [row for row in region_counts if row["exercise_count"] == max_count]
+        least_targeted = [row for row in region_counts if row["exercise_count"] == min_count]
 
     most_active_month = []
     least_active_month = []
@@ -305,7 +301,7 @@ def totals(conn, user_id: int):
     return {
         "workouts": workout_count["count"] if workout_count else 0,
         "exercises": exercise_count["count"] if exercise_count else 0,
-        "muscles": muscle_count["count"] if muscle_count else 0,
+        "regions": region_count["count"] if region_count else 0,
         "last_workout": last_workout["date"] if last_workout else None,
         "first_workout": first_workout["date"] if first_workout else None,
         "most_targeted": most_targeted,

@@ -6,24 +6,20 @@ from sqlalchemy import bindparam, text
 SUGGESTION_MATCH_THRESHOLD = 88
 
 
-def list_for_regions(conn, user_id: int, region_slugs: list[str], *, single_region_category: str | None):
+def list_for_regions(conn, user_id: int, region_slugs: list[str]):
     """
     Catalog entries matching ALL selected regions (bench = chest + triceps
-    narrows correctly as more regions are tapped). Entries tagged before
-    this feature existed have no exercise_catalog_region rows at all; for
-    a single-region tap those fall back to a match on their broad muscle
-    category so existing history doesn't just disappear. With 2+ regions
-    selected there's no safe fallback (can't verify an intersection without
-    tags), so untagged rows simply don't show until backfilled/re-tagged.
+    narrows correctly as more regions are tapped). Region tags are the only
+    classification a strength/mobility/plyometrics entry has now, so an
+    untagged entry simply doesn't show up here until it's tagged (via the
+    picker on the add/edit form, or the backfill script) -- there's no
+    muscle-category fallback anymore.
     """
     sql = text(
         """
         SELECT
             ec.id,
             ec.name,
-            ec.muscle_id,
-            m.name AS muscle_name,
-            m.color AS muscle_color,
             se.image_path,
             last.weight_used AS last_weight_used,
             last.weight_unit AS last_weight_unit,
@@ -31,7 +27,6 @@ def list_for_regions(conn, user_id: int, region_slugs: list[str], *, single_regi
             last.workout_date AS last_workout_date,
             last_sets.sets AS last_sets_json
         FROM exercise_catalog ec
-        JOIN muscle m ON m.id = ec.muscle_id AND m.user_id = ec.user_id
         LEFT JOIN suggested_exercise se ON se.id = ec.suggested_exercise_id
         LEFT JOIN LATERAL (
             SELECT e2.id, e2.weight_used, e2.weight_unit, e2.num_of_sets, w2.date AS workout_date
@@ -51,20 +46,10 @@ def list_for_regions(conn, user_id: int, region_slugs: list[str], *, single_regi
         ) AS last_sets ON TRUE
         WHERE ec.user_id = :user_id
           AND (
-            (
-              SELECT COUNT(DISTINCT ecr.region_slug)
-              FROM exercise_catalog_region ecr
-              WHERE ecr.exercise_catalog_id = ec.id AND ecr.region_slug IN :slugs
-            ) = :slug_count
-            OR (
-              :single_region_category IS NOT NULL
-              AND m.name = :single_region_category
-              AND NOT EXISTS (
-                SELECT 1 FROM exercise_catalog_region ecr2
-                WHERE ecr2.exercise_catalog_id = ec.id
-              )
-            )
-          )
+            SELECT COUNT(DISTINCT ecr.region_slug)
+            FROM exercise_catalog_region ecr
+            WHERE ecr.exercise_catalog_id = ec.id AND ecr.region_slug IN :slugs
+          ) = :slug_count
         ORDER BY last.workout_date DESC NULLS LAST, ec.name
         """
     ).bindparams(bindparam("slugs", expanding=True))
@@ -75,7 +60,6 @@ def list_for_regions(conn, user_id: int, region_slugs: list[str], *, single_regi
             "user_id": user_id,
             "slugs": region_slugs,
             "slug_count": len(region_slugs),
-            "single_region_category": single_region_category,
         },
     )
     return result.mappings().all()
@@ -85,14 +69,16 @@ def _normalize_name(name: str) -> str:
     return (name or "").strip().lower()
 
 
-def list_for_muscle(conn, user_id: int, muscle_id: int):
+def list_for_region(conn, user_id: int, region_slug: str):
+    """Catalog entries tagged with this region, for the stats exercise-picker."""
     sql = """
-        SELECT id, name
-        FROM exercise_catalog
-        WHERE user_id = :user_id AND muscle_id = :muscle_id
-        ORDER BY name
+        SELECT DISTINCT ec.id, ec.name
+        FROM exercise_catalog ec
+        JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = ec.id
+        WHERE ec.user_id = :user_id AND ecr.region_slug = :region_slug
+        ORDER BY ec.name
     """
-    result = conn.execute(text(sql), {"user_id": user_id, "muscle_id": muscle_id})
+    result = conn.execute(text(sql), {"user_id": user_id, "region_slug": region_slug})
     return result.mappings().all()
 
 
@@ -112,13 +98,11 @@ def get_regions(conn, exercise_catalog_id: int) -> list[str]:
     return [row["region_slug"] for row in result.mappings().all()]
 
 
-def list_for_muscle_with_counts(conn, user_id: int, muscle_id: int):
+def list_all_with_counts_and_last(conn, user_id: int):
     sql = """
         SELECT
             ec.id,
             ec.name,
-            m.name AS muscle_name,
-            m.color AS muscle_color,
             COUNT(e.id) AS exercise_count,
             last.weight_used AS last_weight_used,
             last.weight_unit AS last_weight_unit,
@@ -126,7 +110,6 @@ def list_for_muscle_with_counts(conn, user_id: int, muscle_id: int):
             last.workout_date AS last_workout_date,
             last_sets.sets AS last_sets_json
         FROM exercise_catalog ec
-        JOIN muscle m ON m.id = ec.muscle_id AND m.user_id = ec.user_id
         LEFT JOIN exercise e ON e.exercise_catalog_id = ec.id
         LEFT JOIN LATERAL (
             SELECT e2.id, e2.weight_used, e2.weight_unit, e2.num_of_sets, w2.date AS workout_date
@@ -145,77 +128,40 @@ def list_for_muscle_with_counts(conn, user_id: int, muscle_id: int):
             WHERE s.exercise_id = last.id
         ) AS last_sets ON TRUE
         WHERE ec.user_id = :user_id
-          AND ec.muscle_id = :muscle_id
-        GROUP BY ec.id, ec.name, m.name, m.color,
+        GROUP BY ec.id, ec.name,
                  last.weight_used, last.weight_unit, last.num_of_sets, last.workout_date,
                  last_sets.sets
-        ORDER BY ec.name
-    """
-    result = conn.execute(
-        text(sql),
-        {"user_id": user_id, "muscle_id": muscle_id},
-    )
-    return result.mappings().all()
-
-
-def list_all_with_counts_and_last(conn, user_id: int):
-    sql = """
-        SELECT
-            ec.id,
-            ec.name,
-            ec.muscle_id,
-            m.name AS muscle_name,
-            m.color AS muscle_color,
-            COUNT(e.id) AS exercise_count,
-            last.weight_used AS last_weight_used,
-            last.weight_unit AS last_weight_unit,
-            last.num_of_sets AS last_num_of_sets,
-            last.workout_date AS last_workout_date,
-            last_sets.sets AS last_sets_json,
-            ml.muscle_last_logged
-        FROM exercise_catalog ec
-        JOIN muscle m ON m.id = ec.muscle_id AND m.user_id = ec.user_id
-        LEFT JOIN exercise e ON e.exercise_catalog_id = ec.id
-        LEFT JOIN LATERAL (
-            SELECT e2.id, e2.weight_used, e2.weight_unit, e2.num_of_sets, w2.date AS workout_date
-            FROM exercise e2
-            JOIN workout w2 ON w2.id = e2.workout_id
-            WHERE e2.exercise_catalog_id = ec.id
-            ORDER BY w2.date DESC NULLS LAST, e2.created_at DESC
-            LIMIT 1
-        ) AS last ON TRUE
-        LEFT JOIN LATERAL (
-            SELECT jsonb_agg(
-                     jsonb_build_object('weight_used', s.weight_used, 'reps', s.reps)
-                     ORDER BY s.set_index
-                   ) AS sets
-            FROM exercise_set s
-            WHERE s.exercise_id = last.id
-        ) AS last_sets ON TRUE
-        LEFT JOIN (
-            SELECT ec2.muscle_id, MAX(w2.date) AS muscle_last_logged
-            FROM exercise_catalog ec2
-            JOIN exercise e2 ON e2.exercise_catalog_id = ec2.id
-            JOIN workout w2 ON w2.id = e2.workout_id
-            WHERE ec2.user_id = :user_id
-            GROUP BY ec2.muscle_id
-        ) AS ml ON ml.muscle_id = ec.muscle_id
-        WHERE ec.user_id = :user_id
-        GROUP BY ec.id, ec.name, ec.muscle_id, m.name, m.color,
-                 last.weight_used, last.weight_unit, last.num_of_sets, last.workout_date,
-                 last_sets.sets, ml.muscle_last_logged
-        ORDER BY ml.muscle_last_logged ASC NULLS FIRST, m.name, ec.name
+        ORDER BY last.workout_date DESC NULLS LAST, ec.name
     """
     result = conn.execute(text(sql), {"user_id": user_id})
     return result.mappings().all()
 
-def list_all_with_counts(conn, user_id: int):
+def list_all_with_details(conn, user_id: int):
+    """
+    Every catalog entry with modality/cardio_target/regions, for the Manage
+    Exercises page. Regions come from a LATERAL subquery (pre-aggregated to
+    one row per catalog entry) rather than a plain join, so joining in the
+    exercise log count doesn't cross-multiply the two independent one-to-
+    many relationships (each exercise log x each tagged region).
+    """
     sql = """
-        SELECT ec.id, ec.name, ec.muscle_id, COUNT(e.id) AS exercise_count
+        SELECT
+            ec.id,
+            ec.name,
+            ec.modality,
+            ec.cardio_target,
+            COUNT(e.id) AS exercise_count,
+            COALESCE(regions.names, '') AS regions
         FROM exercise_catalog ec
         LEFT JOIN exercise e ON e.exercise_catalog_id = ec.id
+        LEFT JOIN LATERAL (
+            SELECT string_agg(br.name, ', ' ORDER BY ecr.rank) AS names
+            FROM exercise_catalog_region ecr
+            JOIN body_region br ON br.slug = ecr.region_slug
+            WHERE ecr.exercise_catalog_id = ec.id
+        ) AS regions ON TRUE
         WHERE ec.user_id = :user_id
-        GROUP BY ec.id, ec.name, ec.muscle_id
+        GROUP BY ec.id, ec.name, ec.modality, ec.cardio_target, regions.names
         ORDER BY ec.name
     """
     result = conn.execute(text(sql), {"user_id": user_id})
@@ -224,77 +170,12 @@ def list_all_with_counts(conn, user_id: int):
 
 def get_template(conn, user_id: int, template_id: int):
     sql = """
-        SELECT id, name, muscle_id
+        SELECT id, name, modality, cardio_target
         FROM exercise_catalog
         WHERE user_id = :user_id AND id = :id
     """
     result = conn.execute(text(sql), {"user_id": user_id, "id": template_id})
     return result.mappings().fetchone()
-
-
-def search_for_muscle(conn, user_id: int, muscle_id: int, query: str):
-    sql = """
-        SELECT id, name
-        FROM exercise_catalog
-        WHERE user_id = :user_id
-          AND muscle_id = :muscle_id
-          AND name ILIKE :q
-        ORDER BY name
-        LIMIT 25
-    """
-    result = conn.execute(
-        text(sql),
-        {"user_id": user_id, "muscle_id": muscle_id, "q": f"%{query}%"},
-    )
-    return result.mappings().all()
-
-
-def search_for_muscle_with_counts(conn, user_id: int, muscle_id: int, query: str):
-    sql = """
-        SELECT
-            ec.id,
-            ec.name,
-            COUNT(e.id) AS exercise_count,
-            m.name AS muscle_name,
-            m.color AS muscle_color,
-            last.weight_used AS last_weight_used,
-            last.weight_unit AS last_weight_unit,
-            last.num_of_sets AS last_num_of_sets,
-            last.workout_date AS last_workout_date,
-            last_sets.sets AS last_sets_json
-        FROM exercise_catalog ec
-        JOIN muscle m ON m.id = ec.muscle_id AND m.user_id = ec.user_id
-        LEFT JOIN exercise e ON e.exercise_catalog_id = ec.id
-        LEFT JOIN LATERAL (
-            SELECT e2.id, e2.weight_used, e2.weight_unit, e2.num_of_sets, w2.date AS workout_date
-            FROM exercise e2
-            JOIN workout w2 ON w2.id = e2.workout_id
-            WHERE e2.exercise_catalog_id = ec.id
-            ORDER BY w2.date DESC NULLS LAST, e2.created_at DESC
-            LIMIT 1
-        ) AS last ON TRUE
-        LEFT JOIN LATERAL (
-            SELECT jsonb_agg(
-                     jsonb_build_object('weight_used', s.weight_used, 'reps', s.reps)
-                     ORDER BY s.set_index
-                   ) AS sets
-            FROM exercise_set s
-            WHERE s.exercise_id = last.id
-        ) AS last_sets ON TRUE
-        WHERE ec.user_id = :user_id
-          AND ec.muscle_id = :muscle_id
-          AND ec.name ILIKE :q
-        GROUP BY ec.id, ec.name, m.name, m.color,
-                 last.weight_used, last.weight_unit, last.num_of_sets, last.workout_date,
-                 last_sets.sets
-        ORDER BY ec.name
-        LIMIT 25
-    """
-    result = conn.execute(
-        text(sql),
-        {"user_id": user_id, "muscle_id": muscle_id, "q": f"%{query}%"},
-    )
-    return result.mappings().all()
 
 
 def count_for_user(conn, user_id: int) -> int:
@@ -313,9 +194,6 @@ def search_all_with_counts(conn, user_id: int, query: str):
         SELECT
             ec.id,
             ec.name,
-            ec.muscle_id,
-            m.name AS muscle_name,
-            m.color AS muscle_color,
             COUNT(e.id) AS exercise_count,
             last.weight_used AS last_weight_used,
             last.weight_unit AS last_weight_unit,
@@ -323,7 +201,6 @@ def search_all_with_counts(conn, user_id: int, query: str):
             last.workout_date AS last_workout_date,
             last_sets.sets AS last_sets_json
         FROM exercise_catalog ec
-        JOIN muscle m ON m.id = ec.muscle_id AND m.user_id = ec.user_id
         LEFT JOIN exercise e ON e.exercise_catalog_id = ec.id
         LEFT JOIN LATERAL (
             SELECT e2.id, e2.weight_used, e2.weight_unit, e2.num_of_sets, w2.date AS workout_date
@@ -343,7 +220,7 @@ def search_all_with_counts(conn, user_id: int, query: str):
         ) AS last_sets ON TRUE
         WHERE ec.user_id = :user_id
           AND ec.name ILIKE :q
-        GROUP BY ec.id, ec.name, ec.muscle_id, m.name, m.color,
+        GROUP BY ec.id, ec.name,
                  last.weight_used, last.weight_unit, last.num_of_sets, last.workout_date,
                  last_sets.sets
         ORDER BY ec.name
@@ -356,29 +233,18 @@ def search_all_with_counts(conn, user_id: int, query: str):
     return result.mappings().all()
 
 
-def count_for_muscle(conn, user_id: int, muscle_id: int) -> int:
-    sql = """
-        SELECT COUNT(*) AS count
-        FROM exercise_catalog
-        WHERE user_id = :user_id AND muscle_id = :muscle_id
-    """
-    result = conn.execute(text(sql), {"user_id": user_id, "muscle_id": muscle_id})
-    row = result.mappings().fetchone()
-    return row["count"] if row else 0
-
-
-def get_by_name(conn, user_id: int, muscle_id: int, name: str):
+def get_by_name(conn, user_id: int, name: str):
     name_norm = _normalize_name(name)
     if not name_norm:
         return None
     sql = """
         SELECT id, name
         FROM exercise_catalog
-        WHERE user_id = :user_id AND muscle_id = :muscle_id AND name = :name
+        WHERE user_id = :user_id AND name = :name
     """
     result = conn.execute(
         text(sql),
-        {"user_id": user_id, "muscle_id": muscle_id, "name": name_norm},
+        {"user_id": user_id, "name": name_norm},
     )
     return result.mappings().fetchone()
 
@@ -386,7 +252,6 @@ def get_by_name(conn, user_id: int, muscle_id: int, name: str):
 def rename_template(
     conn,
     user_id: int,
-    muscle_id: int,
     template_id: int,
     new_name: str,
 ) -> int | None:
@@ -395,13 +260,13 @@ def rename_template(
         raise ValueError("Template name is required.")
 
     current = get_template(conn, user_id, template_id)
-    if current is None or current["muscle_id"] != muscle_id:
+    if current is None:
         return None
 
     if current["name"] == name_norm:
         return current["id"]
 
-    existing = get_by_name(conn, user_id, muscle_id, name_norm)
+    existing = get_by_name(conn, user_id, name_norm)
     if existing:
         raise ValueError(
             "An exercise template with that name already exists. Use merge instead."
@@ -434,7 +299,6 @@ def rename_template(
 def merge_templates(
     conn,
     user_id: int,
-    muscle_id: int,
     source_template_id: int,
     target_template_id: int,
     *,
@@ -447,12 +311,6 @@ def merge_templates(
     target = get_template(conn, user_id, target_template_id)
     if source is None or target is None:
         raise ValueError("Template not found.")
-    if (
-        source["muscle_id"] != muscle_id
-        or target["muscle_id"] != muscle_id
-        or source["muscle_id"] != target["muscle_id"]
-    ):
-        raise ValueError("Templates must belong to the same muscle.")
 
     target_name = target["name"]
 
@@ -497,32 +355,60 @@ def merge_templates(
 def get_or_create(
     conn,
     user_id: int,
-    muscle_id: int,
     name: str,
     *,
+    modality: str = "strength",
+    cardio_target: str | None = None,
     commit: bool = True,
 ) -> int | None:
     name_norm = _normalize_name(name)
     if not name_norm:
         return None
-    existing = get_by_name(conn, user_id, muscle_id, name_norm)
+    existing = get_by_name(conn, user_id, name_norm)
     if existing:
         return existing["id"]
     result = conn.execute(
         text(
             """
-            INSERT INTO exercise_catalog (user_id, muscle_id, name)
-            VALUES (:user_id, :muscle_id, :name)
+            INSERT INTO exercise_catalog (user_id, name, modality, cardio_target)
+            VALUES (:user_id, :name, :modality, :cardio_target)
             RETURNING id
             """
         ),
-        {"user_id": user_id, "muscle_id": muscle_id, "name": name_norm},
+        {"user_id": user_id, "name": name_norm, "modality": modality, "cardio_target": cardio_target},
     )
     new_id = result.scalar_one()
     link_suggested_match(conn, new_id, name_norm, commit=False)
     if commit:
         conn.commit()
     return new_id
+
+
+def set_modality(
+    conn,
+    exercise_catalog_id: int,
+    modality: str,
+    cardio_target: str | None = None,
+    *,
+    commit: bool = True,
+) -> None:
+    """
+    Updates an existing catalog entry's modality/cardio_target -- used when
+    an exercise is re-logged or edited with a different modality than it
+    was originally created with.
+    """
+    conn.execute(
+        text(
+            """
+            UPDATE exercise_catalog
+            SET modality = :modality, cardio_target = :cardio_target
+            WHERE id = :id
+            """
+        ),
+        {"id": exercise_catalog_id, "modality": modality, "cardio_target": cardio_target},
+    )
+    if commit:
+        conn.commit()
 
 
 def link_suggested_match(conn, exercise_catalog_id: int, name: str, *, commit: bool = True) -> int | None:
@@ -631,28 +517,3 @@ def backfill_regions_from_suggestions(conn) -> int:
 
     conn.commit()
     return tagged_count
-
-
-def ensure_names_for_muscle(conn, user_id: int, muscle_id: int, names: list[str]) -> dict[str, int]:
-    ids: dict[str, int] = {}
-    for name in names:
-        name_norm = _normalize_name(name)
-        if not name_norm:
-            continue
-        existing = get_by_name(conn, user_id, muscle_id, name_norm)
-        if existing:
-            ids[name_norm] = existing["id"]
-            continue
-        result = conn.execute(
-            text(
-                """
-                INSERT INTO exercise_catalog (user_id, muscle_id, name)
-                VALUES (:user_id, :muscle_id, :name)
-                RETURNING id
-                """
-            ),
-            {"user_id": user_id, "muscle_id": muscle_id, "name": name_norm},
-        )
-        ids[name_norm] = result.scalar_one()
-    conn.commit()
-    return ids

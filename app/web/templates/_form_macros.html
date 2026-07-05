@@ -39,6 +39,42 @@
   </div>
 {% endmacro %}
 
+{# Exercise-type toggle (strength/cardio/mobility/plyometrics). Drives
+   hidden #modality + #cardio_target inputs; showing/hiding the cardio
+   target select and the region-picker (in a sibling [data-region-picker-wrapper])
+   is handled by app/web/static/js/modality-picker.js #}
+{% macro modality_picker_field(modality='strength', cardio_target=None) %}
+  <div class="form-row" data-modality-picker>
+    <label>Exercise type</label>
+    <input type="hidden" name="modality" id="modality" value="{{ modality }}">
+    <input type="hidden" name="cardio_target" id="cardio_target" value="{{ cardio_target or '' }}">
+    <div class="flex gap-2" data-modality-buttons>
+      <button type="button" data-modality-btn="strength" class="view-toggle-btn inline-flex items-center gap-1.5">
+        <i data-lucide="dumbbell" class="h-3.5 w-3.5"></i> Strength
+      </button>
+      <button type="button" data-modality-btn="cardio" class="view-toggle-btn inline-flex items-center gap-1.5">
+        <i data-lucide="heart-pulse" class="h-3.5 w-3.5"></i> Cardio
+      </button>
+      <button type="button" data-modality-btn="mobility" class="view-toggle-btn inline-flex items-center gap-1.5">
+        <i data-lucide="wind" class="h-3.5 w-3.5"></i> Mobility
+      </button>
+      <button type="button" data-modality-btn="plyometrics" class="view-toggle-btn inline-flex items-center gap-1.5">
+        <i data-lucide="zap" class="h-3.5 w-3.5"></i> Plyo
+      </button>
+    </div>
+    <div data-cardio-target-wrapper class="mt-3 hidden">
+      <label for="cardio_target_select">Cardio type</label>
+      <select id="cardio_target_select" data-cardio-target-select>
+        <option value="steady">Steady state</option>
+        <option value="hiit">HIIT</option>
+        <option value="intervals">Intervals</option>
+        <option value="sprints">Sprints</option>
+      </select>
+    </div>
+  </div>
+{% endmacro %}
+
+
 {# Tap-to-select mini muscle map. Drives a hidden #region_slugs input
    (must exist elsewhere in the same form); JS is app/web/static/js/region-picker.js #}
 {% macro region_picker_field() %}

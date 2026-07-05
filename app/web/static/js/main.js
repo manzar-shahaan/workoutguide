@@ -6,12 +6,10 @@
 function applyExercisePrefill(form, item) {
   if (!form || !item) return;
   const nameInput = form.querySelector("input[name='exercise_name']");
-  const muscleSelect = form.querySelector("select[name='muscle_id']");
   const unitSelect = form.querySelector("select[name='weight_unit']");
   const regionSlugsInput = form.querySelector("input[name='region_slugs']");
 
   if (nameInput && item.name) nameInput.value = item.name;
-  if (muscleSelect && item.muscle_id) muscleSelect.value = String(item.muscle_id);
   if (unitSelect && item.last_weight_unit) unitSelect.value = item.last_weight_unit;
   if (regionSlugsInput && item.region_slugs) {
     regionSlugsInput.value = item.region_slugs.join(",");
@@ -39,7 +37,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       applyExercisePrefill(newExerciseForm, {
         name: params.get("exercise_name"),
-        muscle_id: params.get("muscle_id") ? Number(params.get("muscle_id")) : null,
         last_weight_unit: params.get("weight_unit"),
         last_sets: lastSets,
         region_slugs: params.get("region_slugs") ? params.get("region_slugs").split(",") : null,
@@ -92,9 +89,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const list = block.querySelector("[data-exercise-list]");
     const endpoint = block.dataset.suggestionsEndpoint;
     const form = block.closest("form");
-    const muscleSelect = form ? form.querySelector("select[name='muscle_id']") : null;
 
-    if (!input || !list || !endpoint || !muscleSelect) return;
+    if (!input || !list || !endpoint) return;
 
     let timer = null;
 
@@ -117,16 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
         list.classList.remove("hidden");
         return;
       }
-      const activeMuscle = muscleSelect ? muscleSelect.value : "";
-      let lastMuscleId = null;
       items.forEach((item) => {
-        if (!query && !activeMuscle && item.muscle_id !== lastMuscleId) {
-          const header = document.createElement("div");
-          header.className = "mt-2 first:mt-0 text-[11px] uppercase tracking-wide text-neutral-500";
-          header.textContent = item.muscle_name || "Uncategorized";
-          list.appendChild(header);
-          lastMuscleId = item.muscle_id;
-        }
         const button = document.createElement("button");
         button.type = "button";
         button.className = "block w-full text-left rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-neutral-100 hover:bg-neutral-800 transition-colors duration-150";
@@ -135,26 +122,9 @@ document.addEventListener("DOMContentLoaded", () => {
           : "";
         const row = document.createElement("div");
         row.className = "flex items-center justify-between gap-2";
-        const left = document.createElement("div");
-        left.className = "flex items-center gap-2";
         const name = document.createElement("span");
         name.textContent = `${item.name}${count}`;
-        left.appendChild(name);
-        if (item.muscle_name) {
-          const muscle = document.createElement("span");
-          muscle.className = "inline-flex items-center gap-1 text-[11px] text-neutral-400";
-          if (item.muscle_color) {
-            const dot = document.createElement("span");
-            dot.className = "inline-flex h-2 w-2 rounded-full";
-            dot.style.backgroundColor = item.muscle_color;
-            muscle.appendChild(dot);
-          }
-          const label = document.createElement("span");
-          label.textContent = item.muscle_name;
-          muscle.appendChild(label);
-          left.appendChild(muscle);
-        }
-        row.appendChild(left);
+        row.appendChild(name);
         if (item.last_logged) {
           const date = document.createElement("span");
           date.className = "text-[10px] text-neutral-400 whitespace-nowrap";
@@ -174,9 +144,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const fetchSuggestions = () => {
       const query = input.value.trim();
       const url = new URL(endpoint, window.location.origin);
-      if (muscleSelect && muscleSelect.value) {
-        url.searchParams.set("muscle_id", muscleSelect.value);
-      }
       url.searchParams.set("q", query);
 
       fetch(url.toString(), { headers: { Accept: "application/json" } })
@@ -190,15 +157,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
-    if (muscleSelect) {
-      muscleSelect.addEventListener("change", () => {
-        if (document.activeElement === input) {
-          fetchSuggestions();
-        } else {
-          list.classList.add("hidden");
-        }
-      });
-    }
     input.addEventListener("input", () => {
       if (timer) window.clearTimeout(timer);
       timer = window.setTimeout(fetchSuggestions, 200);

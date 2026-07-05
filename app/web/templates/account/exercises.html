@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Manage exercises{% endblock %}
+
+{% block content %}
+  <div class="max-w-lg mx-auto">
+    <a
+      href="{{ url_for('web.account_settings') }}"
+      class="inline-flex items-center gap-1.5 text-xs sm:text-sm text-neutral-400 hover:text-neutral-100 mb-4"
+    >
+      <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+      Back to account
+    </a>
+
+    <header class="mb-6">
+      <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-neutral-100">
+        Manage exercises
+      </h1>
+      <p class="mt-1 text-xs sm:text-sm text-neutral-400">
+        Rename or merge exercise templates. Tag muscles targeted from the add/edit
+        exercise form's body map.
+      </p>
+    </header>
+
+    {% if not exercise_templates %}
+      <p class="text-sm text-neutral-400">
+        No exercises logged yet.
+      </p>
+    {% else %}
+      <div class="space-y-3">
+        {% for t in exercise_templates %}
+          <div class="surface-raised rounded-2xl px-4 py-4">
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-sm text-neutral-100">{{ t["name"] }}</span>
+              <span class="text-[11px] text-neutral-500">{{ t["exercise_count"] }} logged</span>
+            </div>
+            <p class="mt-1 text-xs text-neutral-500">
+              {{ t["modality"] | capitalize }}
+              {% if t["modality"] == "cardio" and t["cardio_target"] %}
+                &middot; {{ t["cardio_target"] | capitalize }}
+              {% elif t["regions"] %}
+                &middot; {{ t["regions"] }}
+              {% endif %}
+            </p>
+
+            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+              <form method="post" class="flex items-center gap-2">
+                <input type="hidden" name="action" value="template_rename">
+                <input type="hidden" name="template_id" value="{{ t['id'] }}">
+                <input
+                  name="new_name"
+                  type="text"
+                  value="{{ t['name'] }}"
+                  class="flex-1 h-9 rounded-md border border-neutral-800 bg-black px-3 text-xs text-neutral-100"
+                  required
+                >
+                <button
+                  type="submit"
+                  class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-neutral-700 px-3 text-[11px] font-medium text-neutral-100 hover:bg-neutral-900"
+                >
+                  <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
+                  Save
+                </button>
+              </form>
+
+              {% if exercise_templates|length > 1 %}
+                <form method="post" class="flex items-center gap-2">
+                  <input type="hidden" name="action" value="template_merge">
+                  <input type="hidden" name="source_template_id" value="{{ t['id'] }}">
+                  <select
+                    name="target_template_id"
+                    class="flex-1 h-9 rounded-md border border-neutral-800 bg-black px-3 text-xs text-neutral-100"
+                    required
+                  >
+                    <option value="" disabled selected>Merge into...</option>
+                    {% for option in exercise_templates %}
+                      {% if option['id'] != t['id'] %}
+                        <option value="{{ option['id'] }}">{{ option['name'] }}</option>
+                      {% endif %}
+                    {% endfor %}
+                  </select>
+                  <button
+                    type="submit"
+                    class="inline-flex h-9 items-center justify-center rounded-md border border-neutral-700 px-3 text-[11px] font-medium text-neutral-100 hover:bg-neutral-900"
+                    onclick="return confirm('Merge this template into the selected one?');"
+                  >
+                    Merge
+                  </button>
+                </form>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

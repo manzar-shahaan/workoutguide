@@ -8,32 +8,27 @@
 # knees, left/right-soleus) since nobody logs an exercise against those.
 
 REGIONS = [
-    # (slug, display name, view, broad muscle category)
-    ("chest", "Chest", "anterior", "chest"),
-    ("biceps", "Biceps", "anterior", "arms"),
-    ("triceps", "Triceps", "anterior", "arms"),
-    ("forearm", "Forearms", "anterior", "arms"),
-    ("front-deltoids", "Front delts", "anterior", "arms"),
-    ("abs", "Abs", "anterior", "abs"),
-    ("obliques", "Obliques", "anterior", "abs"),
-    ("quadriceps", "Quads", "anterior", "legs"),
-    ("abductors", "Abductors", "anterior", "legs"),
-    ("back-deltoids", "Rear delts", "posterior", "arms"),
-    ("trapezius", "Traps", "posterior", "back"),
-    ("upper-back", "Upper back", "posterior", "back"),
-    ("lower-back", "Lower back", "posterior", "back"),
-    ("hamstring", "Hamstrings", "posterior", "legs"),
-    ("gluteal", "Glutes", "posterior", "legs"),
-    ("adductor", "Adductors", "posterior", "legs"),
-    ("calves", "Calves", "posterior", "legs"),
+    # (slug, display name, view)
+    ("chest", "Chest", "anterior"),
+    ("biceps", "Biceps", "anterior"),
+    ("triceps", "Triceps", "anterior"),
+    ("forearm", "Forearms", "anterior"),
+    ("front-deltoids", "Front delts", "anterior"),
+    ("abs", "Abs", "anterior"),
+    ("obliques", "Obliques", "anterior"),
+    ("quadriceps", "Quads", "anterior"),
+    ("abductors", "Abductors", "anterior"),
+    ("back-deltoids", "Rear delts", "posterior"),
+    ("trapezius", "Traps", "posterior"),
+    ("upper-back", "Upper back", "posterior"),
+    ("lower-back", "Lower back", "posterior"),
+    ("hamstring", "Hamstrings", "posterior"),
+    ("gluteal", "Glutes", "posterior"),
+    ("adductor", "Adductors", "posterior"),
+    ("calves", "Calves", "posterior"),
 ]
 
 REGION_SLUGS = {slug for slug, *_ in REGIONS}
-
-# region_slug -> broad `muscle` category name. exercise_catalog still
-# requires a single muscle_id (existing stats/data model), so a tapped
-# region is used to look up the user's category row with this name.
-REGION_TO_MUSCLE_CATEGORY = {slug: category for slug, _, _, category in REGIONS}
 
 # wger's 15 muscles don't cover every region we care about (no separate
 # "hip adductor"/"hip abductor"/"posterior deltoid"/"forearm flexor"/

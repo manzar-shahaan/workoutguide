@@ -88,7 +88,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const goToForm = (item) => {
     const url = new URL(newExerciseUrl, window.location.origin);
     if (item.name) url.searchParams.set("exercise_name", item.name);
-    if (item.muscle_id) url.searchParams.set("muscle_id", item.muscle_id);
     if (item.last_weight_unit) url.searchParams.set("weight_unit", item.last_weight_unit);
     if (Array.isArray(item.last_sets) && item.last_sets.length) {
       url.searchParams.set("sets_json", JSON.stringify(item.last_sets));

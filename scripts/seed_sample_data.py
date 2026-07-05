@@ -17,7 +17,7 @@ if str(ROOT) not in sys.path:
 from app.db.connection import get_conn
 from app.db.repositories import workouts as workouts_repo
 from app.db.repositories import exercises as exercises_repo
-from app.db.repositories import muscles as muscles_repo
+from app.db.repositories import exercise_catalog as exercise_catalog_repo
 
 
 def _normalize_weight_to_kg(weight_used: float | None, weight_unit: str | None) -> float | None:
@@ -64,20 +64,16 @@ def seed_sample_data(user_id: int, seed: int = 7) -> None:
 
     conn = get_conn()
     try:
-        muscles_repo.ensure_default_muscles(conn, user_id)
-        muscles = muscles_repo.list_muscles(conn, user_id=user_id, active_only=True)
-        muscle_map = {m["name"]: m["id"] for m in muscles}
-
         templates = [
-            {"notes": "bench press", "muscle": "chest", "base": 135, "step": 2.5, "sets": 4},
-            {"notes": "deadlift", "muscle": "back", "base": 185, "step": 5, "sets": 3},
-            {"notes": "squat", "muscle": "legs", "base": 155, "step": 5, "sets": 4},
-            {"notes": "bicep curls", "muscle": "arms", "base": 25, "step": 2.5, "sets": 3},
-            {"notes": "weighted crunches", "muscle": "abs", "base": 10, "step": 2.5, "sets": 3},
+            {"notes": "bench press", "regions": ["chest", "triceps", "front-deltoids"], "base": 135, "step": 2.5, "sets": 4},
+            {"notes": "deadlift", "regions": ["lower-back", "hamstring", "gluteal"], "base": 185, "step": 5, "sets": 3},
+            {"notes": "squat", "regions": ["quadriceps", "gluteal"], "base": 155, "step": 5, "sets": 4},
+            {"notes": "bicep curls", "regions": ["biceps"], "base": 25, "step": 2.5, "sets": 3},
+            {"notes": "weighted crunches", "regions": ["abs"], "base": 10, "step": 2.5, "sets": 3},
         ]
         cardio_templates = [
-            {"notes": "treadmill run (20 min)", "muscle": "cardio"},
-            {"notes": "bike ride (30 min)", "muscle": "cardio"},
+            {"notes": "treadmill run (20 min)", "cardio_target": "steady"},
+            {"notes": "bike ride (30 min)", "cardio_target": "steady"},
         ]
 
         for idx, workout_day in enumerate(workout_days):
@@ -96,32 +92,56 @@ def seed_sample_data(user_id: int, seed: int = 7) -> None:
             day_exercises = strength_choices + [cardio_choice]
 
             for ex in day_exercises:
-                muscle_id = muscle_map.get(ex["muscle"])
                 weight_used = None
                 weight_unit = "lb"
                 num_of_sets = None
                 avg_reps = None
                 max_reps = None
+                sets = None
 
                 if "base" in ex:
                     weight_used = ex["base"] + (idx * ex["step"])
                     num_of_sets = ex["sets"]
                     avg_reps = random.choice([6, 8, 10, 12])
                     max_reps = avg_reps + random.choice([0, 1, 2])
+                    weight_used_kg = _normalize_weight_to_kg(weight_used, weight_unit)
+                    sets = [
+                        {
+                            "weight_used": weight_used,
+                            "weight_unit": weight_unit,
+                            "weight_used_kg": weight_used_kg,
+                            "reps": max_reps if i == 0 else avg_reps,
+                        }
+                        for i in range(num_of_sets)
+                    ]
 
                 weight_used_kg = _normalize_weight_to_kg(weight_used, weight_unit)
+
+                modality = "cardio" if "cardio_target" in ex else "strength"
+                exercise_catalog_id = exercise_catalog_repo.get_or_create(
+                    conn,
+                    user_id=user_id,
+                    name=ex["notes"],
+                    modality=modality,
+                    cardio_target=ex.get("cardio_target"),
+                    commit=False,
+                )
+                if "regions" in ex:
+                    exercise_catalog_repo.tag_regions(conn, exercise_catalog_id, ex["regions"], commit=False)
 
                 exercises_repo.create_exercise(
                     conn,
                     workout_id=workout_id,
-                    notes=ex["notes"],
+                    notes=None,
+                    exercise_catalog_id=exercise_catalog_id,
+                    exercise_name=ex["notes"],
                     weight_used=weight_used,
                     weight_unit=weight_unit,
                     weight_used_kg=weight_used_kg,
                     num_of_sets=num_of_sets,
                     avg_reps=avg_reps,
                     max_reps=max_reps,
-                    muscle_id=muscle_id,
+                    sets=sets,
                 )
     finally:
         conn.close()

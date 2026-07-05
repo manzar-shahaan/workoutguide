@@ -124,10 +124,6 @@
                         <span class="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
                           {% for m in ex["muscles_list"] %}
                             <span class="inline-flex items-center gap-1">
-                              <span
-                                class="h-2 w-2 rounded-full"
-                                style="background-color: {{ m['color'] }};"
-                              ></span>
                               {{ m["name"] }}
                             </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
                           {% endfor %}
@@ -206,10 +202,6 @@
                         <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-neutral-100">
                           {% for m in w["muscles_list"] %}
                             <span class="inline-flex items-center gap-1">
-                              <span
-                                class="h-2 w-2 rounded-full"
-                                style="background-color: {{ m['color'] }};"
-                              ></span>
                               {{ m["name"] }}
                             </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
                           {% endfor %}
@@ -260,10 +252,6 @@
                                 <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-neutral-100">
                                   {% for m in w["muscles_list"] %}
                                     <span class="inline-flex items-center gap-1">
-                                      <span
-                                        class="h-2 w-2 rounded-full"
-                                        style="background-color: {{ m['color'] }};"
-                                      ></span>
                                       {{ m["name"] }}
                                     </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
                                   {% endfor %}
@@ -330,8 +318,7 @@
                     <div class="mt-1 flex w-full items-center justify-center flex-nowrap {% if compact_dots %}gap-0.5{% else %}gap-1{% endif %}">
                       {% for m in day.muscles %}
                         <span
-                          class="{{ 'h-1.5 w-1.5' if compact_dots else 'h-1.5 w-1.5' }} shrink-0 rounded-full"
-                          style="background-color: {{ m['color'] }};"
+                          class="{{ 'h-1.5 w-1.5' if compact_dots else 'h-1.5 w-1.5' }} shrink-0 rounded-full bg-neutral-300"
                           title="{{ m['name'] }}"
                         ></span>
                       {% endfor %}
