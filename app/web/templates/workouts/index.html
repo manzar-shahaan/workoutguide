@@ -22,47 +22,36 @@
 
     <div id="mapCard" class="map-card surface p-5">
       <div class="mb-4 flex items-center justify-between">
-        <div class="flex gap-1 text-xs" data-strength-only>
+        <div class="flex gap-1 text-xs">
           <button type="button" data-view-toggle="anterior" class="view-toggle-btn is-active">Front</button>
           <button type="button" data-view-toggle="posterior" class="view-toggle-btn">Back</button>
         </div>
         <div class="flex items-center gap-2">
-          <button type="button" id="mapClearBtn" class="hidden text-xs text-neutral-500 hover:text-neutral-300 transition-colors duration-200" data-strength-only>Clear</button>
+          <button type="button" id="mapClearBtn" class="hidden text-xs text-neutral-500 hover:text-neutral-300 transition-colors duration-200">Clear</button>
           <div class="flex gap-1 text-xs">
-            <button type="button" data-mode-toggle="strength" class="view-toggle-btn is-active inline-flex items-center gap-1.5">
+            <button type="button" data-mode-toggle="strength" class="view-toggle-btn is-active inline-flex items-center gap-1.5" title="Strength">
               <i data-lucide="dumbbell" class="h-3.5 w-3.5"></i>
             </button>
-            <button type="button" data-mode-toggle="cardio" class="view-toggle-btn inline-flex items-center gap-1.5">
+            <button type="button" data-mode-toggle="cardio" class="view-toggle-btn inline-flex items-center gap-1.5" title="Log cardio">
               <i data-lucide="heart-pulse" class="h-3.5 w-3.5"></i>
             </button>
           </div>
         </div>
       </div>
 
-      <div data-strength-only>
-        <div
-          id="bodyMap"
-          data-new-exercise-url="{{ url_for('web.new_exercise') }}"
-          data-shortlist-endpoint="{{ url_for('web.region_shortlist') }}"
-          data-overdue-regions="{{ overdue_regions|join(',') }}"
-        ></div>
-        <p id="mapHint" class="mt-2 text-center text-xs text-neutral-500">
-          {% if overdue_regions %}
-            Due: {{ overdue_regions|map('replace', '-', ' ')|join(' + ') }}
-          {% else %}
-            Tap a muscle to see exercises
-          {% endif %}
-        </p>
-      </div>
-
       <div
-        id="cardioQuickList"
-        class="hidden"
-        data-cardio-list-endpoint="{{ url_for('web.cardio_list') }}"
+        id="bodyMap"
         data-new-exercise-url="{{ url_for('web.new_exercise') }}"
-      >
-        <div id="cardioQuickListBody" class="space-y-2"></div>
-      </div>
+        data-shortlist-endpoint="{{ url_for('web.region_shortlist') }}"
+        data-overdue-regions="{{ overdue_regions|join(',') }}"
+      ></div>
+      <p id="mapHint" class="mt-2 text-center text-xs text-neutral-500">
+        {% if overdue_regions %}
+          Due: {{ overdue_regions|map('replace', '-', ' ')|join(' + ') }}
+        {% else %}
+          Tap a muscle to see exercises
+        {% endif %}
+      </p>
     </div>
   </div>
 

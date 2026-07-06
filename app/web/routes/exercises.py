@@ -869,34 +869,3 @@ def region_shortlist():
     ]
 
     return jsonify({"regions": slugs, "your_exercises": your_exercises, "suggestions": suggestions})
-
-
-@web_bp.route("/api/exercises/cardio-list")
-@login_required
-def cardio_list():
-    """
-    Cardio catalog entries for the home page's cardio quick-add list --
-    the muscle map has nothing to tap for cardio, so this is that mode's
-    equivalent "what have you logged before" surface.
-    """
-    user_id = g.user["id"]
-    conn = get_conn()
-    try:
-        rows = exercise_catalog_repo.list_cardio_with_last(conn, user_id)
-    finally:
-        conn.close()
-
-    items = [
-        {
-            "id": row["id"],
-            "name": row["name"],
-            "cardio_target": row.get("cardio_target"),
-            "last_total_duration_seconds": row.get("last_total_duration_seconds"),
-            "last_total_distance": row.get("last_total_distance"),
-            "last_distance_unit": row.get("last_distance_unit"),
-            "last_logged": _format_last_logged(row.get("last_workout_date")),
-            "last_sets": row.get("last_sets_json") or [],
-        }
-        for row in rows
-    ]
-    return jsonify({"items": items})

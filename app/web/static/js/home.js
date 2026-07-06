@@ -23,10 +23,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const overdueRegions = (mapContainer.dataset.overdueRegions || "").split(",").filter(Boolean);
 
   const modeToggleButtons = document.querySelectorAll("[data-mode-toggle]");
-  const strengthOnlyEls = document.querySelectorAll("[data-strength-only]");
-  const cardioQuickList = document.getElementById("cardioQuickList");
-  const cardioQuickListBody = document.getElementById("cardioQuickListBody");
-  const cardioListEndpoint = cardioQuickList ? cardioQuickList.dataset.cardioListEndpoint : null;
 
   let selectedRegions = []; // slugs, order = tap order (first = primary), no cap
 
@@ -101,96 +97,17 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.href = url.toString();
   };
 
-  // Cardio has no regions to tap, so it gets its own quick-add list
-  // instead of the map -- toggled via the strength/cardio switch.
-  const formatDuration = (totalSeconds) => {
-    if (!totalSeconds) return null;
-    const s = Math.round(totalSeconds);
-    const hh = Math.floor(s / 3600);
-    const mm = Math.floor((s % 3600) / 60);
-    const ss = s % 60;
-    const pad = (n) => String(n).padStart(2, "0");
-    return hh > 0 ? `${hh}:${pad(mm)}:${pad(ss)}` : `${mm}:${pad(ss)}`;
-  };
-
-  const goToCardioForm = (item) => {
-    const url = new URL(newExerciseUrl, window.location.origin);
-    url.searchParams.set("modality", "cardio");
-    if (item && item.name) url.searchParams.set("exercise_name", item.name);
-    if (item && item.cardio_target) url.searchParams.set("cardio_target", item.cardio_target);
-    if (item && item.last_distance_unit) url.searchParams.set("distance_unit", item.last_distance_unit);
-    if (item && Array.isArray(item.last_sets) && item.last_sets.length) {
-      url.searchParams.set("cardio_sets_json", JSON.stringify(item.last_sets));
-    }
-    window.location.href = url.toString();
-  };
-
-  let cardioListLoaded = false;
-
-  const renderCardioList = (items) => {
-    cardioQuickListBody.innerHTML = "";
-
-    cardioQuickListBody.appendChild(
-      buildCard({
-        name: "New cardio exercise",
-        subtitle: "Log something new",
-        imageUrl: null,
-        dimmed: true,
-        onSelect: () => goToCardioForm(null),
-      })
-    );
-
-    items.forEach((item) => {
-      const parts = [];
-      const duration = formatDuration(item.last_total_duration_seconds);
-      if (duration) parts.push(duration);
-      if (item.last_total_distance) {
-        parts.push(`${item.last_total_distance.toFixed(2)} ${item.last_distance_unit || ""}`.trim());
-      }
-      if (item.last_logged) parts.push(`last ${item.last_logged}`);
-      cardioQuickListBody.appendChild(
-        buildCard({
-          name: item.name,
-          subtitle: parts.join(" · ") || "Logged before",
-          imageUrl: null,
-          dimmed: false,
-          onSelect: () => goToCardioForm(item),
-        })
-      );
-    });
-  };
-
-  const loadCardioList = () => {
-    if (!cardioListEndpoint) return;
-    cardioQuickListBody.innerHTML = '<p class="text-sm text-neutral-500">Loading…</p>';
-    fetch(cardioListEndpoint, { headers: { Accept: "application/json" } })
-      .then((response) => response.json())
-      .then((data) => renderCardioList(data.items || []))
-      .catch(() => {
-        cardioQuickListBody.innerHTML = '<p class="text-sm text-neutral-500">Couldn\'t load cardio exercises.</p>';
-      });
-    cardioListLoaded = true;
-  };
-
-  const setMode = (mode) => {
-    const isCardio = mode === "cardio";
-    modeToggleButtons.forEach((btn) => {
-      btn.classList.toggle("is-active", btn.dataset.modeToggle === mode);
-    });
-    strengthOnlyEls.forEach((el) => el.classList.toggle("hidden", isCardio));
-    if (cardioQuickList) cardioQuickList.classList.toggle("hidden", !isCardio);
-
-    if (isCardio) {
-      selectedRegions = [];
-      syncHighlight();
-      clearBtn.classList.add("hidden");
-      closePanel();
-      if (!cardioListLoaded) loadCardioList();
-    }
-  };
-
+  // Cardio has no muscle regions to tap, so the cardio side of the
+  // strength/cardio toggle is just a shortcut straight to the add-exercise
+  // form with cardio pre-selected (main.js reads ?modality=cardio off the
+  // URL and switches the form). Strength stays on the map -- the default.
   modeToggleButtons.forEach((btn) => {
-    btn.addEventListener("click", () => setMode(btn.dataset.modeToggle));
+    btn.addEventListener("click", () => {
+      if (btn.dataset.modeToggle !== "cardio") return;
+      const url = new URL(newExerciseUrl, window.location.origin);
+      url.searchParams.set("modality", "cardio");
+      window.location.href = url.toString();
+    });
   });
 
   const renderDrawer = (data) => {
@@ -300,6 +217,4 @@ document.addEventListener("DOMContentLoaded", () => {
       syncHighlight(); // setView rebuilds polygons, so re-apply current selection
     });
   });
-
-  setMode("strength");
 });

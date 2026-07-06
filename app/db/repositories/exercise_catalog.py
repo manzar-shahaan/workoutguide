@@ -158,47 +158,6 @@ def list_all_with_counts_and_last(conn, user_id: int):
     return result.mappings().all()
 
 
-def list_cardio_with_last(conn, user_id: int):
-    """
-    Cardio catalog entries with their last session summary, for the home
-    page's cardio quick-add list (the muscle map has nothing to tap for
-    cardio, so this is the equivalent "what have you logged before"
-    surface).
-    """
-    sql = """
-        SELECT
-            ec.id,
-            ec.name,
-            ec.cardio_target,
-            last.total_duration_seconds AS last_total_duration_seconds,
-            last.total_distance AS last_total_distance,
-            last.distance_unit AS last_distance_unit,
-            last.workout_date AS last_workout_date,
-            last_sets.sets AS last_sets_json
-        FROM exercise_catalog ec
-        LEFT JOIN LATERAL (
-            SELECT e2.id, e2.total_duration_seconds, e2.total_distance, e2.distance_unit,
-                   w2.date AS workout_date
-            FROM exercise e2
-            JOIN workout w2 ON w2.id = e2.workout_id
-            WHERE e2.exercise_catalog_id = ec.id
-            ORDER BY w2.date DESC NULLS LAST, e2.created_at DESC
-            LIMIT 1
-        ) AS last ON TRUE
-        LEFT JOIN LATERAL (
-            SELECT jsonb_agg(
-                     jsonb_build_object('duration_seconds', s.duration_seconds, 'distance', s.distance)
-                     ORDER BY s.set_index
-                   ) AS sets
-            FROM exercise_set s
-            WHERE s.exercise_id = last.id
-        ) AS last_sets ON TRUE
-        WHERE ec.user_id = :user_id AND ec.modality = 'cardio'
-        ORDER BY last.workout_date DESC NULLS LAST, ec.name
-    """
-    result = conn.execute(text(sql), {"user_id": user_id})
-    return result.mappings().all()
-
 def list_all_with_details(conn, user_id: int):
     """
     Every catalog entry with modality/cardio_target/regions, for the Manage

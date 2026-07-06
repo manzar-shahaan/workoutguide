@@ -46,6 +46,16 @@ export function createBodyMap({
   const pulsing = new Set(pulsingSlugs);
   let polygonEls = []; // [{ el, slug }] for the clickable regions in the current view
 
+  // Anterior and posterior have slightly different bounding boxes, so a
+  // per-view viewBox gives each a different aspect ratio -- and since the
+  // SVG width is fixed, a different rendered height, which nudged the rest
+  // of the page down/up on Front<->Back. Instead, size the viewBox once to
+  // fit BOTH views and center each view's geometry inside that shared box,
+  // so the figure never changes height when you flip sides.
+  const allBounds = Object.values(BODY_MAP).map((v) => computeBounds(v, 6));
+  const boxWidth = Math.max(...allBounds.map((b) => b.width));
+  const boxHeight = Math.max(...allBounds.map((b) => b.height));
+
   // Selected always wins (explicit user action); pulsing (needs-training,
   // driven by CSS keyframes) only shows while a region is idle; otherwise
   // it's the flat idle fill.
@@ -68,7 +78,11 @@ export function createBodyMap({
 
     const data = BODY_MAP[currentView];
     const bounds = computeBounds(data, 6);
-    svg.setAttribute("viewBox", `${bounds.minX} ${bounds.minY} ${bounds.width} ${bounds.height}`);
+    // Center this view's geometry inside the shared box (same width/height
+    // for both views), so front and back render at identical dimensions.
+    const minX = bounds.minX + bounds.width / 2 - boxWidth / 2;
+    const minY = bounds.minY + bounds.height / 2 - boxHeight / 2;
+    svg.setAttribute("viewBox", `${minX} ${minY} ${boxWidth} ${boxHeight}`);
 
     for (const region of data) {
       for (const piece of region.pieces) {
