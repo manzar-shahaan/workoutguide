@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_form_macros.html" import input_field, textarea_field, select_field, region_picker_field, set_list_field, modality_picker_field, cardio_set_list_field, distance_unit_field %}
+{% from "_form_macros.html" import input_field, textarea_field, select_field, region_picker_field, set_list_field, metric_type_picker_field, tag_picker_field, cardio_set_list_field, distance_unit_field %}
 
 {% block title %}Edit exercise{% endblock %}
 
@@ -60,7 +60,9 @@
       ></div>
     </div>
 
-    {{ modality_picker_field(modality=modality or 'strength', cardio_target=cardio_target) }}
+    {{ metric_type_picker_field(metric_type=metric_type or 'resistance') }}
+
+    {{ tag_picker_field(all_tags, selected=tags) }}
 
     <div data-region-picker-wrapper>
       {{ region_picker_field() }}
@@ -110,7 +112,8 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="{{ url_for('web.static', filename='js/modality-picker.js') }}"></script>
+  <script src="{{ url_for('web.static', filename='js/metric-type-picker.js') }}"></script>
+  <script src="{{ url_for('web.static', filename='js/tag-picker.js') }}"></script>
   <script type="module" src="{{ url_for('web.static', filename='js/region-picker.js') }}"></script>
   <script src="{{ url_for('web.static', filename='js/set-list.js') }}"></script>
   <script src="{{ url_for('web.static', filename='js/cardio-set-list.js') }}"></script>

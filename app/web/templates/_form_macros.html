@@ -39,37 +39,40 @@
   </div>
 {% endmacro %}
 
-{# Exercise-type toggle (strength/cardio/mobility/plyometrics). Drives
-   hidden #modality + #cardio_target inputs; showing/hiding the cardio
-   target select and the region-picker (in a sibling [data-region-picker-wrapper])
-   is handled by app/web/static/js/modality-picker.js #}
-{% macro modality_picker_field(modality='strength', cardio_target=None) %}
-  <div class="form-row" data-modality-picker>
-    <label>Exercise type</label>
-    <input type="hidden" name="modality" id="modality" value="{{ modality }}">
-    <input type="hidden" name="cardio_target" id="cardio_target" value="{{ cardio_target or '' }}">
-    <div class="flex gap-2" data-modality-buttons>
-      <button type="button" data-modality-btn="strength" class="view-toggle-btn inline-flex items-center gap-1.5">
-        <i data-lucide="dumbbell" class="h-3.5 w-3.5"></i> Strength
+{# Metric-type toggle: how the exercise is LOGGED. Drives the hidden
+   #metric_type input; showing/hiding the weight-unit vs distance-unit,
+   the strength vs cardio set list, and the region-picker (in a sibling
+   [data-region-picker-wrapper]) is handled by
+   app/web/static/js/metric-type-picker.js #}
+{% macro metric_type_picker_field(metric_type='resistance') %}
+  <div class="form-row" data-metric-type-picker>
+    <label>How do you log it?</label>
+    <input type="hidden" name="metric_type" id="metric_type" value="{{ metric_type }}">
+    <div class="flex gap-2">
+      <button type="button" data-metric-btn="resistance" class="view-toggle-btn inline-flex items-center gap-1.5">
+        <i data-lucide="dumbbell" class="h-3.5 w-3.5"></i> Weights &amp; reps
       </button>
-      <button type="button" data-modality-btn="cardio" class="view-toggle-btn inline-flex items-center gap-1.5">
-        <i data-lucide="heart-pulse" class="h-3.5 w-3.5"></i> Cardio
-      </button>
-      <button type="button" data-modality-btn="mobility" class="view-toggle-btn inline-flex items-center gap-1.5">
-        <i data-lucide="wind" class="h-3.5 w-3.5"></i> Mobility
-      </button>
-      <button type="button" data-modality-btn="plyometrics" class="view-toggle-btn inline-flex items-center gap-1.5">
-        <i data-lucide="zap" class="h-3.5 w-3.5"></i> Plyo
+      <button type="button" data-metric-btn="endurance" class="view-toggle-btn inline-flex items-center gap-1.5">
+        <i data-lucide="heart-pulse" class="h-3.5 w-3.5"></i> Time &amp; distance
       </button>
     </div>
-    <div data-cardio-target-wrapper class="mt-3 hidden">
-      <label for="cardio_target_select">Cardio type</label>
-      <select id="cardio_target_select" data-cardio-target-select>
-        <option value="steady">Steady state</option>
-        <option value="hiit">HIIT</option>
-        <option value="intervals">Intervals</option>
-        <option value="sprints">Sprints</option>
-      </select>
+  </div>
+{% endmacro %}
+
+
+{# Descriptive tag chips (multi-select). Drives the hidden #tags input
+   (comma-separated slugs); JS is app/web/static/js/tag-picker.js. `tags`
+   is the full curated vocab [{slug, name}, ...]; `selected` is a
+   comma-separated slug string of what's currently on the exercise. #}
+{% macro tag_picker_field(tags, selected='') %}
+  <div class="form-row" data-tag-picker>
+    <label>Tags <span class="text-neutral-500">(optional, tap any that apply)</span></label>
+    <input type="hidden" name="tags" id="tags" value="{{ selected or '' }}">
+    <div class="flex flex-wrap gap-2">
+      {% for t in tags %}
+        <button type="button" data-tag-chip="{{ t.slug }}" aria-pressed="false"
+                class="view-toggle-btn">{{ t.name }}</button>
+      {% endfor %}
     </div>
   </div>
 {% endmacro %}
@@ -116,9 +119,9 @@
 {% endmacro %}
 
 
-{# Per-interval duration/distance list for cardio -- steady-state is one
-   row, HIIT/intervals/sprints can have several. Hidden by default (only
-   shown when modality-picker.js switches to cardio). cardio_sets_json is
+{# Per-interval duration/distance list for endurance exercises -- one row
+   for steady state, several for intervals. Hidden by default (only shown
+   when metric-type-picker.js switches to endurance). cardio_sets_json is
    the initial rows (JSON string, e.g.
    '[{"duration_seconds":1800,"distance":5}]'); JS is
    app/web/static/js/cardio-set-list.js #}

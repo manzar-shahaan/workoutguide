@@ -129,9 +129,9 @@
                         {{ ex["notes"] }}
                       </p>
                     {% endif %}
-                    {% if ex["modality"] == "cardio" %}
+                    {% if ex["metric_type"] == "endurance" %}
                       <p class="mt-1 text-sm text-neutral-500 tabular">
-                        <span class="capitalize">{{ ex["cardio_target"] or "cardio" }}</span>
+                        {% if ex["tags_list"] %}{{ ex["tags_list"] | map(attribute='name') | join(', ') }}{% else %}Cardio{% endif %}
                         {% if ex["total_duration_display"] %} | {{ ex["total_duration_display"] }}{% endif %}
                         {% if ex["total_distance_display"] %} · {{ ex["total_distance_display"] }}{% endif %}
                       </p>
@@ -217,9 +217,9 @@
                     class="block surface-raised rounded-xl px-5 py-4 transition-all duration-200"
                   >
                     <div>
-                      {% if w["muscles_list"] %}
+                      {% if w["muscles_list"] or w["tags_list"] %}
                         <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-neutral-100">
-                          {% for m in w["muscles_list"] %}
+                          {% for m in (w["muscles_list"] or w["tags_list"]) %}
                             <span class="inline-flex items-center gap-1">
                               {{ m["name"] }}
                             </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
@@ -267,9 +267,9 @@
                             class="block surface rounded-xl px-5 py-4 transition-all duration-200"
                           >
                             <div>
-                              {% if w["muscles_list"] %}
+                              {% if w["muscles_list"] or w["tags_list"] %}
                                 <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-neutral-100">
-                                  {% for m in w["muscles_list"] %}
+                                  {% for m in (w["muscles_list"] or w["tags_list"]) %}
                                     <span class="inline-flex items-center gap-1">
                                       {{ m["name"] }}
                                     </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}

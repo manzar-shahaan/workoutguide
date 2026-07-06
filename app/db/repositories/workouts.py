@@ -4,16 +4,23 @@ from sqlalchemy import text
 
 
 def list_workouts(conn, user_id: int):
+    # Regions and tags are both independent one-to-many joins off the same
+    # exercise rows, but since every aggregate here is string_agg(DISTINCT
+    # ...) rather than a row-count-sensitive one, the cross-join fan-out
+    # between them is harmless -- DISTINCT collapses it back down.
     sql = """
         SELECT
             w.id,
             w.date,
             COALESCE(string_agg(DISTINCT br.name, ',' ORDER BY br.name), '') AS muscles,
-            COALESCE(string_agg(DISTINCT br.name, '||' ORDER BY br.name), '') AS muscle_data
+            COALESCE(string_agg(DISTINCT br.name, '||' ORDER BY br.name), '') AS muscle_data,
+            COALESCE(string_agg(DISTINCT tg.name, '||' ORDER BY tg.name), '') AS tag_data
         FROM workout w
         LEFT JOIN exercise e ON e.workout_id = w.id
         LEFT JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = e.exercise_catalog_id
         LEFT JOIN body_region br ON br.slug = ecr.region_slug
+        LEFT JOIN exercise_catalog_tag ect ON ect.exercise_catalog_id = e.exercise_catalog_id
+        LEFT JOIN tag tg ON tg.slug = ect.tag_slug
         WHERE w.user_id = :user_id
         GROUP BY w.id, w.date
         ORDER BY w.date DESC, w.id DESC
@@ -28,11 +35,14 @@ def get_workout(conn, workout_id: int, user_id: int):
             w.id,
             w.date,
             COALESCE(string_agg(DISTINCT br.name, ',' ORDER BY br.name), '') AS muscles,
-            COALESCE(string_agg(DISTINCT br.name, '||' ORDER BY br.name), '') AS muscle_data
+            COALESCE(string_agg(DISTINCT br.name, '||' ORDER BY br.name), '') AS muscle_data,
+            COALESCE(string_agg(DISTINCT tg.name, '||' ORDER BY tg.name), '') AS tag_data
         FROM workout w
         LEFT JOIN exercise e ON e.workout_id = w.id
         LEFT JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = e.exercise_catalog_id
         LEFT JOIN body_region br ON br.slug = ecr.region_slug
+        LEFT JOIN exercise_catalog_tag ect ON ect.exercise_catalog_id = e.exercise_catalog_id
+        LEFT JOIN tag tg ON tg.slug = ect.tag_slug
         WHERE w.id = :workout_id AND w.user_id = :user_id
         GROUP BY w.id, w.date
     """
@@ -45,11 +55,14 @@ def get_most_recent(conn, user_id: int):
         SELECT
             w.id,
             w.date,
-            COALESCE(string_agg(DISTINCT br.name, ', ' ORDER BY br.name), '') AS muscles
+            COALESCE(string_agg(DISTINCT br.name, ', ' ORDER BY br.name), '') AS muscles,
+            COALESCE(string_agg(DISTINCT tg.name, ', ' ORDER BY tg.name), '') AS tags
         FROM workout w
         LEFT JOIN exercise e ON e.workout_id = w.id
         LEFT JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = e.exercise_catalog_id
         LEFT JOIN body_region br ON br.slug = ecr.region_slug
+        LEFT JOIN exercise_catalog_tag ect ON ect.exercise_catalog_id = e.exercise_catalog_id
+        LEFT JOIN tag tg ON tg.slug = ect.tag_slug
         WHERE w.user_id = :user_id
         GROUP BY w.id, w.date
         ORDER BY w.date DESC, w.id DESC

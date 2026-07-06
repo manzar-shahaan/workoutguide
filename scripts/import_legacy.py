@@ -490,19 +490,20 @@ def append_workout_notes(conn: Connection, workout_id: int, notes: str | None) -
     )
 
 
-def infer_modality(muscles: list[str]) -> tuple[str, str | None]:
+def infer_metric_type(muscles: list[str]) -> tuple[str, list[str]]:
     """
-    Legacy free-text muscle names ("chest", "legs", "back"...) can't be
-    reliably auto-mapped onto the fixed 17-region taxonomy -- "arms" alone
-    doesn't say biceps vs. triceps vs. forearm. Region tagging for
-    imported strength exercises is left for the user to do via the
-    add/edit form's body-map picker, same as any other untagged entry.
-    Cardio is the one signal legacy data reliably carries (the old app's
-    "cardio" muscle bucket), so that still gets classified automatically.
+    Returns (metric_type, tags). Legacy free-text muscle names ("chest",
+    "legs", "back"...) can't be reliably auto-mapped onto the fixed
+    17-region taxonomy -- "arms" alone doesn't say biceps vs. triceps vs.
+    forearm -- so region tagging for imported exercises is left for the
+    user to do via the add/edit form's body-map picker. Cardio is the one
+    signal legacy data reliably carries (the old app's "cardio" muscle
+    bucket): those become endurance (duration/distance) + a [cardio] tag;
+    everything else defaults to resistance with no tags.
     """
     if "cardio" in muscles:
-        return "cardio", "steady"
-    return "strength", None
+        return "endurance", ["cardio"]
+    return "resistance", []
 
 
 def weight_to_kg(weight_used: float | None, weight_unit: str) -> float | None:
@@ -739,7 +740,7 @@ def import_legacy(
                     if exercise_name:
                         count_exercise_names_inferred += 1
 
-                modality, cardio_target = infer_modality(exercise.get("muscles") or [])
+                metric_type, tags = infer_metric_type(exercise.get("muscles") or [])
 
                 exercise_catalog_id = None
                 if exercise_name:
@@ -747,8 +748,8 @@ def import_legacy(
                     match_name, match_score = _best_catalog_match(existing_names, exercise_name)
                     if match_name and match_score >= FUZZY_MATCH_THRESHOLD:
                         exercise_catalog_id = catalog_cache[match_name]
-                        exercise_catalog_repo.set_modality(
-                            conn, exercise_catalog_id, modality, cardio_target, commit=False
+                        exercise_catalog_repo.set_metric_type(
+                            conn, exercise_catalog_id, metric_type, commit=False
                         )
                         count_exercise_names_matched += 1
                     else:
@@ -756,13 +757,16 @@ def import_legacy(
                             conn,
                             user_id=user_id,
                             name=exercise_name,
-                            modality=modality,
-                            cardio_target=cardio_target,
+                            metric_type=metric_type,
                             commit=False,
                         )
                         if exercise_catalog_id:
                             catalog_cache[exercise_name] = exercise_catalog_id
                             count_exercise_names_created += 1
+                    if exercise_catalog_id and tags:
+                        exercise_catalog_repo.set_tags(
+                            conn, exercise_catalog_id, tags, commit=False
+                        )
 
                 insert_exercise(
                     conn,

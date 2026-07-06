@@ -73,8 +73,10 @@ def list_for_workout(conn, workout_id: int):
             e.total_duration_seconds,
             e.total_distance,
             e.distance_unit,
-            COALESCE(ec.modality, 'strength') AS modality,
-            ec.cardio_target,
+            COALESCE(ec.metric_type, 'resistance') AS metric_type,
+            (SELECT string_agg(tg.name, '||' ORDER BY tg.sort_order)
+             FROM exercise_catalog_tag ect JOIN tag tg ON tg.slug = ect.tag_slug
+             WHERE ect.exercise_catalog_id = e.exercise_catalog_id) AS tag_data,
             COALESCE(string_agg(br.name, ',' ORDER BY ecr.rank), '') AS muscles,
             COALESCE(string_agg(br.name, '||' ORDER BY ecr.rank), '') AS muscle_data
         FROM exercise e
@@ -86,7 +88,7 @@ def list_for_workout(conn, workout_id: int):
         GROUP BY e.id, e.notes, e.exercise_catalog_id, e.exercise_name,
                  e.weight_used, e.weight_unit, e.weight_used_kg, e.num_of_sets,
                  e.avg_reps, e.max_reps, e.total_duration_seconds, e.total_distance,
-                 e.distance_unit, ec.modality, ec.cardio_target
+                 e.distance_unit, ec.metric_type
         ORDER BY e.id
     """
     result = conn.execute(text(sql), {"workout_id": workout_id})
@@ -109,8 +111,10 @@ def search_exercises(conn, user_id: int, query: str):
             e.total_duration_seconds,
             e.total_distance,
             e.distance_unit,
-            COALESCE(ec.modality, 'strength') AS modality,
-            ec.cardio_target,
+            COALESCE(ec.metric_type, 'resistance') AS metric_type,
+            (SELECT string_agg(tg.name, '||' ORDER BY tg.sort_order)
+             FROM exercise_catalog_tag ect JOIN tag tg ON tg.slug = ect.tag_slug
+             WHERE ect.exercise_catalog_id = e.exercise_catalog_id) AS tag_data,
             w.id AS workout_id,
             w.date AS workout_date,
             COALESCE(string_agg(DISTINCT br.name, ',' ORDER BY br.name), '') AS muscles,
@@ -134,7 +138,7 @@ def search_exercises(conn, user_id: int, query: str):
         GROUP BY e.id, e.notes, e.exercise_catalog_id, e.exercise_name,
                  e.weight_used, e.weight_unit, e.weight_used_kg, e.num_of_sets,
                  e.avg_reps, e.max_reps, e.total_duration_seconds, e.total_distance,
-                 e.distance_unit, ec.modality, ec.cardio_target, w.id, w.date
+                 e.distance_unit, ec.metric_type, w.id, w.date
         ORDER BY w.date DESC, e.id DESC
     """
     result = conn.execute(

@@ -6,7 +6,7 @@
 // no-store headers on every page because workout data is per-user and
 // changes constantly, and this worker respects that.
 
-const CACHE_NAME = "shell-v6";
+const CACHE_NAME = "shell-v8";
 const SHELL_ASSETS = [
   "/static/manifest.webmanifest",
   "/static/js/main.js",

@@ -72,8 +72,8 @@ def seed_sample_data(user_id: int, seed: int = 7) -> None:
             {"notes": "weighted crunches", "regions": ["abs"], "base": 10, "step": 2.5, "sets": 3},
         ]
         cardio_templates = [
-            {"notes": "treadmill run (20 min)", "cardio_target": "steady"},
-            {"notes": "bike ride (30 min)", "cardio_target": "steady"},
+            {"notes": "treadmill run (20 min)", "duration_seconds": 1200, "distance": 2.5, "distance_unit": "mi"},
+            {"notes": "bike ride (30 min)", "duration_seconds": 1800, "distance": 8.0, "distance_unit": "mi"},
         ]
 
         for idx, workout_day in enumerate(workout_days):
@@ -97,7 +97,11 @@ def seed_sample_data(user_id: int, seed: int = 7) -> None:
                 num_of_sets = None
                 avg_reps = None
                 max_reps = None
+                total_duration_seconds = None
+                total_distance = None
+                distance_unit = None
                 sets = None
+                is_endurance = "duration_seconds" in ex
 
                 if "base" in ex:
                     weight_used = ex["base"] + (idx * ex["step"])
@@ -114,20 +118,34 @@ def seed_sample_data(user_id: int, seed: int = 7) -> None:
                         }
                         for i in range(num_of_sets)
                     ]
+                elif is_endurance:
+                    weight_unit = None
+                    num_of_sets = 1
+                    total_duration_seconds = ex["duration_seconds"]
+                    total_distance = ex.get("distance")
+                    distance_unit = ex.get("distance_unit")
+                    sets = [
+                        {
+                            "duration_seconds": total_duration_seconds,
+                            "distance": total_distance,
+                            "distance_unit": distance_unit,
+                        }
+                    ]
 
                 weight_used_kg = _normalize_weight_to_kg(weight_used, weight_unit)
 
-                modality = "cardio" if "cardio_target" in ex else "strength"
+                metric_type = "endurance" if is_endurance else "resistance"
                 exercise_catalog_id = exercise_catalog_repo.get_or_create(
                     conn,
                     user_id=user_id,
                     name=ex["notes"],
-                    modality=modality,
-                    cardio_target=ex.get("cardio_target"),
+                    metric_type=metric_type,
                     commit=False,
                 )
                 if "regions" in ex:
                     exercise_catalog_repo.tag_regions(conn, exercise_catalog_id, ex["regions"], commit=False)
+                if is_endurance:
+                    exercise_catalog_repo.set_tags(conn, exercise_catalog_id, ["cardio"], commit=False)
 
                 exercises_repo.create_exercise(
                     conn,
@@ -141,6 +159,9 @@ def seed_sample_data(user_id: int, seed: int = 7) -> None:
                     num_of_sets=num_of_sets,
                     avg_reps=avg_reps,
                     max_reps=max_reps,
+                    total_duration_seconds=total_duration_seconds,
+                    total_distance=total_distance,
+                    distance_unit=distance_unit,
                     sets=sets,
                 )
     finally:

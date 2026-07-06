@@ -22,6 +22,7 @@ from ..auth_utils import login_required
 from ...db.repositories import suggested_exercises as suggested_exercises_repo
 from utils.date_utils import format_date
 from utils.body_regions import REGION_SLUGS
+from utils.tags import TAG_SLUGS
 
 WEIGHT_UNITS = [
     {"id": "lb", "name": "lb"},
@@ -36,8 +37,7 @@ DISTANCE_UNITS = [
 ]
 VALID_DISTANCE_UNITS = {"mi", "km"}
 
-VALID_MODALITIES = {"strength", "cardio", "mobility", "plyometrics"}
-VALID_CARDIO_TARGETS = {"steady", "hiit", "intervals", "sprints"}
+VALID_METRIC_TYPES = {"resistance", "endurance"}
 
 
 def _default_distance_unit(weight_unit_pref: str) -> str:
@@ -45,25 +45,20 @@ def _default_distance_unit(weight_unit_pref: str) -> str:
     return "mi" if weight_unit_pref == "lb" else "km"
 
 
-def _parse_modality(form) -> tuple[str, str | None, str | None]:
-    """
-    Returns (modality, cardio_target, error). Cardio requires picking one
-    of the 4 targets; every other modality is tagged via the region map
-    instead, so cardio_target is forced to None for those regardless of
-    what's in the submitted form (stale hidden-field state from switching
-    the picker shouldn't leak through).
-    """
-    modality = form.get("modality", "").strip() or "strength"
-    if modality not in VALID_MODALITIES:
-        return modality, None, "Please select a valid exercise type."
+def _parse_metric_type(form) -> tuple[str, str | None]:
+    """Returns (metric_type, error). How the exercise is logged --
+    'resistance' (weight/reps) or 'endurance' (duration/distance)."""
+    metric_type = form.get("metric_type", "").strip() or "resistance"
+    if metric_type not in VALID_METRIC_TYPES:
+        return metric_type, "Please choose how this exercise is logged."
+    return metric_type, None
 
-    if modality != "cardio":
-        return modality, None, None
 
-    cardio_target = form.get("cardio_target", "").strip()
-    if cardio_target not in VALID_CARDIO_TARGETS:
-        return modality, None, "Please select a cardio type."
-    return modality, cardio_target, None
+def _parse_tags(form) -> list[str]:
+    """The submitted tag slugs, filtered to the curated vocabulary. Tags
+    are optional, so an empty list is valid (means 'untag everything')."""
+    raw = form.get("tags", "")
+    return [slug.strip() for slug in raw.split(",") if slug.strip() in TAG_SLUGS]
 
 
 def _normalize_weight_to_kg(weight_used: float | None, weight_unit: str | None) -> float | None:
@@ -252,7 +247,9 @@ def new_exercise():
             if workout is None:
                 abort(404)
 
-        def render_form(*, error, weight_unit, distance_unit, sets_json, cardio_sets_json, modality, cardio_target):
+        all_tags = exercise_catalog_repo.list_tags(conn)
+
+        def render_form(*, error, weight_unit, distance_unit, sets_json, cardio_sets_json, metric_type, tags):
             return render_template(
                 "exercises/new.html",
                 workout=workout,
@@ -265,81 +262,55 @@ def new_exercise():
                 distance_unit_selected=distance_unit,
                 sets_json=sets_json,
                 cardio_sets_json=cardio_sets_json,
-                modality=modality,
-                cardio_target=cardio_target,
+                metric_type=metric_type,
+                tags=tags,
+                all_tags=all_tags,
             )
 
         if request.method == "POST":
             notes = request.form.get("notes", "").strip() or None
             exercise_name = _normalize_exercise_name(request.form.get("exercise_name", ""))
-            modality, cardio_target, modality_error = _parse_modality(request.form)
+            metric_type, metric_error = _parse_metric_type(request.form)
+            tags = _parse_tags(request.form)
+            tags_raw = ",".join(tags)
 
             weight_unit = request.form.get("weight_unit", "").strip() or default_unit
             distance_unit = request.form.get("distance_unit", "").strip() or default_distance_unit
             sets_json_raw = request.form.get("sets_json", "[]")
             cardio_sets_json_raw = request.form.get("cardio_sets_json", "[]")
 
-            if modality_error:
+            def form_error(msg):
                 return render_form(
-                    error=modality_error,
+                    error=msg,
                     weight_unit=weight_unit,
                     distance_unit=distance_unit,
                     sets_json=sets_json_raw,
                     cardio_sets_json=cardio_sets_json_raw,
-                    modality=modality,
-                    cardio_target=cardio_target,
+                    metric_type=metric_type,
+                    tags=tags_raw,
                 )
 
-            is_cardio = modality == "cardio"
+            if metric_error:
+                return form_error(metric_error)
 
-            if is_cardio:
+            is_endurance = metric_type == "endurance"
+
+            if is_endurance:
                 if distance_unit not in VALID_DISTANCE_UNITS:
-                    return render_form(
-                        error="Please select a valid distance unit.",
-                        weight_unit=weight_unit,
-                        distance_unit=distance_unit,
-                        sets_json=sets_json_raw,
-                        cardio_sets_json=cardio_sets_json_raw,
-                        modality=modality,
-                        cardio_target=cardio_target,
-                    )
+                    return form_error("Please select a valid distance unit.")
                 try:
                     sets = _parse_cardio_sets_json(cardio_sets_json_raw, distance_unit)
                 except ValueError as exc:
-                    return render_form(
-                        error=str(exc),
-                        weight_unit=weight_unit,
-                        distance_unit=distance_unit,
-                        sets_json=sets_json_raw,
-                        cardio_sets_json=cardio_sets_json_raw,
-                        modality=modality,
-                        cardio_target=cardio_target,
-                    )
+                    return form_error(str(exc))
                 rollup = _rollup_from_cardio_sets(sets)
                 weight_unit_to_store = None
             else:
                 if weight_unit not in VALID_WEIGHT_UNITS:
-                    return render_form(
-                        error="Please select a valid weight unit.",
-                        weight_unit=weight_unit,
-                        distance_unit=distance_unit,
-                        sets_json=sets_json_raw,
-                        cardio_sets_json=cardio_sets_json_raw,
-                        modality=modality,
-                        cardio_target=cardio_target,
-                    )
+                    return form_error("Please select a valid weight unit.")
                 try:
                     sets = _parse_sets_json(sets_json_raw, weight_unit)
                 except ValueError as exc:
-                    return render_form(
-                        error=str(exc),
-                        weight_unit=weight_unit,
-                        distance_unit=distance_unit,
-                        sets_json=sets_json_raw,
-                        cardio_sets_json=cardio_sets_json_raw,
-                        modality=modality,
-                        cardio_target=cardio_target,
-                    )
+                    return form_error(str(exc))
                 rollup = _rollup_from_sets(sets)
                 weight_unit_to_store = weight_unit
 
@@ -348,41 +319,16 @@ def new_exercise():
                 date_str = request.form.get("date", "").strip()
 
                 if not date_str:
-                    return render_form(
-                        error="Date is required when creating a new workout.",
-                        weight_unit=weight_unit,
-                        distance_unit=distance_unit,
-                        sets_json=sets_json_raw,
-                        cardio_sets_json=cardio_sets_json_raw,
-                        modality=modality,
-                        cardio_target=cardio_target,
-                    )
+                    return form_error("Date is required when creating a new workout.")
 
-                # Validate date format
                 try:
                     selected_date = date.fromisoformat(date_str)
                 except ValueError:
-                    return render_form(
-                        error="Invalid date format.",
-                        weight_unit=weight_unit,
-                        distance_unit=distance_unit,
-                        sets_json=sets_json_raw,
-                        cardio_sets_json=cardio_sets_json_raw,
-                        modality=modality,
-                        cardio_target=cardio_target,
-                    )
+                    return form_error("Invalid date format.")
 
                 # Enforce future date ≤ 7 days
                 if selected_date > max_future_date:
-                    return render_form(
-                        error="You can only pick a date up to 7 days in the future.",
-                        weight_unit=weight_unit,
-                        distance_unit=distance_unit,
-                        sets_json=sets_json_raw,
-                        cardio_sets_json=cardio_sets_json_raw,
-                        modality=modality,
-                        cardio_target=cardio_target,
-                    )
+                    return form_error("You can only pick a date up to 7 days in the future.")
 
                 # Past dates are allowed (for backfilling), so no lower bound.
                 # Link to existing or create new workout for that date.
@@ -406,21 +352,20 @@ def new_exercise():
                     conn,
                     user_id=user_id,
                     name=exercise_name,
-                    modality=modality,
-                    cardio_target=cardio_target,
+                    metric_type=metric_type,
                 )
-                # Re-logging with a different modality than it was created
-                # with (e.g. "running" first tagged steady, later intervals)
-                # should update the catalog entry, not just the new log.
-                exercise_catalog_repo.set_modality(conn, exercise_catalog_id, modality, cardio_target)
+                # Re-logging with a different metric_type/tags than it was
+                # created with should update the catalog entry, not just the
+                # new log. set_metric_type/set_tags fully replace prior state.
+                exercise_catalog_repo.set_metric_type(conn, exercise_catalog_id, metric_type)
+                exercise_catalog_repo.set_tags(conn, exercise_catalog_id, tags)
 
-                # Cardio is classified by cardio_target, not body regions --
-                # clear any stale region tags rather than let them linger.
-                # Always write, even when empty: tag_regions is a full
-                # replace, so submitting no regions means "untag this."
+                # Regions stay a resistance-only concept (a run shouldn't
+                # count toward muscle freshness), so endurance clears them.
+                # Always write: tag_regions is a full replace.
                 region_slugs = (
                     []
-                    if is_cardio
+                    if is_endurance
                     else [
                         slug.strip()
                         for slug in request.form.get("region_slugs", "").split(",")
@@ -450,16 +395,16 @@ def new_exercise():
             # After creating, go back to that workout's detail page
             return redirect(url_for("web.workout_detail", workout_id=workout_id_to_use))
 
-        # GET -- blank form; if arriving from the map/shortlist, main.js
-        # fills in exercise_name/sets_json from query params.
+        # GET -- blank form; if arriving from the map/shortlist/cardio
+        # shortcut, main.js fills in fields from query params.
         return render_form(
             error=None,
             weight_unit=default_unit,
             distance_unit=default_distance_unit,
             sets_json="[]",
             cardio_sets_json="[]",
-            modality="strength",
-            cardio_target=None,
+            metric_type="resistance",
+            tags="",
         )
     finally:
         conn.close()
@@ -494,8 +439,8 @@ def edit_exercise(exercise_id):
             if existing_catalog_id
             else None
         )
-        current_modality = existing_template["modality"] if existing_template else "strength"
-        current_cardio_target = existing_template["cardio_target"] if existing_template else None
+        current_metric_type = existing_template["metric_type"] if existing_template else "resistance"
+        all_tags = exercise_catalog_repo.list_tags(conn)
 
         default_unit = g.user.get("weight_unit") or "lb"
         exercise_unit = (
@@ -510,7 +455,7 @@ def edit_exercise(exercise_id):
             else default_distance_unit
         )
 
-        def render_form(*, error, weight_unit, distance_unit, sets_json, cardio_sets_json, modality, cardio_target, region_slugs=None):
+        def render_form(*, error, weight_unit, distance_unit, sets_json, cardio_sets_json, metric_type, tags, region_slugs=None):
             return render_template(
                 "exercises/edit.html",
                 exercise=exercise,
@@ -525,120 +470,75 @@ def edit_exercise(exercise_id):
                 region_slugs=region_slugs,
                 sets_json=sets_json,
                 cardio_sets_json=cardio_sets_json,
-                modality=modality,
-                cardio_target=cardio_target,
+                metric_type=metric_type,
+                tags=tags,
+                all_tags=all_tags,
             )
 
         if request.method == "POST":
             date_str = request.form.get("date", "").strip()
             notes = request.form.get("notes", "").strip() or None
             exercise_name = _normalize_exercise_name(request.form.get("exercise_name", ""))
-            modality, cardio_target, modality_error = _parse_modality(request.form)
+            metric_type, metric_error = _parse_metric_type(request.form)
+            tags = _parse_tags(request.form)
+            tags_raw = ",".join(tags)
 
             weight_unit = request.form.get("weight_unit", "").strip() or exercise_unit
             distance_unit = request.form.get("distance_unit", "").strip() or exercise_distance_unit
             sets_json_raw = request.form.get("sets_json", "[]")
             cardio_sets_json_raw = request.form.get("cardio_sets_json", "[]")
 
-            if modality_error:
+            # The region-picker's hidden field survives a failed submit, so
+            # echo it back rather than dropping the user's tapped regions.
+            submitted_region_slugs = request.form.get("region_slugs", "")
+
+            def form_error(msg):
                 return render_form(
-                    error=modality_error,
+                    error=msg,
                     weight_unit=weight_unit,
                     distance_unit=distance_unit,
                     sets_json=sets_json_raw,
                     cardio_sets_json=cardio_sets_json_raw,
-                    modality=modality,
-                    cardio_target=cardio_target,
+                    metric_type=metric_type,
+                    tags=tags_raw,
+                    region_slugs=submitted_region_slugs,
                 )
 
-            is_cardio = modality == "cardio"
+            if metric_error:
+                return form_error(metric_error)
 
-            if is_cardio:
+            is_endurance = metric_type == "endurance"
+
+            if is_endurance:
                 if distance_unit not in VALID_DISTANCE_UNITS:
-                    return render_form(
-                        error="Please select a valid distance unit.",
-                        weight_unit=weight_unit,
-                        distance_unit=distance_unit,
-                        sets_json=sets_json_raw,
-                        cardio_sets_json=cardio_sets_json_raw,
-                        modality=modality,
-                        cardio_target=cardio_target,
-                    )
+                    return form_error("Please select a valid distance unit.")
                 try:
                     sets = _parse_cardio_sets_json(cardio_sets_json_raw, distance_unit)
                 except ValueError as exc:
-                    return render_form(
-                        error=str(exc),
-                        weight_unit=weight_unit,
-                        distance_unit=distance_unit,
-                        sets_json=sets_json_raw,
-                        cardio_sets_json=cardio_sets_json_raw,
-                        modality=modality,
-                        cardio_target=cardio_target,
-                    )
+                    return form_error(str(exc))
                 rollup = _rollup_from_cardio_sets(sets)
                 weight_unit_to_store = None
             else:
                 if weight_unit not in VALID_WEIGHT_UNITS:
-                    return render_form(
-                        error="Please select a valid weight unit.",
-                        weight_unit=weight_unit,
-                        distance_unit=distance_unit,
-                        sets_json=sets_json_raw,
-                        cardio_sets_json=cardio_sets_json_raw,
-                        modality=modality,
-                        cardio_target=cardio_target,
-                    )
+                    return form_error("Please select a valid weight unit.")
                 try:
                     sets = _parse_sets_json(sets_json_raw, weight_unit)
                 except ValueError as exc:
-                    return render_form(
-                        error=str(exc),
-                        weight_unit=weight_unit,
-                        distance_unit=distance_unit,
-                        sets_json=sets_json_raw,
-                        cardio_sets_json=cardio_sets_json_raw,
-                        modality=modality,
-                        cardio_target=cardio_target,
-                    )
+                    return form_error(str(exc))
                 rollup = _rollup_from_sets(sets)
                 weight_unit_to_store = weight_unit
 
             # Validate date
             if not date_str:
-                return render_form(
-                    error="Workout date is required.",
-                    weight_unit=weight_unit,
-                    distance_unit=distance_unit,
-                    sets_json=sets_json_raw,
-                    cardio_sets_json=cardio_sets_json_raw,
-                    modality=modality,
-                    cardio_target=cardio_target,
-                )
+                return form_error("Workout date is required.")
 
             try:
                 selected_date = date.fromisoformat(date_str)
             except ValueError:
-                return render_form(
-                    error="Invalid date format.",
-                    weight_unit=weight_unit,
-                    distance_unit=distance_unit,
-                    sets_json=sets_json_raw,
-                    cardio_sets_json=cardio_sets_json_raw,
-                    modality=modality,
-                    cardio_target=cardio_target,
-                )
+                return form_error("Invalid date format.")
 
             if selected_date > max_future_date:
-                return render_form(
-                    error="You can only pick a date up to 7 days in the future.",
-                    weight_unit=weight_unit,
-                    distance_unit=distance_unit,
-                    sets_json=sets_json_raw,
-                    cardio_sets_json=cardio_sets_json_raw,
-                    modality=modality,
-                    cardio_target=cardio_target,
-                )
+                return form_error("You can only pick a date up to 7 days in the future.")
 
             # Decide which workout this exercise should belong to after the edit
             current_workout_id = workout["id"]
@@ -664,21 +564,19 @@ def edit_exercise(exercise_id):
                     conn,
                     user_id=user_id,
                     name=exercise_name,
-                    modality=modality,
-                    cardio_target=cardio_target,
+                    metric_type=metric_type,
                 )
-                exercise_catalog_repo.set_modality(conn, exercise_catalog_id, modality, cardio_target)
+                exercise_catalog_repo.set_metric_type(conn, exercise_catalog_id, metric_type)
+                exercise_catalog_repo.set_tags(conn, exercise_catalog_id, tags)
 
-                # Cardio is classified by cardio_target, not body regions --
-                # clear any stale region tags rather than let them linger.
-                # Always write, even when empty: tag_regions is a full
-                # replace, so submitting no regions means "untag this."
+                # Regions stay a resistance-only concept, so endurance clears
+                # them. Always write: tag_regions is a full replace.
                 region_slugs = (
                     []
-                    if is_cardio
+                    if is_endurance
                     else [
                         slug.strip()
-                        for slug in request.form.get("region_slugs", "").split(",")
+                        for slug in submitted_region_slugs.split(",")
                         if slug.strip() in REGION_SLUGS
                     ]
                 )
@@ -718,8 +616,13 @@ def edit_exercise(exercise_id):
             if existing_catalog_id
             else ""
         )
+        tags_value = (
+            ",".join(exercise_catalog_repo.get_tags(conn, existing_catalog_id))
+            if existing_catalog_id
+            else ""
+        )
         existing_sets = exercises_repo.get_sets_for_exercise(conn, exercise_id)
-        if current_modality == "cardio":
+        if current_metric_type == "endurance":
             sets_json_value = "[]"
             cardio_sets_json_value = json.dumps(
                 [{"duration_seconds": s["duration_seconds"], "distance": s["distance"]} for s in existing_sets]
@@ -742,8 +645,8 @@ def edit_exercise(exercise_id):
             region_slugs=region_slugs_value,
             sets_json=sets_json_value,
             cardio_sets_json=cardio_sets_json_value,
-            modality=current_modality,
-            cardio_target=current_cardio_target,
+            metric_type=current_metric_type,
+            tags=tags_value,
         )
     finally:
         conn.close()
@@ -808,8 +711,8 @@ def exercise_suggestions():
         {
             "id": row["id"],
             "name": row["name"],
-            "modality": row.get("modality") or "strength",
-            "cardio_target": row.get("cardio_target"),
+            "metric_type": row.get("metric_type") or "resistance",
+            "tags": (row.get("tag_slugs") or "").split(",") if row.get("tag_slugs") else [],
             "exercise_count": row.get("exercise_count", 0),
             "last_weight_used": row.get("last_weight_used"),
             "last_weight_unit": row.get("last_weight_unit"),
@@ -845,8 +748,8 @@ def region_shortlist():
         {
             "id": row["id"],
             "name": row["name"],
-            "modality": row.get("modality") or "strength",
-            "cardio_target": row.get("cardio_target"),
+            "metric_type": row.get("metric_type") or "resistance",
+            "tags": (row.get("tag_slugs") or "").split(",") if row.get("tag_slugs") else [],
             "image_url": url_for("web.static", filename=row["image_path"]) if row.get("image_path") else None,
             "last_weight_used": row.get("last_weight_used"),
             "last_weight_unit": row.get("last_weight_unit"),

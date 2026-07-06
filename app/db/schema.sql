@@ -23,14 +23,17 @@ CREATE TABLE IF NOT EXISTS workout (
     FOREIGN KEY (user_id) REFERENCES app_user (id)
 );
 
--- An entry's classification is modality + (for strength/mobility/
--- plyometrics) exercise_catalog_region tags, or (for cardio) cardio_target.
+-- metric_type is how the exercise is logged (and thus how the form/
+-- display behave): 'resistance' = weight x reps per set, 'endurance' =
+-- duration (+ optional distance) per interval. What the exercise *is*
+-- (cardio/strength/agility/...) lives in exercise_catalog_tag; which
+-- muscles it hits lives in exercise_catalog_region. All three are
+-- independent axes.
 CREATE TABLE IF NOT EXISTS exercise_catalog (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
     name TEXT NOT NULL,
-    modality TEXT NOT NULL DEFAULT 'strength',
-    cardio_target TEXT,
+    metric_type TEXT NOT NULL DEFAULT 'resistance',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES app_user (id),
     UNIQUE (user_id, name)
@@ -56,12 +59,13 @@ CREATE TABLE IF NOT EXISTS exercise (
     FOREIGN KEY (exercise_catalog_id) REFERENCES exercise_catalog (id)
 );
 
--- Per-set weight/reps (strength/mobility/plyometrics) or per-interval
--- duration/distance (cardio) -- a given exercise only ever populates one
--- pair, depending on its catalog modality. exercise.weight_used/
--- num_of_sets/avg_reps/max_reps/total_duration_seconds/total_distance
--- stay as derived rollups computed from these rows -- kept for quick-list
--- display, no longer the source of truth for stats/volume.
+-- Per-set weight/reps (resistance metric_type) or per-interval
+-- duration/distance (endurance metric_type) -- a given exercise only ever
+-- populates one pair, depending on its catalog metric_type.
+-- exercise.weight_used/num_of_sets/avg_reps/max_reps/
+-- total_duration_seconds/total_distance stay as derived rollups computed
+-- from these rows -- kept for quick-list display, no longer the source of
+-- truth for stats/volume.
 CREATE TABLE IF NOT EXISTS exercise_set (
     id SERIAL PRIMARY KEY,
     exercise_id INTEGER NOT NULL,
@@ -117,6 +121,26 @@ CREATE TABLE IF NOT EXISTS exercise_catalog_region (
     PRIMARY KEY (exercise_catalog_id, region_slug),
     FOREIGN KEY (exercise_catalog_id) REFERENCES exercise_catalog (id) ON DELETE CASCADE,
     FOREIGN KEY (region_slug) REFERENCES body_region (slug)
+);
+
+-- Curated, non-user-editable descriptive tag vocabulary (Cardio,
+-- Strength, Agility, HIIT, ...). Seeded from utils/tags.py
+-- (scripts/migrate_tags.py). sort_order controls chip order on the form.
+CREATE TABLE IF NOT EXISTS tag (
+    slug TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+-- Which descriptive tags apply to an exercise (many-to-many). Unlike
+-- regions there's no rank -- all tags on an exercise are equal. This is
+-- what powers cross-cutting analytics like "minutes tagged cardio".
+CREATE TABLE IF NOT EXISTS exercise_catalog_tag (
+    exercise_catalog_id INTEGER NOT NULL,
+    tag_slug TEXT NOT NULL,
+    PRIMARY KEY (exercise_catalog_id, tag_slug),
+    FOREIGN KEY (exercise_catalog_id) REFERENCES exercise_catalog (id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_slug) REFERENCES tag (slug)
 );
 
 -- Exercises you haven't logged yet, sourced from wger (CC-BY-SA), shown

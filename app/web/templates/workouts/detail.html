@@ -116,9 +116,13 @@
                 </p>
               {% endif %}
 
-              {% if ex["modality"] == "cardio" %}
+              {% if ex["metric_type"] == "endurance" %}
                 <p class="mt-1 text-sm text-neutral-500">
-                  <span class="capitalize">{{ ex["cardio_target"] or "cardio" }}</span>
+                  {% if ex["tags_list"] %}
+                    <span>{{ ex["tags_list"] | map(attribute='name') | join(', ') }}</span>
+                  {% else %}
+                    <span>Cardio</span>
+                  {% endif %}
                   {% if ex["total_duration_display"] or ex["total_distance_display"] %} | {% endif %}
                   {% if ex["total_duration_display"] %}{{ ex["total_duration_display"] }}{% endif %}
                   {% if ex["total_distance_display"] %}
@@ -209,6 +213,14 @@
                   {% set show_sep = true %}
                 {% endif %}
               </p>
+              {% endif %}
+
+              {% if ex["metric_type"] != "endurance" and ex["tags_list"] %}
+                <div class="mt-2 flex flex-wrap gap-1.5">
+                  {% for t in ex["tags_list"] %}
+                    <span class="rounded-full border border-neutral-800 bg-black px-2 py-0.5 text-[11px] text-neutral-400">{{ t["name"] }}</span>
+                  {% endfor %}
+                </div>
               {% endif %}
             </div>
 

@@ -195,11 +195,14 @@ def workouts_index():
     if most_recent_workout is not None and most_recent_workout["date"]:
         raw_date = most_recent_workout["date"]
         d = raw_date if isinstance(raw_date, _date) else datetime.strptime(raw_date, "%Y-%m-%d").date()
+        # A workout of only endurance exercises (a run, a match) carries no
+        # body-region tags by design, so fall back to its descriptive tags
+        # (Cardio, Agility, ...) rather than showing nothing.
         last_workout = {
             "id": most_recent_workout["id"],
             "weekday": d.strftime("%a"),
             "date_display": format_date(d),
-            "muscles_display": most_recent_workout["muscles"] or None,
+            "muscles_display": most_recent_workout["muscles"] or most_recent_workout.get("tags") or None,
         }
 
     week_groups = {}   # week_start (date) -> [workouts]
@@ -217,30 +220,33 @@ def workouts_index():
 
             muscle_data = row["muscle_data"] if "muscle_data" in row.keys() else ""
             muscles_list = _parse_muscle_data(muscle_data)
+            tags_list = _parse_muscle_data(row["tag_data"] if "tag_data" in row.keys() else "")
 
-            modality = row.get("modality") or "strength"
+            metric_type = row.get("metric_type") or "resistance"
+            is_endurance = metric_type == "endurance"
             search_results.append(
                 {
                     "id": row["id"],
                     "workout_id": row["workout_id"],
                     "notes": row["notes"],
                     "exercise_name": row.get("exercise_name"),
-                    "modality": modality,
+                    "metric_type": metric_type,
                     "weight_used": row["weight_used"],
                     "weight_unit": row["weight_unit"],
                     "num_of_sets": row["num_of_sets"],
                     "avg_reps": row.get("avg_reps"),
                     "max_reps": row.get("max_reps"),
                     "total_duration_display": format_duration(row.get("total_duration_seconds"))
-                    if modality == "cardio"
+                    if is_endurance
                     else None,
                     "total_distance_display": format_distance(row.get("total_distance"), row.get("distance_unit"))
-                    if modality == "cardio"
+                    if is_endurance
                     else None,
                     "date": d,
                     "date_display": format_date(d),
                     "weekday": d.strftime("%a"),
                     "muscles_list": muscles_list,
+                    "tags_list": tags_list,
                 }
             )
     else:
@@ -259,6 +265,11 @@ def workouts_index():
             muscles_display = _format_muscle_list(raw_muscles)
             muscle_data = row["muscle_data"] if "muscle_data" in row.keys() else ""
             muscles_list = _parse_muscle_data(muscle_data)
+            # Endurance-only workouts (a run, a match) have no body-region
+            # tags by design -- fall back to descriptive tags so the day's
+            # entry doesn't read as "no muscle groups logged" when it was
+            # in fact a real, tagged activity.
+            tags_list = _parse_muscle_data(row["tag_data"] if "tag_data" in row.keys() else "")
 
             workout = {
                 "id": row["id"],
@@ -267,6 +278,7 @@ def workouts_index():
                 "muscles": raw_muscles,
                 "muscles_display": muscles_display,
                 "muscles_list": muscles_list,
+                "tags_list": tags_list,
             }
 
             week_start = d - timedelta(days=d.weekday())  # Monday of that week
@@ -349,6 +361,13 @@ def workout_detail(workout_id):
     workout_muscles = _parse_muscle_data(
         workout["muscle_data"] if "muscle_data" in workout.keys() else ""
     )
+    if not workout_muscles:
+        # An all-endurance workout (a run, a match) carries no body-region
+        # tags by design -- fall back to descriptive tags rather than
+        # silently showing nothing.
+        workout_muscles = _parse_muscle_data(
+            workout["tag_data"] if "tag_data" in workout.keys() else ""
+        )
 
     formatted_exercises = []
     for ex in exercises:
@@ -357,6 +376,9 @@ def workout_detail(workout_id):
         )
         formatted = dict(ex)
         formatted["muscles_list"] = muscle_list
+        formatted["tags_list"] = _parse_muscle_data(
+            ex["tag_data"] if "tag_data" in ex.keys() else ""
+        )
         sets = exercise_sets.get(ex["id"], [])
         formatted["sets"] = sets
         formatted["volume_kg"] = sum(
@@ -373,7 +395,7 @@ def workout_detail(workout_id):
             s["weight_used_kg"] is not None and s["reps"] is not None for s in sets
         )
 
-        if ex["modality"] == "cardio":
+        if ex["metric_type"] == "endurance":
             unit = ex.get("distance_unit")
             formatted["cardio_sets_display"] = [
                 {

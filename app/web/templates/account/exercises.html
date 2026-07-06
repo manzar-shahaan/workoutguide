@@ -35,12 +35,9 @@
               <span class="text-[11px] text-neutral-500">{{ t["exercise_count"] }} logged</span>
             </div>
             <p class="mt-1 text-xs text-neutral-500">
-              {{ t["modality"] | capitalize }}
-              {% if t["modality"] == "cardio" and t["cardio_target"] %}
-                &middot; {{ t["cardio_target"] | capitalize }}
-              {% elif t["regions"] %}
-                &middot; {{ t["regions"] }}
-              {% endif %}
+              {{ "Time & distance" if t["metric_type"] == "endurance" else "Weights & reps" }}
+              {% if t["tags"] %}&middot; {{ t["tags"] }}{% endif %}
+              {% if t["regions"] %}&middot; {{ t["regions"] }}{% endif %}
             </p>
 
             <div class="mt-3 grid gap-2 sm:grid-cols-2">

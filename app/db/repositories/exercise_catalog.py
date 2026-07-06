@@ -20,8 +20,10 @@ def list_for_regions(conn, user_id: int, region_slugs: list[str]):
         SELECT
             ec.id,
             ec.name,
-            ec.modality,
-            ec.cardio_target,
+            ec.metric_type,
+            (SELECT string_agg(ect.tag_slug, ',' ORDER BY tg.sort_order)
+             FROM exercise_catalog_tag ect JOIN tag tg ON tg.slug = ect.tag_slug
+             WHERE ect.exercise_catalog_id = ec.id) AS tag_slugs,
             se.image_path,
             last.weight_used AS last_weight_used,
             last.weight_unit AS last_weight_unit,
@@ -113,8 +115,10 @@ def list_all_with_counts_and_last(conn, user_id: int):
         SELECT
             ec.id,
             ec.name,
-            ec.modality,
-            ec.cardio_target,
+            ec.metric_type,
+            (SELECT string_agg(ect.tag_slug, ',' ORDER BY tg.sort_order)
+             FROM exercise_catalog_tag ect JOIN tag tg ON tg.slug = ect.tag_slug
+             WHERE ect.exercise_catalog_id = ec.id) AS tag_slugs,
             COUNT(e.id) AS exercise_count,
             last.weight_used AS last_weight_used,
             last.weight_unit AS last_weight_unit,
@@ -148,7 +152,7 @@ def list_all_with_counts_and_last(conn, user_id: int):
             WHERE s.exercise_id = last.id
         ) AS last_sets ON TRUE
         WHERE ec.user_id = :user_id
-        GROUP BY ec.id, ec.name, ec.modality, ec.cardio_target,
+        GROUP BY ec.id, ec.name, ec.metric_type,
                  last.weight_used, last.weight_unit, last.num_of_sets,
                  last.total_duration_seconds, last.total_distance, last.distance_unit,
                  last.workout_date, last_sets.sets
@@ -160,20 +164,20 @@ def list_all_with_counts_and_last(conn, user_id: int):
 
 def list_all_with_details(conn, user_id: int):
     """
-    Every catalog entry with modality/cardio_target/regions, for the Manage
-    Exercises page. Regions come from a LATERAL subquery (pre-aggregated to
-    one row per catalog entry) rather than a plain join, so joining in the
-    exercise log count doesn't cross-multiply the two independent one-to-
-    many relationships (each exercise log x each tagged region).
+    Every catalog entry with metric_type/tags/regions, for the Manage
+    Exercises page. Regions and tags each come from their own LATERAL
+    subquery (pre-aggregated to one row per catalog entry) rather than
+    plain joins, so joining in the exercise log count doesn't cross-
+    multiply the independent one-to-many relationships.
     """
     sql = """
         SELECT
             ec.id,
             ec.name,
-            ec.modality,
-            ec.cardio_target,
+            ec.metric_type,
             COUNT(e.id) AS exercise_count,
-            COALESCE(regions.names, '') AS regions
+            COALESCE(regions.names, '') AS regions,
+            COALESCE(tags.names, '') AS tags
         FROM exercise_catalog ec
         LEFT JOIN exercise e ON e.exercise_catalog_id = ec.id
         LEFT JOIN LATERAL (
@@ -182,8 +186,14 @@ def list_all_with_details(conn, user_id: int):
             JOIN body_region br ON br.slug = ecr.region_slug
             WHERE ecr.exercise_catalog_id = ec.id
         ) AS regions ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT string_agg(tg.name, ', ' ORDER BY tg.sort_order) AS names
+            FROM exercise_catalog_tag ect
+            JOIN tag tg ON tg.slug = ect.tag_slug
+            WHERE ect.exercise_catalog_id = ec.id
+        ) AS tags ON TRUE
         WHERE ec.user_id = :user_id
-        GROUP BY ec.id, ec.name, ec.modality, ec.cardio_target, regions.names
+        GROUP BY ec.id, ec.name, ec.metric_type, regions.names, tags.names
         ORDER BY ec.name
     """
     result = conn.execute(text(sql), {"user_id": user_id})
@@ -192,7 +202,7 @@ def list_all_with_details(conn, user_id: int):
 
 def get_template(conn, user_id: int, template_id: int):
     sql = """
-        SELECT id, name, modality, cardio_target
+        SELECT id, name, metric_type
         FROM exercise_catalog
         WHERE user_id = :user_id AND id = :id
     """
@@ -216,8 +226,10 @@ def search_all_with_counts(conn, user_id: int, query: str):
         SELECT
             ec.id,
             ec.name,
-            ec.modality,
-            ec.cardio_target,
+            ec.metric_type,
+            (SELECT string_agg(ect.tag_slug, ',' ORDER BY tg.sort_order)
+             FROM exercise_catalog_tag ect JOIN tag tg ON tg.slug = ect.tag_slug
+             WHERE ect.exercise_catalog_id = ec.id) AS tag_slugs,
             COUNT(e.id) AS exercise_count,
             last.weight_used AS last_weight_used,
             last.weight_unit AS last_weight_unit,
@@ -252,7 +264,7 @@ def search_all_with_counts(conn, user_id: int, query: str):
         ) AS last_sets ON TRUE
         WHERE ec.user_id = :user_id
           AND ec.name ILIKE :q
-        GROUP BY ec.id, ec.name, ec.modality, ec.cardio_target,
+        GROUP BY ec.id, ec.name, ec.metric_type,
                  last.weight_used, last.weight_unit, last.num_of_sets,
                  last.total_duration_seconds, last.total_distance, last.distance_unit,
                  last.workout_date, last_sets.sets
@@ -390,8 +402,7 @@ def get_or_create(
     user_id: int,
     name: str,
     *,
-    modality: str = "strength",
-    cardio_target: str | None = None,
+    metric_type: str = "resistance",
     commit: bool = True,
 ) -> int | None:
     name_norm = _normalize_name(name)
@@ -403,12 +414,12 @@ def get_or_create(
     result = conn.execute(
         text(
             """
-            INSERT INTO exercise_catalog (user_id, name, modality, cardio_target)
-            VALUES (:user_id, :name, :modality, :cardio_target)
+            INSERT INTO exercise_catalog (user_id, name, metric_type)
+            VALUES (:user_id, :name, :metric_type)
             RETURNING id
             """
         ),
-        {"user_id": user_id, "name": name_norm, "modality": modality, "cardio_target": cardio_target},
+        {"user_id": user_id, "name": name_norm, "metric_type": metric_type},
     )
     new_id = result.scalar_one()
     link_suggested_match(conn, new_id, name_norm, commit=False)
@@ -417,31 +428,82 @@ def get_or_create(
     return new_id
 
 
-def set_modality(
+def set_metric_type(
     conn,
     exercise_catalog_id: int,
-    modality: str,
-    cardio_target: str | None = None,
+    metric_type: str,
     *,
     commit: bool = True,
 ) -> None:
     """
-    Updates an existing catalog entry's modality/cardio_target -- used when
-    an exercise is re-logged or edited with a different modality than it
-    was originally created with.
+    Updates an existing catalog entry's metric_type (resistance |
+    endurance) -- used when an exercise is re-logged or edited with a
+    different metric than it was created with (e.g. an entry first logged
+    as weights that you later start timing).
     """
     conn.execute(
         text(
             """
             UPDATE exercise_catalog
-            SET modality = :modality, cardio_target = :cardio_target
+            SET metric_type = :metric_type
             WHERE id = :id
             """
         ),
-        {"id": exercise_catalog_id, "modality": modality, "cardio_target": cardio_target},
+        {"id": exercise_catalog_id, "metric_type": metric_type},
     )
     if commit:
         conn.commit()
+
+
+def get_tags(conn, exercise_catalog_id: int) -> list[str]:
+    """Tag slugs on this catalog entry, in the vocabulary's display order."""
+    result = conn.execute(
+        text(
+            """
+            SELECT ect.tag_slug
+            FROM exercise_catalog_tag ect
+            JOIN tag tg ON tg.slug = ect.tag_slug
+            WHERE ect.exercise_catalog_id = :id
+            ORDER BY tg.sort_order
+            """
+        ),
+        {"id": exercise_catalog_id},
+    )
+    return [row["tag_slug"] for row in result.mappings().all()]
+
+
+def set_tags(conn, exercise_catalog_id: int, tag_slugs: list[str], *, commit: bool = True) -> None:
+    """
+    Set this catalog entry's tags to exactly the given list (full replace,
+    same semantics as tag_regions): the picker always prefills from the
+    current tags and resubmits the whole selection, so an empty list means
+    "clear all tags." Unknown slugs are ignored by the FK, but callers
+    should pre-filter against utils.tags.TAG_SLUGS.
+    """
+    conn.execute(
+        text("DELETE FROM exercise_catalog_tag WHERE exercise_catalog_id = :id"),
+        {"id": exercise_catalog_id},
+    )
+    for slug in dict.fromkeys(tag_slugs):  # dedupe, keep order
+        conn.execute(
+            text(
+                """
+                INSERT INTO exercise_catalog_tag (exercise_catalog_id, tag_slug)
+                VALUES (:id, :slug)
+                """
+            ),
+            {"id": exercise_catalog_id, "slug": slug},
+        )
+    if commit:
+        conn.commit()
+
+
+def list_tags(conn) -> list[dict]:
+    """Full curated tag vocabulary (slug, name), in display order."""
+    result = conn.execute(
+        text("SELECT slug, name FROM tag ORDER BY sort_order, name")
+    )
+    return result.mappings().all()
 
 
 def link_suggested_match(conn, exercise_catalog_id: int, name: str, *, commit: bool = True) -> int | None:

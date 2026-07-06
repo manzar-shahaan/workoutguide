@@ -99,13 +99,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Cardio has no muscle regions to tap, so the cardio side of the
   // strength/cardio toggle is just a shortcut straight to the add-exercise
-  // form with cardio pre-selected (main.js reads ?modality=cardio off the
-  // URL and switches the form). Strength stays on the map -- the default.
+  // form set up for a timed activity: endurance metric + a Cardio tag
+  // pre-selected (main.js reads these off the URL and switches the form).
+  // Strength stays on the map -- the default.
   modeToggleButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
       if (btn.dataset.modeToggle !== "cardio") return;
       const url = new URL(newExerciseUrl, window.location.origin);
-      url.searchParams.set("modality", "cardio");
+      url.searchParams.set("metric_type", "endurance");
+      url.searchParams.set("tags", "cardio");
       window.location.href = url.toString();
     });
   });
