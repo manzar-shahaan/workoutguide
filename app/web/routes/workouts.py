@@ -1,6 +1,7 @@
 # app/web/routes/workouts.py
 
 import calendar
+import json as _json
 from datetime import date as _date, datetime, timedelta
 
 from flask import render_template, abort, g, request, jsonify, url_for
@@ -261,24 +262,22 @@ def workouts_index():
             else:
                 d = datetime.strptime(raw_date, "%Y-%m-%d").date()
 
-            raw_muscles = row["muscles"] or ""
-            muscles_display = _format_muscle_list(raw_muscles)
-            muscle_data = row["muscle_data"] if "muscle_data" in row.keys() else ""
-            muscles_list = _parse_muscle_data(muscle_data)
-            # Endurance-only workouts (a run, a match) have no body-region
-            # tags by design -- fall back to descriptive tags so the day's
-            # entry doesn't read as "no muscle groups logged" when it was
-            # in fact a real, tagged activity.
-            tags_list = _parse_muscle_data(row["tag_data"] if "tag_data" in row.keys() else "")
+            # exercise_items is a JSONB array: [{metric_type, name}] in log
+            # order, one entry per unique exercise, primary muscle for
+            # resistance, first tag for endurance.
+            raw_items = row["exercise_items"]
+            if raw_items is None:
+                exercise_items = []
+            elif isinstance(raw_items, str):
+                exercise_items = _json.loads(raw_items)
+            else:
+                exercise_items = list(raw_items)
 
             workout = {
                 "id": row["id"],
                 "date": d,
                 "date_display": format_date(d),
-                "muscles": raw_muscles,
-                "muscles_display": muscles_display,
-                "muscles_list": muscles_list,
-                "tags_list": tags_list,
+                "exercise_items": exercise_items,
             }
 
             week_start = d - timedelta(days=d.weekday())  # Monday of that week

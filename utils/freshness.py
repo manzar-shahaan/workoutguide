@@ -15,54 +15,42 @@ OVERDUE_FLOOR_DAYS = 4
 
 def compute_effective_days(last_trained: dict, today) -> dict[str, float | None]:
     """
-    last_trained: {region_slug: {rank: date|None}} -- rank 1 is an
-    exercise's primary target for that region, rank 2 secondary, and so
-    on (missing slugs/ranks are treated as never trained there).
+    last_trained: {region_slug: {rank: date|None}}
 
-    Returns {region_slug: effective_days_since | None}. None means never
-    trained at all -- callers treat that as maximally overdue.
-
-    Rank 1 anchors the estimate. Each weaker rank only pulls freshness
-    back toward "trained" if it was hit *more recently* than the current
-    estimate, and by a diminishing fraction (1/rank) -- so a rank-2 hit
-    pulls halfway, a rank-3 hit a third of the way, and so on. This way
-    benching all week doesn't make triceps/front-delts read as neglected
-    just because they were never anyone's primary target.
+    Returns {region_slug: days_since_last_primary | None}. Only rank-1
+    (primary target) exercises count here. Secondary contributions are
+    intentionally ignored: if you've never done a dedicated exercise for
+    a muscle it shouldn't show up as overdue, and rank-2 hits from
+    compound movements shouldn't reset the clock for the primary muscle.
+    None means never trained as a primary target.
     """
     effective: dict[str, float | None] = {}
     for slug in REGION_SLUGS:
         ranks = last_trained.get(slug, {})
-        days_by_rank = {
-            rank: (today - date).days for rank, date in ranks.items() if date is not None
-        }
-
-        if not days_by_rank:
+        rank1_date = ranks.get(1)
+        if rank1_date is None:
             effective[slug] = None
-            continue
-
-        sorted_ranks = sorted(days_by_rank)
-        value = days_by_rank[sorted_ranks[0]]
-        for rank in sorted_ranks[1:]:
-            days = days_by_rank[rank]
-            if days < value:
-                value = value - (value - days) / rank
-        effective[slug] = value
+        else:
+            effective[slug] = (today - rank1_date).days
     return effective
 
 
-def most_overdue_regions(effective_days: dict[str, float | None], floor_days: int = OVERDUE_FLOOR_DAYS) -> list[str]:
+def most_overdue_regions(
+    effective_days: dict[str, float | None],
+    floor_days: int = OVERDUE_FLOOR_DAYS,
+    max_count: int = 3,
+) -> list[str]:
     """
-    Region(s) tied for longest since trained, provided that's at least
-    floor_days. Never-trained regions (None) are excluded from the
-    comparison entirely -- "you've never done this" isn't the same signal
-    as "you used to train this and let it slide", and treating it the same
-    would light up most of the map for any account without deep history.
+    Up to max_count most-overdue regions, sorted most-overdue first,
+    provided they've been untrained for at least floor_days. Never-trained
+    regions (None) are excluded -- a blank history isn't a training debt.
     """
-    trained = {slug: days for slug, days in effective_days.items() if days is not None}
-    if not trained:
+    overdue = [
+        (slug, days)
+        for slug, days in effective_days.items()
+        if days is not None and days >= floor_days
+    ]
+    if not overdue:
         return []
-
-    worst = max(trained.values())
-    if worst < floor_days:
-        return []
-    return [slug for slug, days in trained.items() if days == worst]
+    overdue.sort(key=lambda x: x[1], reverse=True)
+    return [slug for slug, _ in overdue[:max_count]]

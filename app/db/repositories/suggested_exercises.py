@@ -26,9 +26,10 @@ def list_for_regions(conn, user_id: int, region_slugs: list[str], *, limit: int 
               AND ser.region_slug IN :slugs
         ) = :slug_count
         AND se.id NOT IN (
-            SELECT suggested_exercise_id
-            FROM exercise_catalog
-            WHERE user_id = :user_id AND suggested_exercise_id IS NOT NULL
+            SELECT ec.suggested_exercise_id
+            FROM exercise_catalog ec
+            JOIN exercise e ON e.exercise_catalog_id = ec.id
+            WHERE ec.user_id = :user_id AND ec.suggested_exercise_id IS NOT NULL
         )
         ORDER BY se.name
         LIMIT :limit

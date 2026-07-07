@@ -4,25 +4,48 @@ from sqlalchemy import text
 
 
 def list_workouts(conn, user_id: int):
-    # Regions and tags are both independent one-to-many joins off the same
-    # exercise rows, but since every aggregate here is string_agg(DISTINCT
-    # ...) rather than a row-count-sensitive one, the cross-join fan-out
-    # between them is harmless -- DISTINCT collapses it back down.
+    # Returns one row per workout with exercise_items as a JSONB array:
+    # [{metric_type, name}] ordered by first occurrence (log order),
+    # deduplicated by exercise_catalog_id so the same exercise logged
+    # twice in a day appears once. Primary muscle for resistance; first
+    # tag for endurance.
     sql = """
         SELECT
             w.id,
             w.date,
-            COALESCE(string_agg(DISTINCT br.name, ',' ORDER BY br.name), '') AS muscles,
-            COALESCE(string_agg(DISTINCT br.name, '||' ORDER BY br.name), '') AS muscle_data,
-            COALESCE(string_agg(DISTINCT tg.name, '||' ORDER BY tg.name), '') AS tag_data
+            (
+                SELECT jsonb_agg(
+                    jsonb_build_object('metric_type', metric_type, 'name', display_name)
+                    ORDER BY first_e_id
+                )
+                FROM (
+                    SELECT DISTINCT ON (COALESCE(e.exercise_catalog_id::text, 'e' || e.id::text))
+                        e.id AS first_e_id,
+                        COALESCE(ec.metric_type, 'resistance') AS metric_type,
+                        CASE
+                            WHEN COALESCE(ec.metric_type, 'resistance') = 'endurance'
+                            THEN COALESCE(first_tag.tag_name, 'Cardio')
+                            ELSE COALESCE(br.name, '')
+                        END AS display_name
+                    FROM exercise e
+                    LEFT JOIN exercise_catalog ec ON ec.id = e.exercise_catalog_id
+                    LEFT JOIN exercise_catalog_region ecr
+                        ON ecr.exercise_catalog_id = e.exercise_catalog_id AND ecr.rank = 1
+                    LEFT JOIN body_region br ON br.slug = ecr.region_slug
+                    LEFT JOIN LATERAL (
+                        SELECT tg.name AS tag_name
+                        FROM exercise_catalog_tag ect
+                        JOIN tag tg ON tg.slug = ect.tag_slug
+                        WHERE ect.exercise_catalog_id = e.exercise_catalog_id
+                        ORDER BY tg.sort_order, tg.name
+                        LIMIT 1
+                    ) AS first_tag ON TRUE
+                    WHERE e.workout_id = w.id
+                    ORDER BY COALESCE(e.exercise_catalog_id::text, 'e' || e.id::text), e.id
+                ) items
+            ) AS exercise_items
         FROM workout w
-        LEFT JOIN exercise e ON e.workout_id = w.id
-        LEFT JOIN exercise_catalog_region ecr ON ecr.exercise_catalog_id = e.exercise_catalog_id
-        LEFT JOIN body_region br ON br.slug = ecr.region_slug
-        LEFT JOIN exercise_catalog_tag ect ON ect.exercise_catalog_id = e.exercise_catalog_id
-        LEFT JOIN tag tg ON tg.slug = ect.tag_slug
         WHERE w.user_id = :user_id
-        GROUP BY w.id, w.date
         ORDER BY w.date DESC, w.id DESC
     """
     result = conn.execute(text(sql), {"user_id": user_id})
