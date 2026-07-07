@@ -17,21 +17,28 @@ def compute_effective_days(last_trained: dict, today) -> dict[str, float | None]
     """
     last_trained: {region_slug: {rank: date|None}}
 
-    Returns {region_slug: days_since_last_primary | None}. Only rank-1
-    (primary target) exercises count here. Secondary contributions are
-    intentionally ignored: if you've never done a dedicated exercise for
-    a muscle it shouldn't show up as overdue, and rank-2 hits from
-    compound movements shouldn't reset the clock for the primary muscle.
+    Returns {region_slug: days_since_last_trained | None}.
+
+    Two-part rule:
+      1. Gate: a region only enters overdue tracking if the user has at
+         least one rank-1 (primary target) exercise for it. Muscles
+         never explicitly targeted as primary stay out of suggestions.
+      2. Freshness: once gated, freshness is measured from the most
+         recent training date at ANY rank. Working obliques as rank-2
+         yesterday should clear the overdue pulse, even if the last
+         dedicated oblique session was longer ago.
+
     None means never trained as a primary target.
     """
     effective: dict[str, float | None] = {}
     for slug in REGION_SLUGS:
         ranks = last_trained.get(slug, {})
-        rank1_date = ranks.get(1)
-        if rank1_date is None:
+        if not ranks.get(1):
             effective[slug] = None
-        else:
-            effective[slug] = (today - rank1_date).days
+            continue
+        valid_dates = [d for d in ranks.values() if d is not None]
+        most_recent = max(valid_dates)
+        effective[slug] = (today - most_recent).days
     return effective
 
 
