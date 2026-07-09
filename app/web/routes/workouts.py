@@ -429,7 +429,6 @@ def workout_detail(workout_id):
             workout["tag_data"] if "tag_data" in workout.keys() else ""
         )
 
-    editable = request.args.get("edit") == "1"
     unit_pref = request.args.get("unit", "stored")
     if unit_pref not in {"stored", "converted"}:
         unit_pref = "stored"
@@ -465,7 +464,6 @@ def workout_detail(workout_id):
         workout_date_display=workout_date_display,
         workout_muscles=workout_muscles,
         exercises=formatted_exercises,
-        editable=editable,
         unit_pref=unit_pref,
         session_volume=session_volume,
         session_volume_unit=session_volume_unit,

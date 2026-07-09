@@ -56,6 +56,7 @@ function formatPace(durationSeconds, distance, unit) {
 
   const serialize = () => {
     hiddenInput.value = JSON.stringify(sets);
+    hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
   };
 
   const render = () => {

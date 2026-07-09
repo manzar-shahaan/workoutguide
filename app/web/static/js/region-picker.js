@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const sync = () => {
     highlighter.setSelected(selected);
     hiddenInput.value = selected.join(",");
+    hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
     hint.textContent = selected.length
       ? selected.map((s, i) => `${i + 1}. ${s.replace(/-/g, " ")}`).join(", ")
       : "Optional: tap to tag muscles, in priority order";

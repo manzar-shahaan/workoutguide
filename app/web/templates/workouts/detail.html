@@ -60,23 +60,6 @@
           </span>
         </button>
 
-        {% if editable %}
-          <a
-            href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=0, unit=unit_pref) }}"
-            class="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-800 bg-black px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-900 transition-colors duration-200 sm:w-auto sm:text-sm"
-          >
-            <i data-lucide="check" class="h-4 w-4"></i>
-            Done editing
-          </a>
-        {% else %}
-          <a
-            href="{{ url_for('web.workout_detail', workout_id=workout['id'], edit=1, unit=unit_pref) }}"
-            class="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-800 bg-black px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-900 transition-colors duration-200 sm:w-auto sm:text-sm"
-          >
-            <i data-lucide="pencil" class="h-4 w-4"></i>
-            Edit workout
-          </a>
-        {% endif %}
       </div>
     </div>
   </header>
@@ -87,15 +70,13 @@
         Exercises
       </h2>
 
-      {% if editable %}
-        <a
-          href="{{ url_for('web.new_exercise', workout_id=workout['id']) }}"
-          class="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1.5 text-xs sm:text-sm font-medium text-black hover:bg-emerald-400"
-        >
-          <i data-lucide="plus" class="h-4 w-4"></i>
-          Add exercise
-        </a>
-      {% endif %}
+      <a
+        href="{{ url_for('web.new_exercise', workout_id=workout['id']) }}"
+        class="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1.5 text-xs sm:text-sm font-medium text-black hover:bg-emerald-400"
+      >
+        <i data-lucide="plus" class="h-4 w-4"></i>
+        Add exercise
+      </a>
     </div>
 
     {% if not exercises %}
@@ -105,8 +86,11 @@
     {% else %}
       <ul class="space-y-3">
         {% for ex in exercises %}
-          <li class="surface-raised rounded-xl px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-all duration-200">
-            <div>
+          <li>
+            <a
+              href="{{ url_for('web.edit_exercise', exercise_id=ex['id']) }}"
+              class="surface-raised block rounded-xl px-4 py-3 text-sm transition-all duration-200"
+            >
               <p class="font-medium text-neutral-100 text-sm">
                 {{ ex["exercise_name"] or ex["notes"] or "(no notes)" }}
               </p>
@@ -130,18 +114,6 @@
                   {% endif %}
                   {% if ex["total_pace_display"] %} · {{ ex["total_pace_display"] }}{% endif %}
                 </p>
-                {% if ex["cardio_sets_display"]|length > 1 %}
-                  <p class="mt-1 text-xs text-neutral-500">
-                    <span class="inline-flex flex-wrap items-center gap-x-1">
-                      {% for s in ex["cardio_sets_display"] %}
-                        <span class="whitespace-nowrap">
-                          {% if s["duration"] %}{{ s["duration"] }}{% endif %}
-                          {% if s["distance"] %}{% if s["duration"] %} · {% endif %}{{ s["distance"] }}{% endif %}
-                        </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
-                      {% endfor %}
-                    </span>
-                  </p>
-                {% endif %}
               {% else %}
               <p class="mt-1 text-sm text-neutral-500">
                 {% set show_sep = false %}
@@ -156,39 +128,6 @@
                   {% set show_sep = true %}
                 {% endif %}
                 {% set stored_unit = ex["weight_unit"] if ex["weight_unit"] else "" %}
-                {% if ex["sets"] %}
-                  {% if show_sep %} | {% endif %}
-                  <span class="inline-flex flex-wrap items-center gap-x-1">
-                    {% for s in ex["sets"] %}
-                      <span class="whitespace-nowrap">
-                        {% if s["weight_used"] is not none %}
-                          {% set weight_kg = s["weight_used_kg"] %}
-                          {% if unit_pref == "converted" and weight_kg is not none and stored_unit in ["lb", "kg"] %}
-                            {% if stored_unit == "kg" %}
-                              {% set set_display_weight = weight_kg / 0.45359237 %}
-                              {% set set_display_unit = "lb" %}
-                            {% else %}
-                              {% set set_display_weight = weight_kg %}
-                              {% set set_display_unit = "kg" %}
-                            {% endif %}
-                          {% else %}
-                            {% set set_display_weight = s["weight_used"] %}
-                            {% set set_display_unit = stored_unit %}
-                          {% endif %}
-                          <span
-                            class="js-weight"
-                            data-weight-used="{{ s['weight_used'] }}"
-                            data-weight-unit="{{ stored_unit }}"
-                            data-weight-kg="{% if weight_kg is not none %}{{ weight_kg }}{% endif %}"
-                          >{{ "%.2f"|format(set_display_weight) }}{% if set_display_unit %} {{ set_display_unit }}{% endif %}</span>
-                        {% endif %}
-                        {% if s["weight_used"] is not none and s["reps"] is not none %}×{% endif %}
-                        {% if s["reps"] is not none %}{{ s["reps"] }}{% endif %}
-                      </span>{% if not loop.last %}<span class="text-neutral-500">,</span>{% endif %}
-                    {% endfor %}
-                  </span>
-                  {% set show_sep = true %}
-                {% endif %}
                 {% if ex["has_volume"] %}
                   {% if unit_pref == "converted" and stored_unit in ["lb", "kg"] %}
                     {% if stored_unit == "kg" %}
@@ -222,37 +161,11 @@
                   {% endfor %}
                 </div>
               {% endif %}
-            </div>
-
-            {% if editable %}
-              <div class="flex items-center gap-2">
-                <a
-                  href="{{ url_for('web.edit_exercise', exercise_id=ex['id']) }}"
-                  class="inline-flex items-center gap-1.5 rounded-md border border-neutral-800 bg-black px-3 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-900 transition-colors duration-200"
-                >
-                  <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
-                  Edit
-                </a>
-
-                <form
-                  method="post"
-                  action="{{ url_for('web.delete_exercise', exercise_id=ex['id']) }}"
-                  onsubmit="return confirm('Delete this exercise?');"
-                >
-                  <button
-                    type="submit"
-                    class="inline-flex items-center gap-1.5 rounded-md border border-red-600 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-900 hover:text-red-100"
-                  >
-                    <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
-                    Delete
-                  </button>
-                </form>
-              </div>
-            {% endif %}
+            </a>
           </li>
         {% endfor %}
       </ul>
-  {% endif %}
+    {% endif %}
   </section>
 
   <script>
@@ -261,7 +174,6 @@
       if (!toggle) return;
 
       const label = toggle.querySelector("[data-unit-label]");
-      const weights = document.querySelectorAll(".js-weight");
       const volumes = document.querySelectorAll(".js-volume");
 
       const setMode = (mode) => {
@@ -274,30 +186,6 @@
               ? label.dataset.labelConverted
               : label.dataset.labelStored;
         }
-
-        weights.forEach((el) => {
-          const rawWeight = parseFloat(el.dataset.weightUsed || "");
-          if (Number.isNaN(rawWeight)) return;
-          const unit = (el.dataset.weightUnit || "").toLowerCase();
-          const rawKg = parseFloat(el.dataset.weightKg || "");
-          const hasKg = !Number.isNaN(rawKg);
-
-          let displayWeight = rawWeight;
-          let displayUnit = unit;
-
-          if (active === "converted" && hasKg && (unit === "lb" || unit === "kg")) {
-            if (unit === "kg") {
-              displayWeight = rawKg / 0.45359237;
-              displayUnit = "lb";
-            } else {
-              displayWeight = rawKg;
-              displayUnit = "kg";
-            }
-          }
-
-          const formatted = displayWeight.toFixed(2);
-          el.textContent = displayUnit ? `${formatted} ${displayUnit}` : formatted;
-        });
 
         volumes.forEach((el) => {
           const rawVolume = parseFloat(el.dataset.volumeStored || "");

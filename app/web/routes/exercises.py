@@ -492,7 +492,14 @@ def edit_exercise(exercise_id):
             # echo it back rather than dropping the user's tapped regions.
             submitted_region_slugs = request.form.get("region_slugs", "")
 
+            # Auto-save posts from exercise-autosave.js; a rejected save just
+            # reports why and leaves the last good state on disk untouched,
+            # rather than re-rendering a full page over an in-progress edit.
+            is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
             def form_error(msg):
+                if is_ajax:
+                    return jsonify({"ok": False, "error": msg}), 200
                 return render_form(
                     error=msg,
                     weight_unit=weight_unit,
@@ -606,6 +613,13 @@ def edit_exercise(exercise_id):
                 remaining = exercises_repo.count_exercises_for_workout(conn, current_workout_id)
                 if remaining == 0:
                     workouts_repo.delete_workout(conn, current_workout_id, user_id)
+
+            if is_ajax:
+                return jsonify({
+                    "ok": True,
+                    "workout_id": target_workout_id,
+                    "workout_url": url_for("web.workout_detail", workout_id=target_workout_id),
+                })
 
             flash("Exercise updated.", "success")
             return redirect(url_for("web.workout_detail", workout_id=target_workout_id))

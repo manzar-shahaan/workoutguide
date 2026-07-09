@@ -32,6 +32,7 @@
       if (on) ordered.push(slug);
     });
     hiddenInput.value = ordered.join(",");
+    hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
   };
 
   chips.forEach((chip) => {

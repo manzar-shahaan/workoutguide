@@ -27,6 +27,7 @@
   const applyMetricType = (metricType) => {
     const isEndurance = metricType === "endurance";
     metricInput.value = isEndurance ? "endurance" : "resistance";
+    metricInput.dispatchEvent(new Event("change", { bubbles: true }));
     buttons.forEach((btn) => {
       btn.classList.toggle("is-active", btn.dataset.metricBtn === metricInput.value);
     });
