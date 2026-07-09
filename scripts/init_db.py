@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import sys
 
 # Ensure project root is importable when running this script directly
@@ -9,7 +10,14 @@ if str(ROOT) not in sys.path:
 from app.db.connection import get_conn
 
 def _iter_sql_statements(schema_text: str):
-    for statement in schema_text.split(";"):
+    # Strip `--` line comments before splitting on `;` -- otherwise a
+    # semicolon inside a comment (e.g. "...tag; which muscles...") splits
+    # a statement in the middle and produces a comment-only fragment that
+    # psycopg2 rejects as an empty query.
+    without_comments = "\n".join(
+        re.sub(r"--.*", "", line) for line in schema_text.splitlines()
+    )
+    for statement in without_comments.split(";"):
         stmt = statement.strip()
         if stmt:
             yield stmt

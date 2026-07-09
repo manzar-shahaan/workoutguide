@@ -18,6 +18,7 @@ from utils.date_utils import format_date
 from utils.freshness import compute_effective_days, most_overdue_regions
 from utils.body_regions import REGIONS, REGION_SLUGS
 from utils.cardio_format import format_duration, format_distance, format_pace
+from utils.muscle_volume import rank_muscles_by_volume
 
 WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
@@ -167,6 +168,21 @@ def workouts_index():
 
         most_recent_workout = workouts_repo.get_most_recent(conn, user_id=user_id)
 
+        # Volume-rank the most recent workout's muscles the same way the
+        # workout detail page does (see utils/muscle_volume), rather than
+        # the alphabetical order get_most_recent's string_agg produces.
+        most_recent_muscles_ranked = []
+        if most_recent_workout is not None:
+            mr_exercises = []
+            for ex in exercises_repo.list_for_workout(conn, most_recent_workout["id"]):
+                mr_exercises.append({
+                    "muscles_list": _parse_muscle_data(
+                        ex["muscle_data"] if "muscle_data" in ex.keys() else ""
+                    ),
+                    "sets": exercises_repo.get_sets_for_exercise(conn, ex["id"]),
+                })
+            most_recent_muscles_ranked = rank_muscles_by_volume(mr_exercises)
+
         week_start_pref = g.user.get("week_start", "sun")
         month_anchor = _date.today()
         month_start = month_anchor.replace(day=1)
@@ -203,7 +219,7 @@ def workouts_index():
             "id": most_recent_workout["id"],
             "weekday": d.strftime("%a"),
             "date_display": format_date(d),
-            "muscles_display": most_recent_workout["muscles"] or most_recent_workout.get("tags") or None,
+            "muscles_display": ", ".join(most_recent_muscles_ranked) or most_recent_workout.get("tags") or None,
         }
 
     week_groups = {}   # week_start (date) -> [workouts]
@@ -357,17 +373,6 @@ def workout_detail(workout_id):
     finally:
         conn.close()
 
-    workout_muscles = _parse_muscle_data(
-        workout["muscle_data"] if "muscle_data" in workout.keys() else ""
-    )
-    if not workout_muscles:
-        # An all-endurance workout (a run, a match) carries no body-region
-        # tags by design -- fall back to descriptive tags rather than
-        # silently showing nothing.
-        workout_muscles = _parse_muscle_data(
-            workout["tag_data"] if "tag_data" in workout.keys() else ""
-        )
-
     formatted_exercises = []
     for ex in exercises:
         muscle_list = _parse_muscle_data(
@@ -411,6 +416,18 @@ def workout_detail(workout_id):
             )
 
         formatted_exercises.append(formatted)
+
+    # "Muscles targeted" is ordered by descending share of workout volume
+    # (see utils/muscle_volume) rather than alphabetically. An all-endurance
+    # workout (a run, a match) carries no body-region tags by design and
+    # falls back to descriptive tags rather than showing nothing.
+    workout_muscles = [
+        {"name": name} for name in rank_muscles_by_volume(formatted_exercises)
+    ]
+    if not workout_muscles:
+        workout_muscles = _parse_muscle_data(
+            workout["tag_data"] if "tag_data" in workout.keys() else ""
+        )
 
     editable = request.args.get("edit") == "1"
     unit_pref = request.args.get("unit", "stored")

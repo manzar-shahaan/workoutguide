@@ -226,8 +226,13 @@
     <header class="bg-black">
       {# Full-width nav so it visually matches the popover width on desktop #}
       <nav class="flex items-center justify-between px-4 py-4">
-        <a href="{{ url_for('web.workouts_index') }}" class="font-semibold tracking-tight text-neutral-100">
-          Pace
+        <a href="{{ url_for('web.workouts_index') }}" class="flex items-center gap-2 font-semibold tracking-tight text-neutral-100">
+          <img
+            src="{{ url_for('web.static', filename='icons/icon-192.png') }}"
+            alt="Pace"
+            class="h-7 w-7 rounded-lg"
+          >
+          <span>Pace</span>
         </a>
 
         <div class="flex items-center gap-4 text-xs sm:text-sm">
